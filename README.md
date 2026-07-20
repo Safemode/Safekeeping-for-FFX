@@ -15,6 +15,7 @@ The information inside the app comes from various online sources and community r
 - Something relatively easy to use and has everything I'd need without needing to pull it up via web browser
 - Easy to search within the app
 - Utilize information from the official guide
+- No Internet requirements (ideally screenshots will just be bundled inside the app so it can be fully offline-capable)
 - No ads
 
 
