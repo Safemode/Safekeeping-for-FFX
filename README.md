@@ -5,7 +5,7 @@ This is an app I put together since the app I'd once used is no longer available
 Final Fantasy X is probably my all-time favorite game, so I figured rather than continuing to use that older app (that will probably no longer work at some point), I'd just put one together myself in case others are looking for a tracking app to use themselves.
 
 ## Full Transparency
-I primarily used Claude Code for this app. I'm no programmer, and given this app is purely for information/tracking purposes, and the information is widely available over the life of the game and it's iterations, I was okay with having it write just about all of the app.
+I primarily used Claude Code for this app. I'm no programmer, and given this app is purely for information/tracking purposes, and the information is widely available over the life of the game and its iterations, I was okay with having it write just about all of the app.
 
 The information inside the app comes from various online sources and community references.
 
