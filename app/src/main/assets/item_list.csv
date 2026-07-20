@@ -1,0 +1,119 @@
+Item Name,Type,Description
+Potion,Restorative,Restores 200 HP of one character.
+Hi-Potion,Restorative,Restores 1000 HP of one character.
+X-Potion,Restorative,Fully restores HP of one character.
+Mega-Potion,Restorative,Restores 2000 HP of each party member
+Ether,Restorative,Restores 100 MP of one character.
+Turbo Ether,Restorative,Restores 500 MP of one character.
+Elixir,Restorative,Fully restores one character’s HP & MP.
+Megalixir,Restorative,Fully restores HP & MP of party.
+Phoenix Down,Restorative,Revives one character from KO.
+Mega Phoenix,Restorative,Revives party from KO.
+Antidote,Restorative,Cures poison.
+Soft,Restorative,Cures petrification.
+Eye Drops,Restorative,Cures darkness.
+Echo Screen,Restorative,Cures silence.
+Holy Water,Restorative,Cures zombie and curse.
+Remedy,Restorative,Cures all status abnormalities.
+Power Distiller,Distillers,Makes one enemy drop Power Spheres.
+Mana Distiller,Distillers,Makes one enemy drop Mana Spheres.
+Speed Distiller,Distillers,Makes one enemy drop Speed Spheres.
+Ability Distiller,Distillers,Makes one enemy drop Ability Spheres.
+Al Bhed Potion,Use,"Cures poison, silence, petrification. Restores 1000 HP of each party member"
+Tetra Elemental,Use,Fully restores HP and casts NulAll on party.
+Antarctic Wind,Use,Deals ice damage to an enemy.
+Bomb Fragment,Use,Deals fire damage to an enemy.
+Bomb Core,Use,Deals fire damage to an enemy.
+Fire Gem,Use,Deals fire damage to all enemies.
+Arctic Wind,Use,Deals ice damage to an enemy.
+Ice Gem,Use,Deal ice damage to all enemies.
+Electro Marble,Use,Deals lightning damage to an enemy.
+Lightning Marble,Use,Deals lightning damage to an enemy.
+Lightning Gem,Use,Deals lightning damage to all enemies.
+Fish Scale,Use,Deals water damage to an enemy.
+Dragon Scale,Use,Deals water damage to an enemy.
+Water Gem,Use,Deals water damage to all enemies.
+Grenade,Use,Damages all enemies.
+Frag Grenade,Use,Inflicts damage and Armor Break on all enemies.
+Sleeping Powder,Use,Inflicts damage and sleep on all enemies.
+Dream Powder,Use,Inflicts damage and sleep on all enemies.
+Silence Grenade,Use,Inflicts damage and silence on all enemies.
+Smoke Bomb,Use,Inflicts damage and darkness on all enemies.
+Shadow Gem,Use,Reduces HP of all enemies by half.
+Shining Gem,Use,Damages an enemy.
+Blessed Gem,Use,Damages an enemy.
+Supreme Gem,Use,Damages all enemies.
+Poison Fang,Use,Inflicts damage and poison on an enemy.
+Silver Hourglass,Use,Delays next turn of all enemies.
+Gold Hourglass,Use,Damages all enemies and delays their next turn.
+Candle of Life,Use,Casts Doom on an enemy.
+Petrify Grenade,Use,Petrifies all enemies.
+Farplane Shadow,Use,Inflicts death on an enemy.
+Farplane Wind,Use,Inflicts death on all enemies.
+Dark Matter,Use,Deals major damage to all enemies.
+Chocobo Feather,Use,Casts Haste on one character
+Chocobo Wing,Use,Casts Haste on party.
+Light Curtain,Use,Casts Shell on one character.
+Lunar Curtain,Use,Casts Protect on one character.
+Star Curtain,Use,Casts Reflect on one character.
+Healing Spring,Use,Casts Regen on one character.
+Mana Spring,Use,Absorbs MP from an enemy.
+Stamina Spring,Use,Absorbs HP from an enemy.
+Soul Spring,Use,Absorbs HP & MP from an enemy.
+Purifying Salt,Use,Damages an enemy and dispels its magic effects.
+Stamina Tablet,Use,Doubles max HP of one character.
+Stamina Tonic,Use,Doubles max HP of party.
+Mana Tablet,Use,Doubles max MP of one character.
+Mana Tonic,Use,Doubles max MP of party.
+Twin Stars,Use,Reduces MP cost of one character to 0.
+Three Stars,Use,Reduces party’s MP cost to 0.
+Power Sphere,Sphere,"Activates Strength, Defense, or HP nodes on Sphere Grid."
+Mana Sphere,Sphere,"Activates Magic, Magic Defense, or MP nodes on Sphere Grid."
+Speed Sphere,Sphere,"Activates Agility, Accuracy, or Evasion nodes on Sphere Grid."
+Ability Sphere,Sphere,Activates an Ability nodes on Sphere Grid.
+Fortune Sphere,Sphere,Activates Luck nodes on Sphere Grid.
+Attribute Sphere,Sphere,Activates Attribute nodes used by allies on Sphere Grid.
+Special Sphere,Sphere,Activates Special nodes used by allies on Sphere Grid.
+Skill Sphere,Sphere,Activates Skill nodes used by allies on Sphere Grid.
+Wht Magic Sphere,Sphere,Activates White Magic nodes used by allies on Sphere Grid.
+Blk Magic Sphere,Sphere,Activates Black Magic nodes used by allies on Sphere Grid.
+Master Sphere,Sphere,Activates any Ability or Attribute nodes on Sphere Grid.
+Level 1 Key Sphere,Sphere,Opens Lv. 1 Locks on Sphere Grid
+Level 2 Key Sphere,Sphere,Opens Lv. 2 Locks on Sphere Grid
+Level 3 Key Sphere,Sphere,Opens Lv. 3 Locks on Sphere Grid.
+Level 4 Key Sphere,Sphere,Opens Lv. 4 Locks on Sphere Grid.
+HP Sphere,Sphere,Fills empty nodes on Sphere Grid with an HP node.
+MP Sphere,Sphere,Fills empty nodes on Sphere Grid with an MP node.
+Strength Sphere,Sphere,Fills empty nodes on Sphere Grid with a Strength node.
+Defense Sphere,Sphere,Fills empty nodes on Sphere Grid with a Defense node.
+Magic Sphere,Sphere,Fills empty nodes on Sphere Grid with a Magic node.
+Magic Defense Sphere,Sphere,Fills empty nodes on Sphere Grid with a Magic Defense node.
+Agility Sphere,Sphere,Fills empty nodes on Sphere Grid with an Agility node.
+Luck Sphere,Sphere,Fills empty nodes on Sphere Grid with a Luck node.
+Accuracy Sphere,Sphere,Fills empty nodes on Sphere Grid with an Accuracy node.
+Evasion Sphere,Sphere,Fills empty nodes on Sphere Grid with an Evasion node.
+Return Sphere,Sphere,Return to any previously activated node on Sphere Grid.
+Teleport Sphere,Sphere,Move to any node activated by an ally on Sphere Grid.
+Friend Sphere,Sphere,Move to any ally's location on Sphere Grid.
+Warp Sphere,Sphere,Move to any node on Sphere Grid.
+Map,Other,Displays world map.
+Rename Card,Other,Renames aeon.
+Musk,Other,Used to customize armor with Confuse Ward or Confuseproof ability.
+Hypello Potion,Other,Used to customize armor with Berserk Ward or Berserkproof ability.
+Shining Thorn,Other,Used to grant aeons Mental Break ability.
+Pendulum,Other,Used to customize armor with Master Thief ability.
+Amulet,Other,Used to customize armor with Pickpocket ability.
+Designer Wallet,Other,Used to customize weapons with Gillionaire ability.
+Door to Tomorrow,Other,Used to customize weapons with Overdrive > AP ability.
+Wings to Discovery,Other,Used to customize weapons and armor with Triple AP or Break HP Limit ability.
+Gambler's Spirit,Other,Used to customize weapons with SOS Overdrive ability.
+Underdog's Secret,Other,Used to customize weapons with Double Overdrive ability.
+Winning Formula,Other,Used to customize weapons with Triple Overdrive ability.
+Withered Bouquet,Key Item,Someone put heart and soul into making this.
+Flint,Key Item,Used to start fires.
+Summoner's Soul,Key Item,Allows Yuna to teach new abilities to her Aeons.
+Aeon's Soul,Key Item,Allows Yuna to raise the base attributes of her Aeons.
+Blossom Crown,Key Item,An item received from the Monster Arena owner. Required to unlock the seal to the Magus Sisters.
+Flower Scepter,Key Item,An item received from Belgemine after defeating her Bahamut. Required to unlock the seal to the Magus Sisters.
+Jecht's Sphere,Key Item,An audio-sphere left behind by Jecht. Unlocks specific Overdrives for Auron.
+Mark of Conquest,Key Item,"A special key item awarded for defeating Nemesis, the ultimate Monster Arena creation."

@@ -1,0 +1,45 @@
+# Safekeeping For FFX 
+
+This is an app I put together since the app I'd once used is no longer available on the Google Play Store - [Checklist for FFX](https://checklist-for-ffx.en.softonic.com/android?ex=RAMP-4479.1&rex=true)
+
+Final Fantasy X is probably my all-time favorite game, so I figured rather than continuing to use that older app (that will probably no longer work at some point), I'd just put one together myself in case others are looking for a tracking app to use themselves.
+
+## Full Transparency
+I primarily used Claude Code for this app. I'm no programmer, and given this app is purely for information/tracking purposes, and the information is widely available over the life of the game and it's iterations, I was okay with having it write just about all of the app.
+
+The information inside the app comes from various online sources and community references.
+
+## Main Goals of this app
+
+- Track progress of various things in the game
+- Something relatively easy to use and has everything I'd need without needing to pull it up via web browser
+- Easy to search within the app
+- Utilize information from the official guide
+- No ads
+
+
+### What this app tracks
+
+- Al Bhed Primers and their locations
+- Jecht Spheres and their locations
+- Celestial Weapons and their locations
+- Ronso Rages for Kimahri and the targets
+- Besaid Auroch Blitzball Team Key Techniques
+- All possible Blitzball Recruits from other teams & free agents
+- All Weapon and Armor abilities
+- List of Items
+- Monster Arena tracking, along with their associated Gil cost, Common/Rare Steals, Win Items, Bribe Amount, and the item from that Bribe (if available)
+- Mix Overdrive Calculator, with a reverse search to see what items would be needed for a given result
+
+### Settings
+
+- Theme options - Light/Dark/OLED-friendly/Automatic
+- Toggle to show/hide the help information
+- Game Version toggle since the Dark Aeons don't exist in the original NA PS2 release of the game, which hides appropriate irrelevant information
+- Progress Reset button
+
+
+### To-Do
+1. Add screenshots where possible to help locate items/people
+2. Add detailed fiend locations for Monster Arena
+3. Probably make an actual icon instead of using the default from Android Studio
