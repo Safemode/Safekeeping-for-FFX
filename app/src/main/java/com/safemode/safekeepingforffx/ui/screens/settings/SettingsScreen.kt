@@ -13,6 +13,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
@@ -34,12 +35,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.safemode.safekeepingforffx.BuildConfig
+import com.safemode.safekeepingforffx.R
 import com.safemode.safekeepingforffx.data.reference.GameVersion
 import com.safemode.safekeepingforffx.data.reference.ThemePreference
+
+private const val SOURCE_URL = "https://github.com/Safemode/Safekeeping-for-FFX"
 
 @Composable
 fun SettingsScreen(
@@ -133,6 +140,10 @@ fun SettingsScreen(
         ) {
             Text("Reset all progress")
         }
+
+        HorizontalDivider()
+
+        AboutSection()
     }
 
     if (showResetDialog) {
@@ -168,6 +179,104 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = { viewModel.acknowledgeReset() }) { Text("OK") }
             }
+        )
+    }
+}
+
+/**
+ * Everything here is read from BuildConfig rather than typed in, so bumping versionName in
+ * app/build.gradle.kts is the only edit needed to change what the app reports.
+ */
+@Composable
+private fun AboutSection() {
+    val uriHandler = LocalUriHandler.current
+    val version = buildString {
+        append(BuildConfig.VERSION_NAME)
+        append(" (build ")
+        append(BuildConfig.VERSION_CODE)
+        append(")")
+        if (BuildConfig.DEBUG) append(" debug")
+    }
+
+    Text(
+        text = "About",
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp)
+    )
+
+    InfoRow(label = "App", value = stringResource(R.string.app_name))
+    InfoRow(label = "Version", value = version)
+    InfoRow(label = "Developer", value = "Safemode")
+
+    LinkRow(
+        label = "Source code",
+        value = "github.com/Safemode/Safekeeping-for-FFX",
+        onClick = { uriHandler.openUri(SOURCE_URL) }
+    )
+    LinkRow(
+        label = "Report an issue",
+        value = "Open a GitHub issue",
+        onClick = { uriHandler.openUri("$SOURCE_URL/issues") }
+    )
+
+    Text(
+        text = "Checklist and reference data is compiled from the official guide and from " +
+            "community references. Corrections are welcome through the issue tracker.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)
+    )
+    Text(
+        text = "Final Fantasy X is a trademark of Square Enix Holdings Co., Ltd. This is an " +
+            "unofficial fan-made tracker and is not affiliated with or endorsed by Square Enix.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp)
+    )
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun LinkRow(label: String, value: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = label, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary
         )
     }
 }

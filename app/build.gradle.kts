@@ -16,8 +16,8 @@ android {
         applicationId = "com.safemode.safekeepingforffx"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.5"
+        versionCode = 2
+        versionName = "0.5.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -37,6 +37,9 @@ android {
     }
     buildFeatures {
         compose = true
+        // Generates BuildConfig.VERSION_NAME / VERSION_CODE so the About section in Settings
+        // reads the version straight from defaultConfig above instead of a hardcoded string.
+        buildConfig = true
     }
 }
 
