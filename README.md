@@ -31,6 +31,23 @@ The information inside the app comes from various online sources and community r
 - Monster Arena tracking, along with their associated Gil cost, Common/Rare Steals, Win Items, Bribe Amount, and the item from that Bribe (if available)
 - Mix Overdrive Calculator, with a reverse search to see what items would be needed for a given result
 
+### Screenshots
+
+<details>
+  <summary>Click to see screenshots</summary>
+  <img src="screenshots/home.png" alt="Home Screen" width="200">
+  <img src="screenshots/sidebar.png" alt="Sidebar" width="200">
+  <img src="screenshots/al-bhed-primers.png" alt="Al Bhed Primers" width="200">
+  <img src="screenshots/jecht-spheres.png" alt="Jecht Spheres" width="200">
+  <img src="screenshots/celestial-weapons.png" alt="Celestial Weapons" width="200">
+  <img src="screenshots/ronso-rage.png" alt="Ronso Rage" width="200">
+  <img src="screenshots/monster-arena.png" alt="Monster Arena" width="200">
+  <img src="screenshots/mix-calculator-combine.png" alt="Mix Overdrive Combination" width="200">
+  <img src="screenshots/mix-calculator-lookup.png" alt="Mix Overdrive Lookup" width="200">
+  <img src="screenshots/settings.png" alt="Settings" width="200">
+</details>
+
+
 ### Settings
 
 - Theme options - Light/Dark/OLED-friendly/Automatic
@@ -43,3 +60,4 @@ The information inside the app comes from various online sources and community r
 1. Add screenshots where possible to help locate items/people
 2. Add detailed fiend locations for Monster Arena
 3. Probably make an actual icon instead of using the default from Android Studio
+
