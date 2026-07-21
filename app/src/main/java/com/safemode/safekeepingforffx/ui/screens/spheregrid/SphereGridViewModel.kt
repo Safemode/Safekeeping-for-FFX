@@ -341,21 +341,31 @@ class SphereGridViewModel(
     }
 
     /**
-     * The replay timeline for [character]: every edit (edits are grid-wide) interleaved with that
-     * character's activations, in the order they happened. Null [character] yields edits only.
+     * The replay timeline for [character]: that character's activations in path order, each preceded
+     * by the edit on that node (edits are grid-wide, so they ride the path of whoever takes the node).
+     * The edit is anchored to its node's activation rather than to where it sits in the payload, so a
+     * route saved before the ordering fix - whose edits were mis-interleaved - still replays correctly.
+     * Edits on nodes the character never takes are left out. Null [character] yields every edit, for
+     * an edits-only route with no path to walk.
      */
-    private fun stepsFor(build: SphereGridBuild, character: GridCharacter?): List<RouteStep> =
-        build.events.mapNotNull { event ->
-            when (event) {
-                is RouteEvent.Edit -> RouteStep.Edit(event.nodeId, event.content)
-                is RouteEvent.Activate ->
-                    if (character != null && event.character == character) {
-                        RouteStep.Activate(event.nodeId)
-                    } else {
-                        null
-                    }
+    private fun stepsFor(build: SphereGridBuild, character: GridCharacter?): List<RouteStep> {
+        if (character == null) {
+            return build.events.filterIsInstance<RouteEvent.Edit>()
+                .map { RouteStep.Edit(it.nodeId, it.content) }
+        }
+        val editByNode = build.events.filterIsInstance<RouteEvent.Edit>().associateBy { it.nodeId }
+        val steps = ArrayList<RouteStep>()
+        val emitted = HashSet<String>()
+        build.events.forEach { event ->
+            if (event is RouteEvent.Activate && event.character == character) {
+                editByNode[event.nodeId]?.let { edit ->
+                    if (emitted.add(edit.nodeId)) steps.add(RouteStep.Edit(edit.nodeId, edit.content))
+                }
+                steps.add(RouteStep.Activate(event.nodeId))
             }
         }
+        return steps
+    }
 
     /** Reveals the route up to [step] nodes (0..path length). */
     fun setRouteStep(step: Int) {

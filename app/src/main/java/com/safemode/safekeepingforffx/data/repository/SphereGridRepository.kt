@@ -125,21 +125,26 @@ class SphereGridRepository(
 
     /**
      * Snapshots the player's current work as a [SphereGridBuild], carrying only the pieces [scope]
-     * asks for. Edits and activations are read off the `ORDER BY seq` snapshots and merged back into
-     * one timeline by that shared seq, so the events come out interleaved in the order they were done
-     * - what makes this a *route*, not just a state.
+     * asks for. The route is the path in activation order (each character's activations come off the
+     * `ORDER BY seq` snapshot), with each node's edit placed right before that node is first taken -
+     * so an unlocked-then-filled node reads as "set to X, then activate X".
+     *
+     * The interleaving is derived from node identity, not from comparing edit seqs against activation
+     * seqs. The two tables keep independent seq ranges, so comparing across them can't be trusted (and
+     * once produced routes where every edit clustered ahead of the whole path); anchoring each edit to
+     * its node's activation avoids that entirely.
      */
     private suspend fun currentBuild(
         scope: BuildScope,
         character: GridCharacter,
         gridType: GridType
     ): SphereGridBuild {
-        val editEvents: List<Pair<Long, RouteEvent>> = if (scope.includesEdits) {
-            nodeDao.snapshot().mapNotNull { row ->
-                NodeContent.decode(row.content)?.let { row.seq to RouteEvent.Edit(row.nodeId, it) }
+        // Edits are grid-wide, so a node has at most one; keep them in seq order for a stable lead.
+        val editByNode = LinkedHashMap<String, RouteEvent.Edit>()
+        if (scope.includesEdits) {
+            nodeDao.snapshot().forEach { row ->
+                NodeContent.decode(row.content)?.let { editByNode[row.nodeId] = RouteEvent.Edit(row.nodeId, it) }
             }
-        } else {
-            emptyList()
         }
 
         val activationRows = when {
@@ -147,12 +152,26 @@ class SphereGridRepository(
             scope.includesAllPaths -> activationDao.snapshot()
             else -> activationDao.snapshot().filter { it.character == character.name }
         }
-        val activationEvents: List<Pair<Long, RouteEvent>> = activationRows.mapNotNull { row ->
-            GridCharacter.entries.firstOrNull { it.name == row.character }
-                ?.let { row.seq to RouteEvent.Activate(it, row.nodeId) }
-        }
+        val activatedNodeIds = activationRows.mapTo(HashSet()) { it.nodeId }
 
-        val events = (editEvents + activationEvents).sortedBy { it.first }.map { it.second }
+        val events = ArrayList<RouteEvent>()
+        val emitted = HashSet<String>()
+        // Edits on nodes nobody takes in this scope lead the route as grid setup.
+        editByNode.values.forEach { edit ->
+            if (edit.nodeId !in activatedNodeIds) {
+                events.add(edit)
+                emitted.add(edit.nodeId)
+            }
+        }
+        // Then the path, each activation preceded by its node's edit the first time the node is taken.
+        activationRows.forEach { row ->
+            val activationCharacter = GridCharacter.entries.firstOrNull { it.name == row.character }
+                ?: return@forEach
+            editByNode[row.nodeId]?.let { edit ->
+                if (emitted.add(edit.nodeId)) events.add(edit)
+            }
+            events.add(RouteEvent.Activate(activationCharacter, row.nodeId))
+        }
         return SphereGridBuild(gridType, events)
     }
 
