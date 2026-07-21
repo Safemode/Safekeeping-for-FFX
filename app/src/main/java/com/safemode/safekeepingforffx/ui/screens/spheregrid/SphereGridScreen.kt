@@ -276,13 +276,13 @@ fun SphereGridScreen(
                     savedViews = savedGridViews,
                     resetSignal = resetSignal,
                     onCanResetChange = { canResetView = it },
-                    overrides = activeRoute.edits,
-                    activated = activeRoute.revealed,
+                    overrides = activeRoute.overrides,
+                    activated = activeRoute.activated,
                     characterColor = activeRoute.character.activationColor(),
                     selectedId = selectedNodeId,
                     tapActivates = false,
                     readOnly = true,
-                    orderLabels = activeRoute.revealedOrderLabels,
+                    orderLabels = activeRoute.orderLabels,
                     glyphCache = glyphCache,
                     textMeasurer = textMeasurer,
                     labelCache = labelCache,
@@ -328,7 +328,21 @@ fun SphereGridScreen(
         }
 
         if (activeRoute != null) {
-            RouteStepBar(route = activeRoute, onStep = viewModel::setRouteStep)
+            // A short caption for the step just reached, so an edit reads as clearly as an activation.
+            val stepText = activeRoute.currentStep?.let { step ->
+                when (step) {
+                    is RouteStep.Edit -> "Set to ${step.content.label()}"
+                    is RouteStep.Activate -> {
+                        val original = nodesById[step.nodeId]?.original ?: NodeContent.Empty
+                        "Activated ${activeRoute.contentAt(step.nodeId, original).label()}"
+                    }
+                }
+            }
+            RouteStepBar(
+                route = activeRoute,
+                currentStepText = stepText,
+                onStep = viewModel::setRouteStep
+            )
         }
     }
 
@@ -343,10 +357,10 @@ fun SphereGridScreen(
                 // Read-only inspection during replay: the route's content for this node and its step.
                 RouteNodeDetail(
                     node = selected,
-                    current = activeRoute.edits[selected.id] ?: selected.original,
+                    current = activeRoute.contentAt(selected.id, selected.original),
                     routeName = activeRoute.name,
                     characterName = activeRoute.character.displayName,
-                    step = activeRoute.stepOf(selected.id)
+                    step = activeRoute.activationStepOf(selected.id)
                 )
             } else {
                 NodeDetail(
@@ -1020,23 +1034,33 @@ private fun RouteReplayBar(
     }
 }
 
-/** The replay scrubber: step through the route one activation at a time, or drag to any point. */
+/** The replay scrubber: step through the route one event at a time, or drag to any point. */
 @Composable
-private fun RouteStepBar(route: RouteViewState, onStep: (Int) -> Unit) {
+private fun RouteStepBar(route: RouteViewState, currentStepText: String?, onStep: (Int) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         if (route.stepCount == 0) {
             Text(
-                "${route.character.displayName} has no activated nodes in this route.",
+                "${route.character.displayName} has no steps in this route.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             return
         }
-        Text(
-            "Step ${route.stepIndex} of ${route.stepCount}",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Step ${route.stepIndex} of ${route.stepCount}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (currentStepText != null) {
+                Text(
+                    "  ·  $currentStepText",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(
                 onClick = { onStep(route.stepIndex - 1) },

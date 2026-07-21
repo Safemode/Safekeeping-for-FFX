@@ -11,6 +11,7 @@ import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.GridData
 import com.safemode.safekeepingforffx.data.reference.GridType
 import com.safemode.safekeepingforffx.data.reference.NodeContent
+import com.safemode.safekeepingforffx.data.reference.RouteEvent
 import com.safemode.safekeepingforffx.data.reference.SphereGridBuild
 import com.safemode.safekeepingforffx.data.reference.SphereGridNode
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
@@ -61,30 +62,66 @@ data class SphereGridUiState(
     val hasAnythingToShare: Boolean get() = hasEdits || characterHasPath
 }
 
+/** One step of a route replay for the viewed character: a grid edit, or an activation. */
+sealed interface RouteStep {
+    val nodeId: String
+
+    data class Edit(override val nodeId: String, val content: NodeContent) : RouteStep
+
+    data class Activate(override val nodeId: String) : RouteStep
+}
+
 /**
- * Read-only replay of a saved route: the route's edits shown as the grid's backdrop, one character's
- * path revealed [stepIndex] nodes deep, numbered in the order it was walked. Nothing here is written
- * to the database - it overlays the live grid without touching the player's own progress.
+ * Read-only replay of a saved route: one ordered timeline of the route's edits and the viewed
+ * character's activations, revealed [stepIndex] steps deep. Edits and activations are interleaved in
+ * the order they happened, so stepping shows a blank node becoming, say, Magic +4 at the point it was
+ * edited and then lighting up when it was taken. Nothing here is written to the database - it overlays
+ * the live grid without touching the player's own progress.
  */
 data class RouteViewState(
     val name: String,
     val gridType: GridType,
     val character: GridCharacter,
     val availableCharacters: List<GridCharacter>,
-    val edits: Map<String, NodeContent>,
-    val orderedPath: List<String>,
+    val steps: List<RouteStep>,
     val stepIndex: Int
 ) {
-    val stepCount: Int get() = orderedPath.size
-    /** The nodes taken so far at the current step. */
-    val revealed: Set<String> get() = orderedPath.take(stepIndex).toHashSet()
-    /** 1-based activation order for the nodes revealed so far, for the on-node labels. */
-    val revealedOrderLabels: Map<String, Int> get() =
-        orderedPath.take(stepIndex).withIndex().associate { (index, id) -> id to index + 1 }
+    val stepCount: Int get() = steps.size
+    private val shown: List<RouteStep> get() = steps.take(stepIndex)
 
-    /** This node's 1-based position on the character's path, or null if it isn't on it. */
-    fun stepOf(nodeId: String): Int? =
-        orderedPath.indexOf(nodeId).takeIf { it >= 0 }?.plus(1)
+    /** Grid edits in force at the current step; a later edit to a node wins over an earlier one. */
+    val overrides: Map<String, NodeContent> get() = buildMap {
+        shown.forEach { if (it is RouteStep.Edit) put(it.nodeId, it.content) }
+    }
+
+    /** Nodes activated by the current step. */
+    val activated: Set<String> get() = buildSet {
+        shown.forEach { if (it is RouteStep.Activate) add(it.nodeId) }
+    }
+
+    /** 1-based activation order for the activated nodes shown so far; edits are not numbered. */
+    val orderLabels: Map<String, Int> get() = buildMap {
+        var order = 0
+        shown.forEach { if (it is RouteStep.Activate) { order++; put(it.nodeId, order) } }
+    }
+
+    /** The step just applied at the current position, for the "what happened here" caption. */
+    val currentStep: RouteStep? get() = steps.getOrNull(stepIndex - 1)
+
+    /** The node's content at the current step: the latest route edit in force, else its original. */
+    fun contentAt(nodeId: String, original: NodeContent): NodeContent = overrides[nodeId] ?: original
+
+    /** This node's 1-based activation position in the whole route, or null if it isn't activated. */
+    fun activationStepOf(nodeId: String): Int? {
+        var order = 0
+        steps.forEach {
+            if (it is RouteStep.Activate) {
+                order++
+                if (it.nodeId == nodeId) return order
+            }
+        }
+        return null
+    }
 }
 
 /** One-off outcomes of a share/import action, delivered to the screen as events (not UI state). */
@@ -275,18 +312,17 @@ class SphereGridViewModel(
             }
             openRouteBuild = build
             gridType.value = build.gridType
-            val paths = build.paths.orEmpty()
-            val chars = GridCharacter.entries.filter { paths[it]?.isNotEmpty() == true }
+            val chars = build.events.filterIsInstance<RouteEvent.Activate>()
+                .map { it.character }.distinct()
             val first = chars.firstOrNull()
-            val path = first?.let { paths[it] }.orEmpty()
+            val steps = stepsFor(build, first)
             _routeView.value = RouteViewState(
                 name = build.name ?: "Route",
                 gridType = build.gridType,
                 character = first ?: GridCharacter.DEFAULT,
                 availableCharacters = chars,
-                edits = build.edits?.toMap().orEmpty(),
-                orderedPath = path,
-                stepIndex = path.size
+                steps = steps,
+                stepIndex = steps.size
             )
         }
     }
@@ -295,9 +331,26 @@ class SphereGridViewModel(
     fun setRouteCharacter(value: GridCharacter) {
         val build = openRouteBuild ?: return
         val current = _routeView.value ?: return
-        val path = build.paths?.get(value).orEmpty()
-        _routeView.value = current.copy(character = value, orderedPath = path, stepIndex = path.size)
+        val steps = stepsFor(build, value)
+        _routeView.value = current.copy(character = value, steps = steps, stepIndex = steps.size)
     }
+
+    /**
+     * The replay timeline for [character]: every edit (edits are grid-wide) interleaved with that
+     * character's activations, in the order they happened. Null [character] yields edits only.
+     */
+    private fun stepsFor(build: SphereGridBuild, character: GridCharacter?): List<RouteStep> =
+        build.events.mapNotNull { event ->
+            when (event) {
+                is RouteEvent.Edit -> RouteStep.Edit(event.nodeId, event.content)
+                is RouteEvent.Activate ->
+                    if (character != null && event.character == character) {
+                        RouteStep.Activate(event.nodeId)
+                    } else {
+                        null
+                    }
+            }
+        }
 
     /** Reveals the route up to [step] nodes (0..path length). */
     fun setRouteStep(step: Int) {

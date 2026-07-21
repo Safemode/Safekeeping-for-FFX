@@ -14,6 +14,7 @@ import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.GridData
 import com.safemode.safekeepingforffx.data.reference.GridType
 import com.safemode.safekeepingforffx.data.reference.NodeContent
+import com.safemode.safekeepingforffx.data.reference.RouteEvent
 import com.safemode.safekeepingforffx.data.reference.SphereGridBuild
 import com.safemode.safekeepingforffx.data.reference.SphereGridBuildCodec
 import com.safemode.safekeepingforffx.data.reference.SphereGridParser
@@ -108,81 +109,84 @@ class SphereGridRepository(
 
     /**
      * Snapshots the player's current work as a [SphereGridBuild], carrying only the pieces [scope]
-     * asks for. Edits and each character's path come straight off the `ORDER BY seq` snapshots, so
-     * the lists are in the order they were done - what makes this a *route*, not just a state.
+     * asks for. Edits and activations are read off the `ORDER BY seq` snapshots and merged back into
+     * one timeline by that shared seq, so the events come out interleaved in the order they were done
+     * - what makes this a *route*, not just a state.
      */
     private suspend fun currentBuild(
         scope: BuildScope,
         character: GridCharacter,
         gridType: GridType
     ): SphereGridBuild {
-        val edits = if (scope.includesEdits) {
+        val editEvents: List<Pair<Long, RouteEvent>> = if (scope.includesEdits) {
             nodeDao.snapshot().mapNotNull { row ->
-                NodeContent.decode(row.content)?.let { row.nodeId to it }
+                NodeContent.decode(row.content)?.let { row.seq to RouteEvent.Edit(row.nodeId, it) }
             }
         } else {
-            null
+            emptyList()
         }
 
-        val paths = when {
-            !scope.includesAnyPath -> null
+        val activationRows = when {
+            !scope.includesAnyPath -> emptyList()
             scope.includesAllPaths -> activationDao.snapshot()
-                .groupBy(
-                    keySelector = { GridCharacter.entries.firstOrNull { c -> c.name == it.character } },
-                    valueTransform = { it.nodeId }
-                )
-                .mapNotNull { (c, ids) -> c?.let { it to ids } }
-                .toMap()
-            else -> mapOf(character to characterPathSnapshot(character))
+            else -> activationDao.snapshot().filter { it.character == character.name }
+        }
+        val activationEvents: List<Pair<Long, RouteEvent>> = activationRows.mapNotNull { row ->
+            GridCharacter.entries.firstOrNull { it.name == row.character }
+                ?.let { row.seq to RouteEvent.Activate(it, row.nodeId) }
         }
 
-        return SphereGridBuild(gridType, edits, paths)
+        val events = (editEvents + activationEvents).sortedBy { it.first }.map { it.second }
+        return SphereGridBuild(gridType, events)
     }
 
     /**
-     * Applies a build code, replacing (not merging) whichever sections it carries so the recipient's
-     * grid and paths end up identical to the sharer's. Node ids not present on [gridType]'s grid are
-     * dropped. The whole apply runs in one transaction, so a partial import can never be observed.
+     * Applies a build code, replacing (not merging) the sections it carries so the recipient's grid
+     * and paths end up matching the sharer's. Edits are replaced when the code carries any edit; a
+     * character's path is replaced when the code carries any activation for them. Node ids not on
+     * [gridType]'s grid are dropped. The whole apply runs in one transaction, so a partial import can
+     * never be observed.
      */
     suspend fun importBuild(text: String, gridType: GridType): Result<ImportSummary> {
         val build = SphereGridBuildCodec.decode(text).getOrElse { return Result.failure(it) }
 
         val validIds = grid(gridType).nodes.mapTo(HashSet()) { it.id }
-        val edits = build.edits?.filter { it.first in validIds }
-        val paths = build.paths?.mapValues { (_, ids) -> ids.filter { it in validIds } }
+        val events = build.events.filter { it.nodeId in validIds }
 
-        if (edits == null && paths == null) {
+        if (events.isEmpty()) {
             return Result.failure(IllegalArgumentException("This build code has nothing to import."))
         }
 
+        val hasEdits = events.any { it is RouteEvent.Edit }
+        val characters = events.filterIsInstance<RouteEvent.Activate>().mapTo(HashSet()) { it.character }
+
         database.withTransaction {
-            // One increasing counter across the whole import keeps the replaced edits and paths in the
-            // order the code carried them.
+            if (hasEdits) nodeDao.clearAll()
+            characters.forEach { activationDao.clearCharacter(it.name) }
+            // One increasing counter across the whole import keeps the replayed timeline in order.
             var seq = 0L
-            if (edits != null) {
-                nodeDao.clearAll()
-                nodeDao.upsertAll(
-                    edits.map { (id, content) -> SphereGridNodeEntity(id, content.encode(), ++seq) }
-                )
-            }
-            paths?.forEach { (character, ids) ->
-                activationDao.clearCharacter(character.name)
-                activationDao.upsertAll(
-                    ids.map { SphereGridActivationEntity(character.name, it, ++seq) }
-                )
+            events.forEach { event ->
+                seq += 1
+                when (event) {
+                    is RouteEvent.Edit ->
+                        nodeDao.upsert(SphereGridNodeEntity(event.nodeId, event.content.encode(), seq))
+                    is RouteEvent.Activate ->
+                        activationDao.upsert(
+                            SphereGridActivationEntity(event.character.name, event.nodeId, seq)
+                        )
+                }
             }
         }
 
+        val pathCounts = events.filterIsInstance<RouteEvent.Activate>()
+            .groupingBy { it.character }.eachCount()
         return Result.success(
             ImportSummary(
-                editCount = edits?.size,
-                pathCounts = paths?.mapValues { it.value.size }
+                editCount = events.count { it is RouteEvent.Edit }.takeIf { hasEdits },
+                pathCounts = pathCounts.takeIf { it.isNotEmpty() }
             )
         )
     }
-
-    private suspend fun characterPathSnapshot(character: GridCharacter): List<String> =
-        activationDao.snapshot().filter { it.character == character.name }.map { it.nodeId }
 
     // --- Saved routes library: name, keep, share and replay ordered routes ---
 
@@ -244,8 +248,9 @@ class SphereGridRepository(
             name = name,
             gridType = gridType,
             createdAt = createdAt,
-            editCount = build.edits?.size ?: 0,
-            pathCounts = build.paths?.mapValues { it.value.size } ?: emptyMap()
+            editCount = build.events.count { it is RouteEvent.Edit },
+            pathCounts = build.events.filterIsInstance<RouteEvent.Activate>()
+                .groupingBy { it.character }.eachCount()
         )
     }
 

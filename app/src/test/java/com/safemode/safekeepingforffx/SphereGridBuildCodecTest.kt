@@ -4,88 +4,55 @@ import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.GridType
 import com.safemode.safekeepingforffx.data.reference.NodeContent
 import com.safemode.safekeepingforffx.data.reference.NodeType
+import com.safemode.safekeepingforffx.data.reference.RouteEvent
 import com.safemode.safekeepingforffx.data.reference.SphereGridBuild
 import com.safemode.safekeepingforffx.data.reference.SphereGridBuildCodec
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
  * The build/route codec is what makes a shared route survive the trip through someone else's
- * clipboard, so it must round-trip every scope exactly - **including order**, which is what makes a
- * build a route - and refuse anything it can't safely apply. Contents are dropped leniently (a stray
- * entry never sinks a whole import), but a broken envelope fails loudly. Older v1 codes still decode.
+ * clipboard, so it must round-trip the whole timeline exactly - **order and interleaving included**,
+ * which is what makes a build a route - and refuse anything it can't safely apply. Individual events
+ * are dropped leniently (a stray one never sinks a whole import), but a broken envelope fails loudly.
+ * Older v1 codes still decode, folded into the timeline.
  */
 class SphereGridBuildCodecTest {
-
-    private val edits = listOf(
-        "n12" to NodeContent.Attribute(NodeType.STRENGTH, 4),
-        "n30" to NodeContent.Ability("Firaga", NodeType.BLACK_MAGIC),
-        "n7" to NodeContent.Empty
-    )
 
     private fun roundTrip(build: SphereGridBuild): SphereGridBuild =
         SphereGridBuildCodec.decode(SphereGridBuildCodec.encode(build)).getOrThrow()
 
     @Test
-    fun editsAndCurrentRoundTrips() {
+    fun interleavedTimelineRoundTripsInOrder() {
+        // An edit, an activation, another edit, another activation - the interleaving must survive.
         val build = SphereGridBuild(
             GridType.STANDARD,
-            edits = edits,
-            paths = mapOf(GridCharacter.TIDUS to listOf("n1", "n2", "n3")),
+            events = listOf(
+                RouteEvent.Activate(GridCharacter.TIDUS, "n1"),
+                RouteEvent.Edit("n7", NodeContent.Attribute(NodeType.MAGIC, 4)),
+                RouteEvent.Activate(GridCharacter.TIDUS, "n7"),
+                RouteEvent.Edit("n30", NodeContent.Ability("Firaga", NodeType.BLACK_MAGIC)),
+                RouteEvent.Activate(GridCharacter.YUNA, "n40")
+            ),
             name = "Tidus opener"
         )
         assertEquals(build, roundTrip(build))
     }
 
     @Test
-    fun editsAndAllPathsRoundTrips() {
-        val build = SphereGridBuild(
-            GridType.STANDARD,
-            edits = edits,
-            paths = mapOf(
-                GridCharacter.TIDUS to listOf("n1", "n2"),
-                GridCharacter.YUNA to listOf("n40", "n41"),
-                GridCharacter.LULU to listOf("n88")
-            )
-        )
-        assertEquals(build, roundTrip(build))
-    }
-
-    @Test
-    fun currentPathOnlyOmitsEdits() {
-        val build = SphereGridBuild(
-            GridType.STANDARD,
-            edits = null,
-            paths = mapOf(GridCharacter.AURON to listOf("n5", "n6"))
-        )
-        val decoded = roundTrip(build)
-        assertNull("Path-only build must not carry edits", decoded.edits)
-        assertEquals(build, decoded)
-    }
-
-    @Test
-    fun editsOnlyOmitsPaths() {
-        val build = SphereGridBuild(GridType.STANDARD, edits = edits, paths = null)
-        val decoded = roundTrip(build)
-        assertNull("Edits-only build must not carry paths", decoded.paths)
-        assertEquals(build, decoded)
-    }
-
-    @Test
     fun orderIsPreservedNotJustMembership() {
-        // A route is defined by order, so the decoded lists must match position for position.
         val forwards = SphereGridBuild(
             GridType.EXPERT,
-            edits = null,
-            paths = mapOf(GridCharacter.RIKKU to listOf("x1", "x2", "x3", "x4"))
+            events = listOf(
+                RouteEvent.Activate(GridCharacter.RIKKU, "x1"),
+                RouteEvent.Activate(GridCharacter.RIKKU, "x2"),
+                RouteEvent.Activate(GridCharacter.RIKKU, "x3")
+            )
         )
-        val backwards = forwards.copy(
-            paths = mapOf(GridCharacter.RIKKU to listOf("x4", "x3", "x2", "x1"))
-        )
-        assertEquals(listOf("x1", "x2", "x3", "x4"), roundTrip(forwards).paths?.get(GridCharacter.RIKKU))
-        assertEquals(listOf("x4", "x3", "x2", "x1"), roundTrip(backwards).paths?.get(GridCharacter.RIKKU))
+        val backwards = forwards.copy(events = forwards.events.reversed())
+        assertEquals(forwards.events, roundTrip(forwards).events)
+        assertEquals(backwards.events, roundTrip(backwards).events)
     }
 
     @Test
@@ -96,37 +63,53 @@ class SphereGridBuildCodecTest {
     }
 
     @Test
+    fun emptyTimelineIsRejected() {
+        val code = """{"v":2,"grid":"STANDARD","events":[]}"""
+        assertTrue(SphereGridBuildCodec.decode(code).isFailure)
+    }
+
+    @Test
     fun wrongVersionIsRejected() {
-        val code = """{"v":999,"grid":"STANDARD","editList":[["n1","E"]]}"""
+        val code = """{"v":999,"grid":"STANDARD","events":[["A","TIDUS","n1"]]}"""
         assertTrue(SphereGridBuildCodec.decode(code).isFailure)
     }
 
     @Test
     fun unknownGridIsRejected() {
-        val code = """{"v":2,"grid":"NONSENSE","editList":[["n1","E"]]}"""
+        val code = """{"v":2,"grid":"NONSENSE","events":[["A","TIDUS","n1"]]}"""
         assertTrue(SphereGridBuildCodec.decode(code).isFailure)
     }
 
     @Test
-    fun undecodableEntriesAreDroppedNotFatal() {
-        // One good edit, one unparseable value; one known character, one unknown key.
-        val code = """{"v":2,"grid":"STANDARD","name":"partly broken",""" +
-            """"editList":[["n1","A|STRENGTH|2"],["n2","garbage"]],""" +
-            """"paths":{"TIDUS":["n1"],"BOOGYMAN":["n9"]}}"""
+    fun undecodableEventsAreDroppedNotFatal() {
+        // A good edit, an unparseable edit, a good activation, and an unknown-character activation.
+        val code = """{"v":2,"grid":"STANDARD","name":"partly broken","events":[""" +
+            """["E","n1","A|STRENGTH|2"],["E","n2","garbage"],""" +
+            """["A","TIDUS","n5"],["A","BOOGYMAN","n9"]]}"""
         val build = SphereGridBuildCodec.decode(code).getOrThrow()
-        assertEquals(listOf("n1" to NodeContent.Attribute(NodeType.STRENGTH, 2)), build.edits)
-        assertEquals(mapOf(GridCharacter.TIDUS to listOf("n1")), build.paths)
+        assertEquals(
+            listOf(
+                RouteEvent.Edit("n1", NodeContent.Attribute(NodeType.STRENGTH, 2)),
+                RouteEvent.Activate(GridCharacter.TIDUS, "n5")
+            ),
+            build.events
+        )
         assertEquals("partly broken", build.name)
     }
 
     @Test
-    fun legacyV1CodeStillDecodes() {
-        // v1 carried an unordered edits map and no name; it must still import (order unknown).
+    fun legacyV1CodeFoldsIntoTimeline() {
+        // v1 had no timeline: its edits then its paths become events, order unknown but usable.
         val code = """{"v":1,"grid":"STANDARD","edits":{"n1":"A|STRENGTH|2"},""" +
             """"paths":{"TIDUS":["n1","n2"]}}"""
         val build = SphereGridBuildCodec.decode(code).getOrThrow()
-        assertEquals(listOf("n1" to NodeContent.Attribute(NodeType.STRENGTH, 2)), build.edits)
-        assertEquals(mapOf(GridCharacter.TIDUS to listOf("n1", "n2")), build.paths)
-        assertNull(build.name)
+        assertEquals(
+            listOf(
+                RouteEvent.Edit("n1", NodeContent.Attribute(NodeType.STRENGTH, 2)),
+                RouteEvent.Activate(GridCharacter.TIDUS, "n1"),
+                RouteEvent.Activate(GridCharacter.TIDUS, "n2")
+            ),
+            build.events
+        )
     }
 }
