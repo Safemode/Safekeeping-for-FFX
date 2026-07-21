@@ -15,7 +15,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SphereGridActivationEntity::class,
         SphereGridRouteEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class FfxDatabase : RoomDatabase() {
@@ -123,6 +123,21 @@ abstract class FfxDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Backfills the routes `seq` from each row's rowid (insertion order). Activations and edits
+         * that predate the routes feature all defaulted to `seq = 0`, so they had no timeline and a
+         * saved route replayed them in arbitrary order. rowid tracks insertion order, which is the
+         * order the player actually took them, so this gives those rows a real, ordered timeline (and
+         * also repairs any rows scrambled by the since-fixed seq race). Data-only: the schema is
+         * unchanged from v6.
+         */
+        private val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("UPDATE `sphere_grid_activation` SET `seq` = `rowid`")
+                db.execSQL("UPDATE `sphere_grid_node` SET `seq` = `rowid`")
+            }
+        }
+
         @Volatile
         private var instance: FfxDatabase? = null
 
@@ -133,7 +148,8 @@ abstract class FfxDatabase : RoomDatabase() {
                     FfxDatabase::class.java,
                     "ffx_tracker.db"
                 ).addMigrations(
-                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6
+                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
+                    MIGRATION_6_7
                 ).build().also { instance = it }
             }
     }

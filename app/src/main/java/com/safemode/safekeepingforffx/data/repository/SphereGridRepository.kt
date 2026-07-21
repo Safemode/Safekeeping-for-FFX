@@ -21,6 +21,8 @@ import com.safemode.safekeepingforffx.data.reference.SphereGridParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 
@@ -39,9 +41,17 @@ class SphereGridRepository(
     private val cache = ConcurrentHashMap<GridType, GridData>()
 
     /**
+     * Serializes the read-then-write of a new [seq]. Each node tap launches its own coroutine, so two
+     * quick taps can both read the same max before either writes and land on the same seq - which
+     * sorts arbitrarily and scrambles a saved route's order. Holding this across compute-and-write
+     * keeps every activation and edit on a strictly increasing timeline.
+     */
+    private val seqMutex = Mutex()
+
+    /**
      * The next value on the shared edit/activation timeline: one past the highest [seq] in either
-     * table, so a new edit or activation always sorts after everything already done. Single-user, so
-     * the read-then-write is safe without extra locking.
+     * table, so a new edit or activation always sorts after everything already done. Call only while
+     * holding [seqMutex], and write the row before releasing it.
      */
     private suspend fun nextSeq(): Long =
         maxOf(nodeDao.maxSeq() ?: 0L, activationDao.maxSeq() ?: 0L) + 1
@@ -66,9 +76,11 @@ class SphereGridRepository(
         if (content == null || content == original) {
             nodeDao.delete(nodeId)
         } else {
-            nodeDao.upsert(
-                SphereGridNodeEntity(nodeId = nodeId, content = content.encode(), seq = nextSeq())
-            )
+            seqMutex.withLock {
+                nodeDao.upsert(
+                    SphereGridNodeEntity(nodeId = nodeId, content = content.encode(), seq = nextSeq())
+                )
+            }
         }
     }
 
@@ -82,7 +94,11 @@ class SphereGridRepository(
 
     suspend fun setActivation(character: GridCharacter, nodeId: String, activated: Boolean) {
         if (activated) {
-            activationDao.upsert(SphereGridActivationEntity(character.name, nodeId, seq = nextSeq()))
+            seqMutex.withLock {
+                activationDao.upsert(
+                    SphereGridActivationEntity(character.name, nodeId, seq = nextSeq())
+                )
+            }
         } else {
             activationDao.delete(character.name, nodeId)
         }
