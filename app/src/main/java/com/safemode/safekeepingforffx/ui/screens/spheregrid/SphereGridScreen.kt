@@ -2,6 +2,8 @@ package com.safemode.safekeepingforffx.ui.screens.spheregrid
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,6 +35,8 @@ import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FirstPage
+import androidx.compose.material.icons.filled.LastPage
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
@@ -103,6 +107,9 @@ private const val STAT_RADIUS = 15f
 private const val ABILITY_RADIUS = 24f
 private const val LOCK_RADIUS = 13f
 
+/** World width framed when a route replay focuses on a step's node - a comfortable neighbourhood. */
+private const val FOCUS_WORLD_SPAN = 520f
+
 private val GridBackground = Color(0xFF161824)
 
 /** Light text for the value/name labels sitting on the dark grid backing. */
@@ -144,6 +151,9 @@ fun SphereGridScreen(
     var showSaveRouteDialog by remember { mutableStateOf(false) }
     var showImportRouteDialog by rememberSaveable { mutableStateOf(false) }
     var routeToRename by remember { mutableStateOf<SphereGridRepository.SavedRoute?>(null) }
+    // Replay focus: which node the canvas should ease to, bumped each time the player changes step.
+    var routeFocusTarget by remember { mutableStateOf<String?>(null) }
+    var routeFocusSignal by remember { mutableIntStateOf(0) }
 
     // Per-grid pan/zoom memory: each grid keeps its own view when the player switches away and back.
     // resetSignal nudges the canvas to re-fit; canResetView drives the overlay reset button, which
@@ -283,6 +293,8 @@ fun SphereGridScreen(
                     tapActivates = false,
                     readOnly = true,
                     orderLabels = activeRoute.orderLabels,
+                    focusNodeId = routeFocusTarget,
+                    focusSignal = routeFocusSignal,
                     glyphCache = glyphCache,
                     textMeasurer = textMeasurer,
                     labelCache = labelCache,
@@ -343,7 +355,13 @@ fun SphereGridScreen(
             RouteStepBar(
                 route = activeRoute,
                 currentStepText = stepText,
-                onStep = viewModel::setRouteStep
+                onStep = { newIndex ->
+                    val clamped = newIndex.coerceIn(0, activeRoute.stepCount)
+                    viewModel.setRouteStep(clamped)
+                    // Focus the node this step lands on; step 0 has none, so the view stays put.
+                    routeFocusTarget = activeRoute.steps.getOrNull(clamped - 1)?.nodeId
+                    routeFocusSignal++
+                }
             )
         }
     }
@@ -1065,6 +1083,10 @@ private fun RouteStepBar(route: RouteViewState, currentStepText: String?, onStep
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(
+                onClick = { onStep(0) },
+                enabled = route.stepIndex > 0
+            ) { Icon(Icons.Filled.FirstPage, contentDescription = "Jump to start") }
+            IconButton(
                 onClick = { onStep(route.stepIndex - 1) },
                 enabled = route.stepIndex > 0
             ) { Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous step") }
@@ -1079,6 +1101,10 @@ private fun RouteStepBar(route: RouteViewState, currentStepText: String?, onStep
                 onClick = { onStep(route.stepIndex + 1) },
                 enabled = route.stepIndex < route.stepCount
             ) { Icon(Icons.Filled.ChevronRight, contentDescription = "Next step") }
+            IconButton(
+                onClick = { onStep(route.stepCount) },
+                enabled = route.stepIndex < route.stepCount
+            ) { Icon(Icons.Filled.LastPage, contentDescription = "Jump to end") }
         }
     }
 }
@@ -1389,7 +1415,11 @@ private fun GridCanvas(
     /** Read-only replay: taps only open node details, never toggle activation. */
     readOnly: Boolean = false,
     /** Activation-order number to draw on each revealed node, for route replay. */
-    orderLabels: Map<String, Int> = emptyMap()
+    orderLabels: Map<String, Int> = emptyMap(),
+    /** Route replay: the node to ease the view onto when [focusSignal] changes. */
+    focusNodeId: String? = null,
+    /** Bumped by the caller each time it wants the view to re-focus (one focus per step change). */
+    focusSignal: Int = 0
 ) {
     val bounds = grid.bounds
     val nodes = grid.nodes
@@ -1472,6 +1502,29 @@ private fun GridCanvas(
     // A reset request from the overlay button re-frames the whole grid.
     LaunchedEffect(resetSignal) {
         if (resetSignal != 0) fitView?.let { applyView(it) }
+    }
+
+    // Route replay: when the player changes step, ease the view to centre on that step's node, zoomed
+    // in to a comfortable neighbourhood so it's easy to see what the step does.
+    LaunchedEffect(focusSignal) {
+        if (focusSignal == 0) return@LaunchedEffect
+        val target = nodes.firstOrNull { it.id == focusNodeId } ?: return@LaunchedEffect
+        val fit = fitView ?: return@LaunchedEffect
+        val endScale = (canvasSize.width / FOCUS_WORLD_SPAN).coerceIn(fit.scale, maxScale)
+        val startScale = scale
+        val startOffset = offset
+        val endOffset = Offset(
+            x = canvasSize.width / 2f - target.x * endScale,
+            y = canvasSize.height / 2f - target.y * endScale
+        )
+        animate(initialValue = 0f, targetValue = 1f, animationSpec = tween(durationMillis = 350)) { t, _ ->
+            scale = startScale + (endScale - startScale) * t
+            offset = Offset(
+                x = startOffset.x + (endOffset.x - startOffset.x) * t,
+                y = startOffset.y + (endOffset.y - startOffset.y) * t
+            )
+        }
+        savedViews[gridType] = GridView(scale, offset)
     }
 
     Canvas(
