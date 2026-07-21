@@ -331,10 +331,12 @@ fun SphereGridScreen(
             // A short caption for the step just reached, so an edit reads as clearly as an activation.
             val stepText = activeRoute.currentStep?.let { step ->
                 when (step) {
-                    is RouteStep.Edit -> "Set to ${step.content.label()}"
+                    is RouteStep.Edit ->
+                        if (step.content is NodeContent.Empty) "Cleared node" else "Set to ${step.content.label()}"
                     is RouteStep.Activate -> {
                         val original = nodesById[step.nodeId]?.original ?: NodeContent.Empty
-                        "Activated ${activeRoute.contentAt(step.nodeId, original).label()}"
+                        val content = activeRoute.contentAt(step.nodeId, original)
+                        if (content is NodeContent.Empty) "Activated blank node" else "Activated ${content.label()}"
                     }
                 }
             }
@@ -1347,6 +1349,23 @@ private fun RouteNodeDetail(
     }
 }
 
+/**
+ * A node's fallback content in a replay when the route hasn't (yet) edited it. Normally its vanilla
+ * original - but a lock the route's path has already reached is by definition unlocked, so it shows
+ * as a blank node instead of a lock. The database only keeps a node's final edit, so a lock that was
+ * unlocked and then filled loses its "unlocked to blank" step; this infers it from the activation.
+ */
+private fun routeUnlockedOriginal(
+    node: SphereGridNode,
+    readOnly: Boolean,
+    activated: Set<String>
+): NodeContent =
+    if (readOnly && node.original is NodeContent.Lock && node.id in activated) {
+        NodeContent.Empty
+    } else {
+        node.original
+    }
+
 /** The pan/zoom canvas. Transform is screen = world * scale + offset. */
 @Composable
 private fun GridCanvas(
@@ -1533,7 +1552,7 @@ private fun GridCanvas(
         nodes.forEach { node ->
             val cx = node.x * scale + offset.x
             val cy = node.y * scale + offset.y
-            val content = overrides[node.id] ?: node.original
+            val content = overrides[node.id] ?: routeUnlockedOriginal(node, readOnly, activated)
             val dtype = content.displayType
             val worldR = when {
                 dtype.isAbility -> ABILITY_RADIUS

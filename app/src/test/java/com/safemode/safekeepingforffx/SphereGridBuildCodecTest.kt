@@ -41,6 +41,19 @@ class SphereGridBuildCodecTest {
     }
 
     @Test
+    fun blankEditRoundTrips() {
+        // Unlocking a lock writes a blank (Empty) edit; it must survive so a route can replay it.
+        val build = SphereGridBuild(
+            GridType.EXPERT,
+            events = listOf(
+                RouteEvent.Edit("x10", NodeContent.Empty),
+                RouteEvent.Activate(GridCharacter.KIMAHRI, "x10")
+            )
+        )
+        assertEquals(build, roundTrip(build))
+    }
+
+    @Test
     fun orderIsPreservedNotJustMembership() {
         val forwards = SphereGridBuild(
             GridType.EXPERT,

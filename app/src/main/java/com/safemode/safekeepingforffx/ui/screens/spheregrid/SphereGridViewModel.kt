@@ -108,8 +108,13 @@ data class RouteViewState(
     /** The step just applied at the current position, for the "what happened here" caption. */
     val currentStep: RouteStep? get() = steps.getOrNull(stepIndex - 1)
 
-    /** The node's content at the current step: the latest route edit in force, else its original. */
-    fun contentAt(nodeId: String, original: NodeContent): NodeContent = overrides[nodeId] ?: original
+    /**
+     * The node's content at the current step: the latest route edit in force; else its original -
+     * except a lock the path has already reached, which is by definition unlocked and shows as blank.
+     */
+    fun contentAt(nodeId: String, original: NodeContent): NodeContent =
+        overrides[nodeId]
+            ?: if (original is NodeContent.Lock && nodeId in activated) NodeContent.Empty else original
 
     /** This node's 1-based activation position in the whole route, or null if it isn't activated. */
     fun activationStepOf(nodeId: String): Int? {
