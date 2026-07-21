@@ -12,6 +12,7 @@ import androidx.compose.ui.text.drawText
 import com.safemode.safekeepingforffx.data.reference.NodeType
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.hypot
 import kotlin.math.sin
 
 /**
@@ -196,23 +197,51 @@ private fun DrawScope.drawShieldedTriangle(c: Offset, r: Float, color: Color) {
 }
 
 private fun DrawScope.drawWingedFoot(c: Offset, r: Float, color: Color) {
-    val w = (r * 0.11f).coerceAtLeast(1.1f)
+    // A winged boot (the classic speed/agility talaria): broad feathers sweeping up from the ankle,
+    // the boot drawn on top. The heel sits under the ankle so the foot balances the wing rather than
+    // jutting to the lower-left.
+    val anchor = Offset(c.x + 0.02f * r, c.y - 0.02f * r)
+    fun feather(endX: Float, endY: Float, halfWidth: Float) {
+        val tip = Offset(c.x + endX * r, c.y + endY * r)
+        val dx = tip.x - anchor.x
+        val dy = tip.y - anchor.y
+        val len = hypot(dx, dy)
+        if (len <= 0f) return
+        val ux = dx / len
+        val uy = dy / len
+        val px = -uy
+        val py = ux
+        val hw = halfWidth * r
+        val midX = anchor.x + ux * len * 0.5f
+        val midY = anchor.y + uy * len * 0.5f
+        val path = Path().apply {
+            moveTo(anchor.x + px * hw, anchor.y + py * hw)
+            lineTo(midX + px * hw * 0.8f, midY + py * hw * 0.8f)
+            lineTo(tip.x, tip.y)
+            lineTo(midX - px * hw * 0.8f, midY - py * hw * 0.8f)
+            lineTo(anchor.x - px * hw, anchor.y - py * hw)
+            close()
+        }
+        drawPath(path, color)
+    }
+    feather(-0.60f, -0.50f, 0.13f)
+    feather(-0.42f, -0.42f, 0.14f)
+    feather(-0.22f, -0.34f, 0.14f)
+    feather(-0.02f, -0.30f, 0.13f)
+
     val boot = Path().apply {
-        moveTo(c.x - 0.26f * r, c.y - 0.02f * r)
-        lineTo(c.x - 0.06f * r, c.y - 0.02f * r)
-        lineTo(c.x, c.y + 0.2f * r)
-        lineTo(c.x + 0.5f * r, c.y + 0.24f * r)
-        lineTo(c.x + 0.5f * r, c.y + 0.42f * r)
-        lineTo(c.x - 0.42f * r, c.y + 0.42f * r)
-        lineTo(c.x - 0.26f * r, c.y + 0.2f * r)
+        val points = listOf(
+            -0.04f to -0.10f, 0.22f to -0.10f, 0.24f to 0.14f, 0.56f to 0.18f,
+            0.62f to 0.26f, 0.58f to 0.36f, -0.16f to 0.36f, -0.16f to 0.14f, -0.04f to 0.10f
+        )
+        points.forEachIndexed { i, (x, y) ->
+            val px = c.x + x * r
+            val py = c.y + y * r
+            if (i == 0) moveTo(px, py) else lineTo(px, py)
+        }
         close()
     }
     drawPath(boot, color)
-    val ax = c.x - 0.18f * r
-    val ay = c.y - 0.02f * r
-    drawLine(color, Offset(ax, ay), Offset(c.x - 0.5f * r, c.y - 0.12f * r), w, StrokeCap.Round)
-    drawLine(color, Offset(ax, ay), Offset(c.x - 0.42f * r, c.y - 0.34f * r), w, StrokeCap.Round)
-    drawLine(color, Offset(ax, ay), Offset(c.x - 0.18f * r, c.y - 0.5f * r), w, StrokeCap.Round)
 }
 
 private fun DrawScope.drawCrosshair(c: Offset, r: Float, color: Color) {
