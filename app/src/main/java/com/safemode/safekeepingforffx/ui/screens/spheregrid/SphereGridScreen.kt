@@ -567,6 +567,9 @@ private fun NodeDetail(
     onRevert: () -> Unit
 ) {
     val edited = current != node.original
+    // A gate nobody has opened yet still holds its Lock content; opening it is a shared change, so it
+    // gets an Unlock action rather than the per-character activation switch.
+    val isLocked = current is NodeContent.Lock
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -581,21 +584,38 @@ private fun NodeDetail(
             color = MaterialTheme.colorScheme.surfaceVariant,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Row(
-                modifier = Modifier
-                    .clickable(onClick = onToggleActivation)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Activated by $characterName", style = MaterialTheme.typography.titleMedium)
+            if (isLocked) {
+                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    Text("Locked gate", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        text = if (isActivated) "On this character's path" else "Not activated yet",
+                        text = "Unlocking turns this into a blank node for every character. You can " +
+                            "then write content onto it.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Spacer(Modifier.size(10.dp))
+                    OutlinedButton(onClick = onToggleActivation) { Text("Unlock (make blank)") }
                 }
-                Switch(checked = isActivated, onCheckedChange = { onToggleActivation() })
+            } else {
+                Row(
+                    modifier = Modifier
+                        .clickable(onClick = onToggleActivation)
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Activated by $characterName",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = if (isActivated) "On this character's path" else "Not activated yet",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(checked = isActivated, onCheckedChange = { onToggleActivation() })
+                }
             }
         }
 

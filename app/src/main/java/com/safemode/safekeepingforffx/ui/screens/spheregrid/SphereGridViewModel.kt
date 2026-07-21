@@ -42,6 +42,15 @@ data class SphereGridUiState(
     fun isEdited(node: SphereGridNode): Boolean = overrides.containsKey(node.id)
     fun isActivated(nodeId: String): Boolean = activated.contains(nodeId)
 
+    /**
+     * A lock the grid still gates: nobody has opened it yet, so it shows as a lock and can't be
+     * edited. Opening it is a shared, grid-wide change (a blank override) that turns it into an
+     * ordinary editable node for every character - so the check is override presence, not the
+     * per-character path.
+     */
+    fun isLockedGate(node: SphereGridNode): Boolean =
+        node.original is NodeContent.Lock && !isEdited(node)
+
     val gridAvailable: Boolean get() = grid.totalNodes > 0
     val hasEdits: Boolean get() = overrides.isNotEmpty()
     val characterHasPath: Boolean get() = activated.isNotEmpty()
@@ -120,15 +129,27 @@ class SphereGridViewModel(
         character.value = value
     }
 
-    /** Toggles whether the selected character has activated [node]. Works on any node type. */
+    /**
+     * The primary tap action on a node. A still-locked gate is *opened* rather than path-toggled:
+     * unlocking is a shared, grid-wide change, so it writes a blank override that turns the gate into
+     * an ordinary node for every character. Any other node just toggles the selected character's path.
+     */
     fun toggleActivation(node: SphereGridNode) {
-        val active = uiState.value.isActivated(node.id)
+        val state = uiState.value
+        if (state.isLockedGate(node)) {
+            viewModelScope.launch { repository.setContent(node.id, NodeContent.Empty, node.original) }
+            return
+        }
+        val active = state.isActivated(node.id)
         viewModelScope.launch { repository.setActivation(character.value, node.id, !active) }
     }
 
-    /** Writes a shared content edit to [node], or reverts it. Locks are permanent and ignored. */
+    /**
+     * Writes a shared content edit to [node], or reverts it. A lock can't be edited until it has been
+     * opened (a blank override exists); reverting an opened gate's edit re-locks it.
+     */
     fun setContent(node: SphereGridNode, content: NodeContent?) {
-        if (!node.original.isEditable) return
+        if (uiState.value.isLockedGate(node)) return
         viewModelScope.launch { repository.setContent(node.id, content, node.original) }
     }
 

@@ -89,7 +89,8 @@ fun NodeContent.activationSentence(): String {
         this is NodeContent.Empty ->
             "An empty node - nothing to activate. You can write new content onto it."
         this is NodeContent.Lock ->
-            "Unlock this gate with a ${spheres.first()}. Locks can't be edited."
+            "Opened in-game with a ${spheres.first()}. Unlocking here turns it into a blank node - " +
+                "shared by every character - that you can then edit."
         spheres.size >= 2 ->
             "Activate with a ${spheres[0]} or a ${spheres[1]}."
         spheres.size == 1 ->
