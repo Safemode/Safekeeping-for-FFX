@@ -211,7 +211,16 @@ fun SphereGridScreen(
             RouteReplayBar(
                 route = activeRoute,
                 onSelectCharacter = viewModel::setRouteCharacter,
-                onExit = viewModel::exitRouteView
+                onExit = viewModel::exitRouteView,
+                onApply = {
+                    confirm = ConfirmAction(
+                        title = "Make this your live progress?",
+                        message = "This overwrites your current grid edits and the route's character " +
+                            "paths with \"${activeRoute.name}\". This can't be undone.",
+                        confirmLabel = "Overwrite",
+                        onConfirm = viewModel::applyRouteToProgress
+                    )
+                }
             )
         } else {
             SelectorBar(
@@ -1011,14 +1020,16 @@ private fun SearchBox(query: String, onQueryChange: (String) -> Unit) {
     )
 }
 
-/** Header shown while replaying a saved route: its name, a way out, and a path-character picker. */
+/** Header shown while replaying a saved route: its name, a way out, a character picker, and actions. */
 @Composable
 private fun RouteReplayBar(
     route: RouteViewState,
     onSelectCharacter: (GridCharacter) -> Unit,
-    onExit: () -> Unit
+    onExit: () -> Unit,
+    onApply: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 12.dp, top = 4.dp)) {
+    var menu by remember { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onExit) {
                 Icon(Icons.Filled.Close, contentDescription = "Exit route view")
@@ -1030,6 +1041,20 @@ private fun RouteReplayBar(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(route.name, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+            }
+            Box {
+                IconButton(onClick = { menu = true }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = "Route actions")
+                }
+                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Make this my live progress") },
+                        onClick = {
+                            menu = false
+                            onApply()
+                        }
+                    )
+                }
             }
         }
         if (route.availableCharacters.size > 1) {

@@ -368,6 +368,29 @@ class SphereGridViewModel(
         _routeView.value = null
     }
 
+    /**
+     * Overwrites the player's live progress with the route being viewed and leaves the replay,
+     * switching to the viewed character so the adopted path is on screen. Caller confirms first -
+     * this replaces the grid edits and the route's character paths and can't be undone.
+     */
+    fun applyRouteToProgress() {
+        val build = openRouteBuild ?: return
+        val viewedCharacter = _routeView.value?.character
+        viewModelScope.launch {
+            repository.applyBuild(build, build.gridType)
+                .onSuccess {
+                    viewedCharacter?.let { character.value = it }
+                    exitRouteView()
+                    eventChannel.send(SphereGridEvent.Notice("Route applied to your grid."))
+                }
+                .onFailure {
+                    eventChannel.send(
+                        SphereGridEvent.ImportFailed(it.message ?: "That route couldn't be applied.")
+                    )
+                }
+        }
+    }
+
     private data class GridLoad(
         val type: GridType,
         val grid: GridData,

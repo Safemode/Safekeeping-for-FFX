@@ -165,12 +165,21 @@ class SphereGridRepository(
      */
     suspend fun importBuild(text: String, gridType: GridType): Result<ImportSummary> {
         val build = SphereGridBuildCodec.decode(text).getOrElse { return Result.failure(it) }
+        return applyBuild(build, gridType)
+    }
 
+    /**
+     * Replaces the player's live progress with [build]: edits are replaced when it carries any edit,
+     * and a character's path is replaced when it carries any activation for them. This is what "make
+     * this route my live progress" does. Node ids not on [gridType]'s grid are dropped, and the whole
+     * apply runs in one transaction so a partial state can never be observed.
+     */
+    suspend fun applyBuild(build: SphereGridBuild, gridType: GridType): Result<ImportSummary> {
         val validIds = grid(gridType).nodes.mapTo(HashSet()) { it.id }
         val events = build.events.filter { it.nodeId in validIds }
 
         if (events.isEmpty()) {
-            return Result.failure(IllegalArgumentException("This build code has nothing to import."))
+            return Result.failure(IllegalArgumentException("This build has nothing to apply."))
         }
 
         val hasEdits = events.any { it is RouteEvent.Edit }
@@ -179,7 +188,7 @@ class SphereGridRepository(
         database.withTransaction {
             if (hasEdits) nodeDao.clearAll()
             characters.forEach { activationDao.clearCharacter(it.name) }
-            // One increasing counter across the whole import keeps the replayed timeline in order.
+            // One increasing counter across the whole apply keeps the replayed timeline in order.
             var seq = 0L
             events.forEach { event ->
                 seq += 1
