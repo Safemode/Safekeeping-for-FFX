@@ -5,11 +5,12 @@ import com.safemode.safekeepingforffx.data.reference.NodeType
 
 /**
  * The attribute values the editor offers, matching what the game's spheres write: HP in 200/300,
- * MP in 20/40, and every other stat in +1..+4.
+ * MP in 10/20/40 (the Expert grid adds MP+10 nodes), and every other stat in +1..+4.
  */
 val AttributeCatalog: List<NodeContent.Attribute> = buildList {
     add(NodeContent.Attribute(NodeType.HP, 200))
     add(NodeContent.Attribute(NodeType.HP, 300))
+    add(NodeContent.Attribute(NodeType.MP, 10))
     add(NodeContent.Attribute(NodeType.MP, 20))
     add(NodeContent.Attribute(NodeType.MP, 40))
     listOf(

@@ -237,8 +237,8 @@ private fun AboutSection() {
 
     Text(
         text = "Checklist and reference data is compiled from the official guide and from " +
-            "community references. The Standard Sphere Grid layout is adapted from the " +
-            "theroymind/ffx-helper project. Corrections are welcome through the issue tracker.",
+            "community references. The Standard and Expert Sphere Grid layouts are adapted from " +
+            "the theroymind/ffx-helper project. Corrections are welcome through the issue tracker.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)

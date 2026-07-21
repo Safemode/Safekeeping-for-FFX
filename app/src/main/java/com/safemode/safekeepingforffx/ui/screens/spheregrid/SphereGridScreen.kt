@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
@@ -37,6 +38,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -53,6 +55,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -109,6 +112,12 @@ private data class ConfirmAction(
     val onConfirm: () -> Unit
 )
 
+/**
+ * A saved pan/zoom transform for one grid. Kept per [GridType] so each grid remembers where the
+ * player left it when they switch away and back. Transform is screen = world * [scale] + [offset].
+ */
+private data class GridView(val scale: Float, val offset: Offset)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SphereGridScreen(
@@ -121,6 +130,13 @@ fun SphereGridScreen(
     var confirm by remember { mutableStateOf<ConfirmAction?>(null) }
     var showShareDialog by remember { mutableStateOf(false) }
     var showImportDialog by rememberSaveable { mutableStateOf(false) }
+
+    // Per-grid pan/zoom memory: each grid keeps its own view when the player switches away and back.
+    // resetSignal nudges the canvas to re-fit; canResetView drives the overlay reset button, which
+    // only shows once the current grid's view has been moved off its default fit.
+    val savedGridViews = remember { mutableMapOf<GridType, GridView>() }
+    var resetSignal by remember { mutableIntStateOf(0) }
+    var canResetView by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -207,7 +223,9 @@ fun SphereGridScreen(
                 icon = Icons.Outlined.Info,
                 text = "Node edits are shared across everyone; each character tracks their own path. " +
                     "$tapHint Activated nodes and the links between them are drawn in the character's " +
-                    "own colour; edited nodes carry a gold dot."
+                    "own colour; edited nodes carry a gold dot.",
+                // A little breathing room so the banner's rounded top doesn't touch the divider above.
+                modifier = Modifier.padding(top = 8.dp)
             )
         }
 
@@ -222,6 +240,10 @@ fun SphereGridScreen(
                 state.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 else -> GridCanvas(
                     grid = state.grid,
+                    gridType = state.gridType,
+                    savedViews = savedGridViews,
+                    resetSignal = resetSignal,
+                    onCanResetChange = { canResetView = it },
                     overrides = state.overrides,
                     activated = state.activated,
                     characterColor = state.character.activationColor(),
@@ -235,6 +257,20 @@ fun SphereGridScreen(
                     onDetails = { selectedNodeId = it },
                     modifier = Modifier.fillMaxSize()
                 )
+            }
+            // Reset-view button: only while a grid is shown and its view has been moved off default.
+            if (canResetView && state.gridAvailable && !state.isLoading) {
+                FilledTonalIconButton(
+                    onClick = { resetSignal++ },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.CenterFocusStrong,
+                        contentDescription = "Reset view to fit the whole grid"
+                    )
+                }
             }
         }
     }
@@ -804,6 +840,10 @@ private fun SearchBox(query: String, onQueryChange: (String) -> Unit) {
 @Composable
 private fun GridCanvas(
     grid: GridData,
+    gridType: GridType,
+    savedViews: MutableMap<GridType, GridView>,
+    resetSignal: Int,
+    onCanResetChange: (Boolean) -> Unit,
     overrides: Map<String, NodeContent>,
     activated: Set<String>,
     characterColor: Color,
@@ -848,21 +888,56 @@ private fun GridCanvas(
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
     var minScale by remember { mutableFloatStateOf(0.05f) }
     var maxScale by remember { mutableFloatStateOf(2f) }
-    var fitted by remember { mutableStateOf(false) }
 
-    LaunchedEffect(canvasSize, bounds) {
-        if (fitted || canvasSize.width == 0 || canvasSize.height == 0 || bounds.width == 0f) {
-            return@LaunchedEffect
-        }
+    // The fit-and-centre transform for this grid in the current viewport: the whole grid framed with
+    // a small margin, centred on its bounding box. Null until the canvas has been measured.
+    val fitView: GridView? = if (
+        canvasSize.width == 0 || canvasSize.height == 0 || bounds.width == 0f || bounds.height == 0f
+    ) {
+        null
+    } else {
         val fit = minOf(canvasSize.width / bounds.width, canvasSize.height / bounds.height) * 0.95f
-        scale = fit
-        minScale = fit * 0.7f
-        maxScale = fit * 14f
-        offset = Offset(
-            x = canvasSize.width / 2f - (bounds.minX + bounds.width / 2f) * fit,
-            y = canvasSize.height / 2f - (bounds.minY + bounds.height / 2f) * fit
+        GridView(
+            scale = fit,
+            offset = Offset(
+                x = canvasSize.width / 2f - (bounds.minX + bounds.width / 2f) * fit,
+                y = canvasSize.height / 2f - (bounds.minY + bounds.height / 2f) * fit
+            )
         )
-        fitted = true
+    }
+
+    fun applyView(view: GridView) {
+        scale = view.scale
+        offset = view.offset
+        savedViews[gridType] = view
+    }
+
+    // Each grid keeps its own pan/zoom: restore the view saved for this grid, or fit-and-centre it
+    // the first time it is shown. Runs on first measure and whenever the grid or viewport changes.
+    LaunchedEffect(gridType, canvasSize) {
+        val fit = fitView ?: return@LaunchedEffect
+        minScale = fit.scale * 0.7f
+        maxScale = fit.scale * 14f
+        val saved = savedViews[gridType]
+        if (saved != null) {
+            scale = saved.scale.coerceIn(minScale, maxScale)
+            offset = saved.offset
+        } else {
+            applyView(fit)
+        }
+    }
+
+    // The reset control only appears once the view has been nudged off the default fit.
+    val atDefaultView = fitView == null ||
+        (abs(scale - fitView.scale) <= fitView.scale * 0.001f &&
+            abs(offset.x - fitView.offset.x) <= 0.5f &&
+            abs(offset.y - fitView.offset.y) <= 0.5f)
+    val canReset = fitView != null && !atDefaultView
+    LaunchedEffect(canReset) { onCanResetChange(canReset) }
+
+    // A reset request from the overlay button re-frames the whole grid.
+    LaunchedEffect(resetSignal) {
+        if (resetSignal != 0) fitView?.let { applyView(it) }
     }
 
     Canvas(
@@ -875,10 +950,14 @@ private fun GridCanvas(
                     val newScale = (scale * zoom).coerceIn(minScale, maxScale)
                     val worldX = (centroid.x - offset.x) / scale
                     val worldY = (centroid.y - offset.y) / scale
-                    scale = newScale
-                    offset = Offset(
-                        x = centroid.x - worldX * newScale + pan.x,
-                        y = centroid.y - worldY * newScale + pan.y
+                    applyView(
+                        GridView(
+                            scale = newScale,
+                            offset = Offset(
+                                x = centroid.x - worldX * newScale + pan.x,
+                                y = centroid.y - worldY * newScale + pan.y
+                            )
+                        )
                     )
                 }
             }

@@ -6,16 +6,17 @@ import com.squareup.moshi.Moshi
 const val SPHERE_GRID_ID = "sphere_grid"
 const val SPHERE_GRID_LABEL = "Sphere Grid Planner"
 const val SPHERE_GRID_ASSET = "sphere_grid.json"
+const val EXPERT_SPHERE_GRID_ASSET = "expert_sphere_grid.json"
 
 /**
  * The two grid layouts the planner can show. [asset] is the bundled data file, or null for a grid
  * that hasn't been built yet - selecting it shows an "unavailable" placeholder rather than nodes.
- * Node ids are namespaced per grid (Standard uses "n..."), so a single edit/activation table can
- * hold both without collisions.
+ * Node ids are namespaced per grid via [idPrefix] (Standard uses "n...", Expert uses "x..."), so a
+ * single edit/activation table can hold both without collisions.
  */
-enum class GridType(val label: String, val asset: String?) {
-    STANDARD("Standard", SPHERE_GRID_ASSET),
-    EXPERT("Expert", null);
+enum class GridType(val label: String, val asset: String?, val idPrefix: String) {
+    STANDARD("Standard", SPHERE_GRID_ASSET, "n"),
+    EXPERT("Expert", EXPERT_SPHERE_GRID_ASSET, "x");
 
     val isAvailable: Boolean get() = asset != null
 
@@ -187,24 +188,26 @@ internal data class RawNode(
 internal data class RawAbility(val n: String, val f: String)
 
 /**
- * Turns the bundled Standard Sphere Grid asset into [GridData].
+ * Turns a bundled Sphere Grid asset into [GridData].
  *
  * The asset is the real grid - every node's position, content and connections come from
  * community-reconstructed game data (see the app's About screen for attribution). Connections in the
- * source are mutual, so edges are deduplicated to one line per pair here.
+ * source are mutual, so edges are deduplicated to one line per pair here. [idPrefix] namespaces the
+ * emitted node ids per grid (see [GridType.idPrefix]) so Standard and Expert can share one edit and
+ * activation table without their integer node ids colliding.
  */
 object SphereGridParser {
 
     private const val BOUNDS_MARGIN = 120f
 
-    fun parse(json: String): GridData {
+    fun parse(json: String, idPrefix: String = "n"): GridData {
         val moshi = Moshi.Builder().build()
         val raw = moshi.adapter(RawGrid::class.java).fromJson(json) ?: return GridData.EMPTY
         if (raw.nodes.isEmpty()) return GridData.EMPTY
 
         val nodes = raw.nodes.map { n ->
             SphereGridNode(
-                id = "n${n.id}",
+                id = "$idPrefix${n.id}",
                 x = n.x.toFloat(),
                 y = n.y.toFloat(),
                 original = contentOf(n)
@@ -220,7 +223,7 @@ object SphereGridParser {
                     val a = minOf(n.id, m)
                     val b = maxOf(n.id, m)
                     if (seen.add(a.toLong() * 1_000_000L + b)) {
-                        edges += SphereGridEdge("n$a", "n$b")
+                        edges += SphereGridEdge("$idPrefix$a", "$idPrefix$b")
                     }
                 }
             }

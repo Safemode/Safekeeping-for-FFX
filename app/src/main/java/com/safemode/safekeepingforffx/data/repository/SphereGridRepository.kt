@@ -39,7 +39,7 @@ class SphereGridRepository(
         val asset = type.asset ?: return GridData.EMPTY
         cache[type]?.let { return it }
         return withContext(Dispatchers.IO) {
-            cache.getOrPut(type) { SphereGridParser.parse(readAsset(asset)) }
+            cache.getOrPut(type) { SphereGridParser.parse(readAsset(asset), type.idPrefix) }
         }
     }
 
