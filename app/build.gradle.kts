@@ -16,8 +16,8 @@ android {
         applicationId = "com.safemode.safekeepingforffx"
         minSdk = 24
         targetSdk = 36
-        versionCode = 7
-        versionName = "0.6.8"
+        versionCode = 8
+        versionName = "0.6.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

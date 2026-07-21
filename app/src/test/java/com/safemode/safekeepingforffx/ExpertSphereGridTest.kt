@@ -9,9 +9,9 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The Expert Sphere Grid, adapted from the theroymind/ffx-helper reconstruction. Checks the
- * structural invariants that keep saved edits valid: the full grid is present, ids carry the Expert
- * namespace so they never collide with the Standard grid's, the whole grid is one connected web,
+ * The Expert Sphere Grid, transcribed from the game-extracted data in Grayfox96/FFX-Sphere-Grid-viewer.
+ * Checks the structural invariants that keep saved edits valid: the full grid is present, ids carry the
+ * Expert namespace so they never collide with the Standard grid's, the whole grid is one connected web,
  * every edge joins real nodes, and it shares the same 85-ability editor catalog. It is deliberately
  * smaller than the Standard grid.
  */
@@ -30,10 +30,11 @@ class ExpertSphereGridTest {
 
     @Test
     fun isTheFullExpertGrid() {
-        assertEquals(803, expert.totalNodes)
+        assertEquals(805, expert.totalNodes)
         assertEquals(85, expert.nodes.count { it.original is NodeContent.Ability })
+        // 52 locks: Lv1x10, Lv2x12, Lv3x18, Lv4x12.
         assertEquals(52, expert.nodes.count { it.original is NodeContent.Lock })
-        assertEquals(223, expert.nodes.count { it.original is NodeContent.Empty })
+        assertEquals(225, expert.nodes.count { it.original is NodeContent.Empty })
         // Same 85 abilities the editor offers.
         assertEquals(85, expert.abilities.size)
     }

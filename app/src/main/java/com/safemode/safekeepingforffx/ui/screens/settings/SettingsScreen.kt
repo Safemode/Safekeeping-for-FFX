@@ -230,15 +230,22 @@ private fun AboutSection() {
         onClick = { uriHandler.openUri("$SOURCE_URL/issues") }
     )
     LinkRow(
-        label = "Sphere Grid data",
+        label = "Standard grid data",
         value = "theroymind/ffx-helper",
         onClick = { uriHandler.openUri("https://github.com/theroymind/ffx-helper") }
+    )
+    LinkRow(
+        label = "Expert grid data",
+        value = "Grayfox96/FFX-Sphere-Grid-viewer",
+        onClick = { uriHandler.openUri("https://github.com/Grayfox96/FFX-Sphere-Grid-viewer") }
     )
 
     Text(
         text = "Checklist and reference data is compiled from the official guide and from " +
-            "community references. The Standard and Expert Sphere Grid layouts are adapted from " +
-            "the theroymind/ffx-helper project. Corrections are welcome through the issue tracker.",
+            "community references. The Standard Sphere Grid layout is adapted from the " +
+            "theroymind/ffx-helper project; the Expert Sphere Grid is from the game-extracted data " +
+            "in Grayfox96/FFX-Sphere-Grid-viewer (MIT). Corrections are welcome through the issue " +
+            "tracker.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)
