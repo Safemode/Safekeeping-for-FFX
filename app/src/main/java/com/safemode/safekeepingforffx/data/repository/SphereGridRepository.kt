@@ -139,11 +139,19 @@ class SphereGridRepository(
         character: GridCharacter,
         gridType: GridType
     ): SphereGridBuild {
+        // Edits and activations are keyed by grid-namespaced node id but not otherwise scoped to a
+        // grid, so a character carries a path on each grid at once. Keep only nodes that belong to
+        // this grid, or an Expert route would sweep in the same character's Standard path (and vice
+        // versa) and replay it as phantom "blank" nodes.
+        val gridNodeIds = grid(gridType).nodes.mapTo(HashSet()) { it.id }
+
         // Edits are grid-wide, so a node has at most one; keep them in seq order for a stable lead.
         val editByNode = LinkedHashMap<String, RouteEvent.Edit>()
         if (scope.includesEdits) {
             nodeDao.snapshot().forEach { row ->
-                NodeContent.decode(row.content)?.let { editByNode[row.nodeId] = RouteEvent.Edit(row.nodeId, it) }
+                if (row.nodeId in gridNodeIds) {
+                    NodeContent.decode(row.content)?.let { editByNode[row.nodeId] = RouteEvent.Edit(row.nodeId, it) }
+                }
             }
         }
 
@@ -151,7 +159,7 @@ class SphereGridRepository(
             !scope.includesAnyPath -> emptyList()
             scope.includesAllPaths -> activationDao.snapshot()
             else -> activationDao.snapshot().filter { it.character == character.name }
-        }
+        }.filter { it.nodeId in gridNodeIds }
         val activatedNodeIds = activationRows.mapTo(HashSet()) { it.nodeId }
 
         val events = ArrayList<RouteEvent>()
@@ -280,9 +288,17 @@ class SphereGridRepository(
     /** The route's shareable code, for the library's Share action. */
     suspend fun routeCode(id: Long): String? = routeDao.get(id)?.payload
 
-    /** The decoded route for replay, or null if the row is missing or its payload is unreadable. */
-    suspend fun routeBuild(id: Long): SphereGridBuild? =
-        routeDao.get(id)?.let { SphereGridBuildCodec.decode(it.payload).getOrNull() }
+    /**
+     * The decoded route for replay, or null if the row is missing or its payload is unreadable. Events
+     * are pruned to nodes that exist on the route's grid, so a route saved before the grid-scoping fix
+     * - which may carry the same character's path from the other grid - replays clean without editing.
+     */
+    suspend fun routeBuild(id: Long): SphereGridBuild? {
+        val build = routeDao.get(id)?.let { SphereGridBuildCodec.decode(it.payload).getOrNull() }
+            ?: return null
+        val gridNodeIds = grid(build.gridType).nodes.mapTo(HashSet()) { it.id }
+        return build.copy(events = build.events.filter { it.nodeId in gridNodeIds })
+    }
 
     private fun SphereGridRouteEntity.toSummary(): SavedRoute? {
         val build = SphereGridBuildCodec.decode(payload).getOrNull() ?: return null
