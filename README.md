@@ -31,7 +31,7 @@ The information inside the app comes from various online sources and community r
 - List of Items
 - Monster Arena tracking, along with their associated Gil cost, Common/Rare Steals, Win Items, Bribe Amount, and the item from that Bribe (if available)
 - Mix Overdrive Calculator, with a reverse search to see what items would be needed for a given result
-- Sphere Grid Planner - a pan/zoom view of the full Standard Sphere Grid (all 860 nodes). Tap a node to see its content, edit it (Clear Sphere customization), or activate it. Node edits are shared like the real grid, while each of the 7 characters tracks their own activated path. Includes a grid-type selector (Expert grid planned)
+- Sphere Grid Planner - a pan/zoom view of the full Standard (860 nodes) and Expert (805 nodes) Sphere Grids, switchable via the grid-type selector. Tap a node to see its content, edit it (Clear Sphere customization), or activate it. Node edits are shared like the real grid, while each of the 7 characters tracks their own activated path. Each grid remembers its own pan/zoom position, with a button to reset the view.
 
 ### Screenshots
 
@@ -61,6 +61,8 @@ The information inside the app comes from various online sources and community r
 ### Credits
 
 - Standard Sphere Grid layout data adapted from the [theroymind/ffx-helper](https://github.com/theroymind/ffx-helper) project.
+- Expert Sphere Grid data, and corrections to the Standard grid, from the game-extracted data in [Grayfox96/FFX-Sphere-Grid-viewer](https://github.com/Grayfox96/FFX-Sphere-Grid-viewer) (MIT).
+- Full third-party license notices are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ### To-Do
 1. Add screenshots where possible to help locate items/people
