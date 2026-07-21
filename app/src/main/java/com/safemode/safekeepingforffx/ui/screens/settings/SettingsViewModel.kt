@@ -11,6 +11,7 @@ import com.safemode.safekeepingforffx.data.reference.ThemePreference
 import com.safemode.safekeepingforffx.data.repository.ChecklistRepository
 import com.safemode.safekeepingforffx.data.repository.MonsterArenaRepository
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
+import com.safemode.safekeepingforffx.data.repository.SphereGridRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,7 +21,8 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     private val checklistRepository: ChecklistRepository,
-    private val monsterArenaRepository: MonsterArenaRepository
+    private val monsterArenaRepository: MonsterArenaRepository,
+    private val sphereGridRepository: SphereGridRepository
 ) : ViewModel() {
 
     val gameVersion = settingsRepository.gameVersion.stateIn(
@@ -50,6 +52,12 @@ class SettingsViewModel(
         initialValue = true
     )
 
+    val sphereGridTapActivates = settingsRepository.sphereGridTapActivates.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = false
+    )
+
     fun setTheme(preference: ThemePreference) {
         viewModelScope.launch { settingsRepository.setTheme(preference) }
     }
@@ -58,13 +66,18 @@ class SettingsViewModel(
         viewModelScope.launch { settingsRepository.setShowHelp(show) }
     }
 
+    fun setSphereGridTapActivates(value: Boolean) {
+        viewModelScope.launch { settingsRepository.setSphereGridTapActivates(value) }
+    }
+
     /** Caller is responsible for confirming with the user first - this cannot be undone. */
     fun resetProgress() {
         viewModelScope.launch {
             checklistRepository.clearAllProgress()
-            // Monster Arena counts live in their own table, so clearing the checklists alone would
-            // leave them behind and "reset everything" would be a lie.
+            // Monster Arena counts and the sphere grid live in their own tables, so clearing the
+            // checklists alone would leave them behind and "reset everything" would be a lie.
             monsterArenaRepository.clearAll()
+            sphereGridRepository.clearAll()
             _resetConfirmed.value = true
         }
     }
@@ -81,7 +94,8 @@ class SettingsViewModel(
                 SettingsViewModel(
                     app.container.settingsRepository,
                     app.container.checklistRepository,
-                    app.container.monsterArenaRepository
+                    app.container.monsterArenaRepository,
+                    app.container.sphereGridRepository
                 )
             }
         }

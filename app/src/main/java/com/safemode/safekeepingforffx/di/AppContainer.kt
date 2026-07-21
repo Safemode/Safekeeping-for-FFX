@@ -8,6 +8,7 @@ import com.safemode.safekeepingforffx.data.repository.ItemListRepository
 import com.safemode.safekeepingforffx.data.repository.MixRepository
 import com.safemode.safekeepingforffx.data.repository.MonsterArenaRepository
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
+import com.safemode.safekeepingforffx.data.repository.SphereGridRepository
 
 private val Context.settingsDataStore by preferencesDataStore(name = "settings")
 
@@ -28,5 +29,13 @@ class AppContainer(context: Context) {
 
     val monsterArenaRepository by lazy {
         MonsterArenaRepository(appContext.assets, database.monsterCaptureDao())
+    }
+
+    val sphereGridRepository by lazy {
+        SphereGridRepository(
+            appContext.assets,
+            database.sphereGridNodeDao(),
+            database.sphereGridActivationDao()
+        )
     }
 }

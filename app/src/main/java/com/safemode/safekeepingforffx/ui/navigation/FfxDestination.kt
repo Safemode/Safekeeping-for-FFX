@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.Whatshot
@@ -25,6 +26,8 @@ import com.safemode.safekeepingforffx.data.reference.MONSTER_ARENA_ID
 import com.safemode.safekeepingforffx.data.reference.MONSTER_ARENA_LABEL
 import com.safemode.safekeepingforffx.data.reference.JechtSpheres
 import com.safemode.safekeepingforffx.data.reference.RonsoRages
+import com.safemode.safekeepingforffx.data.reference.SPHERE_GRID_ID
+import com.safemode.safekeepingforffx.data.reference.SPHERE_GRID_LABEL
 
 /**
  * Everything the drawer needs to know about a screen.
@@ -62,6 +65,13 @@ sealed class FfxDestination(
     data object MonsterArena :
         FfxDestination(MONSTER_ARENA_ID, MONSTER_ARENA_LABEL, Icons.Filled.Pets)
 
+    /**
+     * A spatial planner rather than a list: its own pan/zoom screen and its own table, so like
+     * [MonsterArena] it isn't a [Checklist].
+     */
+    data object SphereGrid :
+        FfxDestination(SPHERE_GRID_ID, SPHERE_GRID_LABEL, Icons.Filled.Hub)
+
     class Checklist(
         val category: ChecklistCategory,
         icon: ImageVector
@@ -80,6 +90,7 @@ val drawerDestinations: List<FfxDestination> = listOf(
     FfxDestination.Checklist(EquipmentAbilities.category, Icons.Filled.Build),
     FfxDestination.ItemList,
     FfxDestination.MonsterArena,
+    FfxDestination.SphereGrid,
     FfxDestination.MixCalculator
 )
 

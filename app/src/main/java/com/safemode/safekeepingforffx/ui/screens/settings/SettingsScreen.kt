@@ -58,6 +58,7 @@ fun SettingsScreen(
     val resetConfirmed by viewModel.resetConfirmed.collectAsStateWithLifecycle()
     var showResetDialog by remember { mutableStateOf(false) }
     val showHelp by viewModel.showHelp.collectAsStateWithLifecycle()
+    val tapActivates by viewModel.sphereGridTapActivates.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -76,6 +77,16 @@ fun SettingsScreen(
                 "becomes missable or how a list works.",
             checked = showHelp,
             onCheckedChange = viewModel::setShowHelp
+        )
+        HorizontalDivider()
+
+        SwitchRow(
+            label = "Sphere Grid: tap to activate",
+            description = "On the Sphere Grid Planner, a tap activates a node for the selected " +
+                "character and a long-press opens its details and editor. When off, a tap opens " +
+                "the details instead.",
+            checked = tapActivates,
+            onCheckedChange = viewModel::setSphereGridTapActivates
         )
         HorizontalDivider()
 
@@ -218,10 +229,16 @@ private fun AboutSection() {
         value = "Open a GitHub issue",
         onClick = { uriHandler.openUri("$SOURCE_URL/issues") }
     )
+    LinkRow(
+        label = "Sphere Grid data",
+        value = "theroymind/ffx-helper",
+        onClick = { uriHandler.openUri("https://github.com/theroymind/ffx-helper") }
+    )
 
     Text(
         text = "Checklist and reference data is compiled from the official guide and from " +
-            "community references. Corrections are welcome through the issue tracker.",
+            "community references. The Standard Sphere Grid layout is adapted from the " +
+            "theroymind/ffx-helper project. Corrections are welcome through the issue tracker.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)

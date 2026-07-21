@@ -8,8 +8,13 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [ChecklistProgressEntity::class, MonsterCaptureEntity::class],
-    version = 2,
+    entities = [
+        ChecklistProgressEntity::class,
+        MonsterCaptureEntity::class,
+        SphereGridNodeEntity::class,
+        SphereGridActivationEntity::class
+    ],
+    version = 5,
     exportSchema = false
 )
 abstract class FfxDatabase : RoomDatabase() {
@@ -17,6 +22,10 @@ abstract class FfxDatabase : RoomDatabase() {
     abstract fun checklistProgressDao(): ChecklistProgressDao
 
     abstract fun monsterCaptureDao(): MonsterCaptureDao
+
+    abstract fun sphereGridNodeDao(): SphereGridNodeDao
+
+    abstract fun sphereGridActivationDao(): SphereGridActivationDao
 
     companion object {
         /**
@@ -37,6 +46,55 @@ abstract class FfxDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds the Sphere Grid Planner's node table. Additive, same as [MIGRATION_1_2]: existing
+         * checklist and capture data is untouched, so an update never costs the player progress.
+         */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sphere_grid_node` (" +
+                        "`nodeId` TEXT NOT NULL, " +
+                        "`activatedAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`nodeId`))"
+                )
+            }
+        }
+
+        /**
+         * The Sphere Grid Planner moved from tracking a boolean "activated" flag per node to storing
+         * the player's content edits. The old column has no meaning under the new model, so the
+         * table is rebuilt with the new schema. This only ever discards the previous grid feature's
+         * data - which never shipped in a release - and leaves the checklist and capture tables
+         * untouched.
+         */
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS `sphere_grid_node`")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sphere_grid_node` (" +
+                        "`nodeId` TEXT NOT NULL, " +
+                        "`content` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`nodeId`))"
+                )
+            }
+        }
+
+        /**
+         * Adds per-character path tracking for the Sphere Grid Planner. Additive: the shared node
+         * edits table is untouched, so existing customizations survive the update.
+         */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sphere_grid_activation` (" +
+                        "`character` TEXT NOT NULL, " +
+                        "`nodeId` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`character`, `nodeId`))"
+                )
+            }
+        }
+
         @Volatile
         private var instance: FfxDatabase? = null
 
@@ -46,7 +104,8 @@ abstract class FfxDatabase : RoomDatabase() {
                     context.applicationContext,
                     FfxDatabase::class.java,
                     "ffx_tracker.db"
-                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .build().also { instance = it }
             }
     }
 }

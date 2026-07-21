@@ -37,12 +37,25 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         preferences[SHOW_HELP] ?: true
     }
 
+    /**
+     * How a tap behaves on the Sphere Grid. Defaults to false - a tap opens the node's details -
+     * which is the more discoverable behaviour. When true, a tap activates the node for the current
+     * character and a long-press opens details, which is faster for building a path.
+     */
+    val sphereGridTapActivates: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[SPHERE_GRID_TAP_ACTIVATES] ?: false
+    }
+
     suspend fun setGameVersion(version: GameVersion) {
         dataStore.edit { it[GAME_VERSION] = version.name }
     }
 
     suspend fun setShowHelp(show: Boolean) {
         dataStore.edit { it[SHOW_HELP] = show }
+    }
+
+    suspend fun setSphereGridTapActivates(value: Boolean) {
+        dataStore.edit { it[SPHERE_GRID_TAP_ACTIVATES] = value }
     }
 
     suspend fun setTheme(theme: ThemePreference) {
@@ -53,5 +66,6 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val GAME_VERSION = stringPreferencesKey("game_version")
         val THEME = stringPreferencesKey("theme")
         val SHOW_HELP = booleanPreferencesKey("show_help")
+        val SPHERE_GRID_TAP_ACTIVATES = booleanPreferencesKey("sphere_grid_tap_activates")
     }
 }

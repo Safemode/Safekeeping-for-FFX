@@ -31,6 +31,7 @@ The information inside the app comes from various online sources and community r
 - List of Items
 - Monster Arena tracking, along with their associated Gil cost, Common/Rare Steals, Win Items, Bribe Amount, and the item from that Bribe (if available)
 - Mix Overdrive Calculator, with a reverse search to see what items would be needed for a given result
+- Sphere Grid Planner - a pan/zoom view of the full Standard Sphere Grid (all 860 nodes). Tap a node to see its content, edit it (Clear Sphere customization), or activate it. Node edits are shared like the real grid, while each of the 7 characters tracks their own activated path. Includes a grid-type selector (Expert grid planned)
 
 ### Screenshots
 
@@ -57,9 +58,12 @@ The information inside the app comes from various online sources and community r
 - Progress Reset button
 
 
+### Credits
+
+- Standard Sphere Grid layout data adapted from the [theroymind/ffx-helper](https://github.com/theroymind/ffx-helper) project.
+
 ### To-Do
 1. Add screenshots where possible to help locate items/people
 2. Add detailed fiend locations for Monster Arena
 3. Probably make an actual icon instead of using the default from Android Studio
-4. Sphere Grid planner
 

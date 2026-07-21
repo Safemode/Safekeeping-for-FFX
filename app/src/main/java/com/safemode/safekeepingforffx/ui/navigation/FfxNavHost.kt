@@ -13,6 +13,7 @@ import com.safemode.safekeepingforffx.ui.screens.itemlist.ItemListScreen
 import com.safemode.safekeepingforffx.ui.screens.mix.MixCalculatorScreen
 import com.safemode.safekeepingforffx.ui.screens.monsterarena.MonsterArenaScreen
 import com.safemode.safekeepingforffx.ui.screens.settings.SettingsScreen
+import com.safemode.safekeepingforffx.ui.screens.spheregrid.SphereGridScreen
 
 private val checklistDestinations = allDestinations.filterIsInstance<FfxDestination.Checklist>()
 
@@ -85,6 +86,8 @@ fun FfxNavHost(
         composable(FfxDestination.Settings.route) { SettingsScreen() }
 
         composable(FfxDestination.MixCalculator.route) { MixCalculatorScreen() }
+
+        composable(FfxDestination.SphereGrid.route) { SphereGridScreen() }
 
         composable(FfxDestination.MonsterArena.route) {
             MonsterArenaScreen(
