@@ -11,9 +11,13 @@ interface SphereGridNodeDao {
     @Query("SELECT * FROM sphere_grid_node")
     fun observeAll(): Flow<List<SphereGridNodeEntity>>
 
-    /** One-shot read of every edited node, for exporting a build. */
-    @Query("SELECT * FROM sphere_grid_node")
+    /** Every edited node in the order it was edited, for exporting an ordered route. */
+    @Query("SELECT * FROM sphere_grid_node ORDER BY seq")
     suspend fun snapshot(): List<SphereGridNodeEntity>
+
+    /** Highest edit seq, or null if none. Paired with the activation table's max for the next seq. */
+    @Query("SELECT MAX(seq) FROM sphere_grid_node")
+    suspend fun maxSeq(): Long?
 
     @Upsert
     suspend fun upsert(entity: SphereGridNodeEntity)

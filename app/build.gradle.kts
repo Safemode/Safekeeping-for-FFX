@@ -16,8 +16,8 @@ android {
         applicationId = "com.safemode.safekeepingforffx"
         minSdk = 24
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.6.9"
+        versionCode = 9
+        versionName = "0.7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -41,6 +41,10 @@ android {
         // reads the version straight from defaultConfig above instead of a hardcoded string.
         buildConfig = true
     }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 androidComponents {

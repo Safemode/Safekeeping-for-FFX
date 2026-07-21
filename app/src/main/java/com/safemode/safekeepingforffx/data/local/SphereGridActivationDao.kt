@@ -11,9 +11,13 @@ interface SphereGridActivationDao {
     @Query("SELECT nodeId FROM sphere_grid_activation WHERE character = :character")
     fun observeForCharacter(character: String): Flow<List<String>>
 
-    /** One-shot read of every character's activations, for exporting a build. */
-    @Query("SELECT * FROM sphere_grid_activation")
+    /** Every character's activations in the order they happened, for exporting an ordered route. */
+    @Query("SELECT * FROM sphere_grid_activation ORDER BY seq")
     suspend fun snapshot(): List<SphereGridActivationEntity>
+
+    /** Highest activation seq, or null if none. Paired with the edit table's max for the next seq. */
+    @Query("SELECT MAX(seq) FROM sphere_grid_activation")
+    suspend fun maxSeq(): Long?
 
     @Upsert
     suspend fun upsert(entity: SphereGridActivationEntity)

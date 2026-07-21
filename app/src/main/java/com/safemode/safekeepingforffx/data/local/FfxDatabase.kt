@@ -12,10 +12,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ChecklistProgressEntity::class,
         MonsterCaptureEntity::class,
         SphereGridNodeEntity::class,
-        SphereGridActivationEntity::class
+        SphereGridActivationEntity::class,
+        SphereGridRouteEntity::class
     ],
-    version = 5,
-    exportSchema = false
+    version = 6,
+    exportSchema = true
 )
 abstract class FfxDatabase : RoomDatabase() {
 
@@ -26,6 +27,8 @@ abstract class FfxDatabase : RoomDatabase() {
     abstract fun sphereGridNodeDao(): SphereGridNodeDao
 
     abstract fun sphereGridActivationDao(): SphereGridActivationDao
+
+    abstract fun sphereGridRouteDao(): SphereGridRouteDao
 
     companion object {
         /**
@@ -95,6 +98,31 @@ abstract class FfxDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds Sphere Grid Routes: a `seq` ordering column on the activation and edit tables (so a
+         * route can replay in the order it was walked) and the saved-routes library table. Additive:
+         * existing activations and edits keep their data and default to `seq = 0` ("order unknown"),
+         * so nobody loses progress on update.
+         */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `sphere_grid_activation` ADD COLUMN `seq` INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL(
+                    "ALTER TABLE `sphere_grid_node` ADD COLUMN `seq` INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `sphere_grid_route` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`gridType` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "`payload` TEXT NOT NULL)"
+                )
+            }
+        }
+
         @Volatile
         private var instance: FfxDatabase? = null
 
@@ -104,8 +132,9 @@ abstract class FfxDatabase : RoomDatabase() {
                     context.applicationContext,
                     FfxDatabase::class.java,
                     "ffx_tracker.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
-                    .build().also { instance = it }
+                ).addMigrations(
+                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6
+                ).build().also { instance = it }
             }
     }
 }
