@@ -1,7 +1,24 @@
 package com.safemode.safekeepingforffx.ui.screens.spheregrid
 
 import androidx.compose.ui.graphics.Color
+import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.NodeType
+
+/**
+ * Each character's in-game Sphere Grid colour, used to tint their activated nodes and the links
+ * between them so several paths stay tellable apart. Values are lifted toward the light end of each
+ * hue so they read on the dark grid backing - Kimahri's canonical dark blue in particular is brought
+ * up to a mid blue, since a true navy vanishes against the near-black background.
+ */
+fun GridCharacter.activationColor(): Color = when (this) {
+    GridCharacter.TIDUS -> Color(0xFF2FE1E1)   // aqua
+    GridCharacter.YUNA -> Color(0xFFF2F2F2)    // white
+    GridCharacter.AURON -> Color(0xFFFF5B52)   // red
+    GridCharacter.KIMAHRI -> Color(0xFF5C8DEF) // dark blue (brightened for contrast)
+    GridCharacter.WAKKA -> Color(0xFFFFDD3C)   // yellow
+    GridCharacter.LULU -> Color(0xFFB57BFF)    // purple
+    GridCharacter.RIKKU -> Color(0xFF57E389)   // green
+}
 
 /**
  * Placeholder colours for each node type, chosen to echo the legend on the reference image without

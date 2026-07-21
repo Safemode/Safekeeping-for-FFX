@@ -102,9 +102,6 @@ private val LabelColor = Color(0xFFEBEBF2)
 /** Gold ring: this node's content was edited away from vanilla (a shared, grid-wide change). */
 private val EditedAccent = Color(0xFFFFD54F)
 
-/** Mint ring: the selected character has activated this node (their own path). */
-private val ActivatedAccent = Color(0xFF69F0AE)
-
 private data class ConfirmAction(
     val title: String,
     val message: String,
@@ -209,7 +206,8 @@ fun SphereGridScreen(
             Banner(
                 icon = Icons.Outlined.Info,
                 text = "Node edits are shared across everyone; each character tracks their own path. " +
-                    "$tapHint Activated nodes are outlined in mint; edited nodes carry a gold dot."
+                    "$tapHint Activated nodes and the links between them are drawn in the character's " +
+                    "own colour; edited nodes carry a gold dot."
             )
         }
 
@@ -226,6 +224,7 @@ fun SphereGridScreen(
                     grid = state.grid,
                     overrides = state.overrides,
                     activated = state.activated,
+                    characterColor = state.character.activationColor(),
                     selectedId = selectedNodeId,
                     tapActivates = state.tapActivates,
                     glyphCache = glyphCache,
@@ -532,7 +531,8 @@ private fun CharacterRow(selected: GridCharacter, onSelect: (GridCharacter) -> U
             FilterChip(
                 selected = character == selected,
                 onClick = { onSelect(character) },
-                label = { Text(character.displayName) }
+                label = { Text(character.displayName) },
+                leadingIcon = { ColorDot(character.activationColor()) }
             )
         }
     }
@@ -786,6 +786,7 @@ private fun GridCanvas(
     grid: GridData,
     overrides: Map<String, NodeContent>,
     activated: Set<String>,
+    characterColor: Color,
     selectedId: String?,
     tapActivates: Boolean,
     glyphCache: Map<String, TextLayoutResult>,
@@ -803,7 +804,7 @@ private fun GridCanvas(
         grid.edges.mapNotNull { e ->
             val a = byId[e.fromId]
             val b = byId[e.toId]
-            if (a != null && b != null) EdgeSegment(a.x, a.y, b.x, b.y) else null
+            if (a != null && b != null) EdgeSegment(a.id, b.id, a.x, a.y, b.x, b.y) else null
         }
     }
     // Which side each node's label sits on, decided once from its connections so it points into the
@@ -888,14 +889,30 @@ private fun GridCanvas(
     ) {
         val edgeColor = Color.White.copy(alpha = 0.22f)
         val edgeWidth = (1.4f * scale).coerceIn(0.6f, 3f)
+        // A link both of whose ends the character has taken is part of their path; drawn thicker and
+        // in their own colour so a route reads as a connected chain rather than scattered rings.
+        val linkWidth = (2.6f * scale).coerceIn(1.2f, 5f)
 
+        // Base pass: every link except the ones that are fully on the path (those go on top, below).
         edges.forEach { seg ->
+            if (seg.fromId in activated && seg.toId in activated) return@forEach
             val ax = seg.ax * scale + offset.x
             val ay = seg.ay * scale + offset.y
             val bx = seg.bx * scale + offset.x
             val by = seg.by * scale + offset.y
             if (!segmentVisible(ax, ay, bx, by, size.width, size.height)) return@forEach
             drawLine(edgeColor, Offset(ax, ay), Offset(bx, by), strokeWidth = edgeWidth)
+        }
+
+        // Highlight pass: activated links on top so crossings never bury the path.
+        edges.forEach { seg ->
+            if (seg.fromId !in activated || seg.toId !in activated) return@forEach
+            val ax = seg.ax * scale + offset.x
+            val ay = seg.ay * scale + offset.y
+            val bx = seg.bx * scale + offset.x
+            val by = seg.by * scale + offset.y
+            if (!segmentVisible(ax, ay, bx, by, size.width, size.height)) return@forEach
+            drawLine(characterColor, Offset(ax, ay), Offset(bx, by), strokeWidth = linkWidth)
         }
 
         nodes.forEach { node ->
@@ -916,11 +933,12 @@ private fun GridCanvas(
             val isActivated = activated.contains(node.id)
 
             drawCircle(color = color, radius = r, center = center)
-            // The rim marks activation - mint when the selected character has taken this node, a
-            // plain dark edge otherwise. Because it rides the node's own outline it never reaches a
-            // neighbouring node, so a whole activated path stays readable instead of a mass of rings.
+            // The rim marks activation - the selected character's own colour when they have taken this
+            // node, a plain dark edge otherwise. Because it rides the node's own outline it never
+            // reaches a neighbouring node, so a whole activated path stays readable instead of a mass
+            // of rings.
             drawCircle(
-                color = if (isActivated) ActivatedAccent else Color.Black.copy(alpha = 0.3f),
+                color = if (isActivated) characterColor else Color.Black.copy(alpha = 0.3f),
                 radius = r,
                 center = center,
                 style = Stroke(
@@ -1013,7 +1031,14 @@ private fun labelPlacementFor(node: SphereGridNode, neighbours: List<SphereGridN
     }
 }
 
-private data class EdgeSegment(val ax: Float, val ay: Float, val bx: Float, val by: Float)
+private data class EdgeSegment(
+    val fromId: String,
+    val toId: String,
+    val ax: Float,
+    val ay: Float,
+    val bx: Float,
+    val by: Float
+)
 
 private fun segmentVisible(ax: Float, ay: Float, bx: Float, by: Float, w: Float, h: Float): Boolean {
     if (ax < 0f && bx < 0f) return false
