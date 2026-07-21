@@ -1,5 +1,7 @@
 package com.safemode.safekeepingforffx.ui.screens.spheregrid
 
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -63,6 +65,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -73,12 +78,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.safemode.safekeepingforffx.data.reference.BuildScope
 import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.GridData
 import com.safemode.safekeepingforffx.data.reference.GridType
 import com.safemode.safekeepingforffx.data.reference.NodeContent
 import com.safemode.safekeepingforffx.data.reference.NodeType
 import com.safemode.safekeepingforffx.data.reference.SphereGridNode
+import com.safemode.safekeepingforffx.data.repository.SphereGridRepository
 import com.safemode.safekeepingforffx.ui.components.Banner
 import kotlin.math.abs
 import kotlin.math.hypot
@@ -115,6 +122,36 @@ fun SphereGridScreen(
     var selectedNodeId by rememberSaveable { mutableStateOf<String?>(null) }
     var editingNodeId by rememberSaveable { mutableStateOf<String?>(null) }
     var confirm by remember { mutableStateOf<ConfirmAction?>(null) }
+    var showShareDialog by remember { mutableStateOf(false) }
+    var showImportDialog by rememberSaveable { mutableStateOf(false) }
+
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is SphereGridEvent.ExportReady -> {
+                    clipboard.setText(AnnotatedString(event.code))
+                    context.startActivity(
+                        Intent.createChooser(
+                            Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, event.code)
+                            },
+                            "Share build code"
+                        )
+                    )
+                    Toast.makeText(context, "Build code copied to clipboard", Toast.LENGTH_SHORT).show()
+                }
+                is SphereGridEvent.ImportDone -> {
+                    showImportDialog = false
+                    Toast.makeText(context, event.summary.message(), Toast.LENGTH_LONG).show()
+                }
+                is SphereGridEvent.ImportFailed ->
+                    Toast.makeText(context, event.reason, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     val nodesById = remember(state.grid) { state.grid.nodes.associateBy { it.id } }
 
@@ -153,7 +190,10 @@ fun SphereGridScreen(
                     confirmLabel = "Clear path",
                     onConfirm = viewModel::clearCharacterPath
                 )
-            }
+            },
+            canShare = state.hasAnythingToShare,
+            onShareBuild = { showShareDialog = true },
+            onImportBuild = { showImportDialog = true }
         )
         CharacterRow(selected = state.character, onSelect = viewModel::setCharacter)
         HorizontalDivider()
@@ -244,6 +284,24 @@ fun SphereGridScreen(
         }
     }
 
+    if (showShareDialog) {
+        ShareScopeDialog(
+            characterName = state.character.displayName,
+            onDismiss = { showShareDialog = false },
+            onPick = { scope ->
+                showShareDialog = false
+                viewModel.exportBuild(scope)
+            }
+        )
+    }
+
+    if (showImportDialog) {
+        ImportBuildDialog(
+            onDismiss = { showImportDialog = false },
+            onImport = viewModel::importBuild
+        )
+    }
+
     confirm?.let { action ->
         AlertDialog(
             onDismissRequest = { confirm = null },
@@ -275,7 +333,10 @@ private fun SelectorBar(
     characterHasPath: Boolean,
     characterName: String,
     onRevertEdits: () -> Unit,
-    onClearPath: () -> Unit
+    onClearPath: () -> Unit,
+    canShare: Boolean,
+    onShareBuild: () -> Unit,
+    onImportBuild: () -> Unit
 ) {
     var gridMenu by remember { mutableStateOf(false) }
     var overflow by remember { mutableStateOf(false) }
@@ -314,6 +375,22 @@ private fun SelectorBar(
             }
             DropdownMenu(expanded = overflow, onDismissRequest = { overflow = false }) {
                 DropdownMenuItem(
+                    text = { Text("Share build") },
+                    enabled = canShare,
+                    onClick = {
+                        overflow = false
+                        onShareBuild()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Import build") },
+                    onClick = {
+                        overflow = false
+                        onImportBuild()
+                    }
+                )
+                HorizontalDivider()
+                DropdownMenuItem(
                     text = { Text("Revert all edits") },
                     enabled = hasEdits,
                     onClick = {
@@ -332,6 +409,112 @@ private fun SelectorBar(
             }
         }
     }
+}
+
+/** Lets the player choose how much of their work a shared build code should carry. */
+@Composable
+private fun ShareScopeDialog(
+    characterName: String,
+    onDismiss: () -> Unit,
+    onPick: (BuildScope) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Share build") },
+        text = {
+            Column {
+                Text(
+                    "A build code copies to your clipboard and opens the share sheet. Choose what to " +
+                        "include:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.size(8.dp))
+                BuildScope.entries.forEach { scope ->
+                    Text(
+                        text = scope.shareLabel(characterName),
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(scope) }
+                            .padding(vertical = 14.dp)
+                    )
+                    HorizontalDivider()
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+/** Pastes a build code and imports it, warning first that it replaces the current edits/paths. */
+@Composable
+private fun ImportBuildDialog(
+    onDismiss: () -> Unit,
+    onImport: (String) -> Unit
+) {
+    var code by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Import build") },
+        text = {
+            Column {
+                Text(
+                    "Paste a build code below. Importing replaces the grid edits and any character " +
+                        "paths the code includes - this can't be undone.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.size(12.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Build code") },
+                    minLines = 3,
+                    maxLines = 6
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = code.isNotBlank(),
+                onClick = { onImport(code.trim()) }
+            ) {
+                Text("Import")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+/** The scope label with the current character's name filled in, for the share dialog. */
+private fun BuildScope.shareLabel(characterName: String): String = when (this) {
+    BuildScope.EDITS_AND_CURRENT -> "Edits + $characterName's path"
+    BuildScope.EDITS_AND_ALL -> "Edits + all characters' paths"
+    BuildScope.CURRENT_PATH -> "$characterName's path only"
+    BuildScope.EDITS_ONLY -> "Grid edits only"
+}
+
+/** A short, human summary of what an import applied, for the confirmation toast. */
+private fun SphereGridRepository.ImportSummary.message(): String {
+    val parts = buildList {
+        editCount?.let { add(if (it == 1) "1 grid edit" else "$it grid edits") }
+        pathCounts?.let { counts ->
+            val named = counts.entries.filter { it.value > 0 }
+            when {
+                named.isEmpty() -> add("no character paths")
+                named.size == 1 -> add("${named.first().key.displayName}'s path")
+                else -> add("${named.size} character paths")
+            }
+        }
+    }
+    return if (parts.isEmpty()) "Nothing to import." else "Imported ${parts.joinToString(" and ")}."
 }
 
 /** A scrollable row of the seven characters; the selected one owns the path shown on the grid. */

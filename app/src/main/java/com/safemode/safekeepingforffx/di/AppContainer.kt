@@ -34,6 +34,7 @@ class AppContainer(context: Context) {
     val sphereGridRepository by lazy {
         SphereGridRepository(
             appContext.assets,
+            database,
             database.sphereGridNodeDao(),
             database.sphereGridActivationDao()
         )

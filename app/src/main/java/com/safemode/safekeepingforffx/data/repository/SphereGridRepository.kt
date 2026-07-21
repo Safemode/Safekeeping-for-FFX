@@ -1,14 +1,19 @@
 package com.safemode.safekeepingforffx.data.repository
 
 import android.content.res.AssetManager
+import androidx.room.withTransaction
+import com.safemode.safekeepingforffx.data.local.FfxDatabase
 import com.safemode.safekeepingforffx.data.local.SphereGridActivationDao
 import com.safemode.safekeepingforffx.data.local.SphereGridActivationEntity
 import com.safemode.safekeepingforffx.data.local.SphereGridNodeDao
 import com.safemode.safekeepingforffx.data.local.SphereGridNodeEntity
+import com.safemode.safekeepingforffx.data.reference.BuildScope
 import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.GridData
 import com.safemode.safekeepingforffx.data.reference.GridType
 import com.safemode.safekeepingforffx.data.reference.NodeContent
+import com.safemode.safekeepingforffx.data.reference.SphereGridBuild
+import com.safemode.safekeepingforffx.data.reference.SphereGridBuildCodec
 import com.safemode.safekeepingforffx.data.reference.SphereGridParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -23,6 +28,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class SphereGridRepository(
     private val assets: AssetManager,
+    private val database: FfxDatabase,
     private val nodeDao: SphereGridNodeDao,
     private val activationDao: SphereGridActivationDao
 ) {
@@ -77,6 +83,83 @@ class SphereGridRepository(
         activationDao.clearAll()
     }
 
+    // --- Sharing: export/import a build as a copy/paste code ---
+
+    /**
+     * Builds a shareable code for the player's current work, carrying only the pieces [scope] asks
+     * for: the shared content edits, and either the current [character]'s path or everyone's. The
+     * grid shape itself is never exported - the recipient reconstructs it from the same bundled asset.
+     */
+    suspend fun exportBuild(scope: BuildScope, character: GridCharacter, gridType: GridType): String {
+        val edits = if (scope.includesEdits) {
+            nodeDao.snapshot().mapNotNull { row ->
+                NodeContent.decode(row.content)?.let { row.nodeId to it }
+            }.toMap()
+        } else {
+            null
+        }
+
+        val paths = when {
+            !scope.includesAnyPath -> null
+            scope.includesAllPaths -> activationDao.snapshot()
+                .groupBy(
+                    keySelector = { GridCharacter.entries.firstOrNull { c -> c.name == it.character } },
+                    valueTransform = { it.nodeId }
+                )
+                .mapNotNull { (c, ids) -> c?.let { it to ids.toSet() } }
+                .toMap()
+            else -> mapOf(character to observeCharacterSnapshot(character))
+        }
+
+        return SphereGridBuildCodec.encode(SphereGridBuild(gridType, edits, paths))
+    }
+
+    /**
+     * Applies a build code, replacing (not merging) whichever sections it carries so the recipient's
+     * grid and paths end up identical to the sharer's. Node ids not present on [gridType]'s grid are
+     * dropped. The whole apply runs in one transaction, so a partial import can never be observed.
+     */
+    suspend fun importBuild(text: String, gridType: GridType): Result<ImportSummary> {
+        val build = SphereGridBuildCodec.decode(text).getOrElse { return Result.failure(it) }
+
+        val validIds = grid(gridType).nodes.mapTo(HashSet()) { it.id }
+        val edits = build.edits?.filterKeys { it in validIds }
+        val paths = build.paths?.mapValues { (_, ids) -> ids.filter { it in validIds } }
+
+        if (edits == null && paths == null) {
+            return Result.failure(IllegalArgumentException("This build code has nothing to import."))
+        }
+
+        database.withTransaction {
+            if (edits != null) {
+                nodeDao.clearAll()
+                nodeDao.upsertAll(
+                    edits.map { (id, content) -> SphereGridNodeEntity(id, content.encode()) }
+                )
+            }
+            paths?.forEach { (character, ids) ->
+                activationDao.clearCharacter(character.name)
+                activationDao.upsertAll(ids.map { SphereGridActivationEntity(character.name, it) })
+            }
+        }
+
+        return Result.success(
+            ImportSummary(
+                editCount = edits?.size,
+                pathCounts = paths?.mapValues { it.value.size }
+            )
+        )
+    }
+
+    private suspend fun observeCharacterSnapshot(character: GridCharacter): Set<String> =
+        activationDao.snapshot().filter { it.character == character.name }.mapTo(HashSet()) { it.nodeId }
+
     private fun readAsset(name: String): String =
         assets.open(name).bufferedReader().use { it.readText() }
+
+    /** What an import changed, for a confirmation message. Null sections were not part of the build. */
+    data class ImportSummary(
+        val editCount: Int?,
+        val pathCounts: Map<GridCharacter, Int>?
+    )
 }

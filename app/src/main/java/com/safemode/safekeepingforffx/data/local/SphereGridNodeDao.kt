@@ -11,8 +11,15 @@ interface SphereGridNodeDao {
     @Query("SELECT * FROM sphere_grid_node")
     fun observeAll(): Flow<List<SphereGridNodeEntity>>
 
+    /** One-shot read of every edited node, for exporting a build. */
+    @Query("SELECT * FROM sphere_grid_node")
+    suspend fun snapshot(): List<SphereGridNodeEntity>
+
     @Upsert
     suspend fun upsert(entity: SphereGridNodeEntity)
+
+    @Upsert
+    suspend fun upsertAll(entities: List<SphereGridNodeEntity>)
 
     @Query("DELETE FROM sphere_grid_node WHERE nodeId = :nodeId")
     suspend fun delete(nodeId: String)

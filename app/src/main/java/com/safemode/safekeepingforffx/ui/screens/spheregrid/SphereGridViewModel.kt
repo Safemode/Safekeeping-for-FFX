@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.safemode.safekeepingforffx.FfxApplication
+import com.safemode.safekeepingforffx.data.reference.BuildScope
 import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.GridData
 import com.safemode.safekeepingforffx.data.reference.GridType
@@ -14,11 +15,13 @@ import com.safemode.safekeepingforffx.data.reference.SphereGridNode
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
 import com.safemode.safekeepingforffx.data.repository.SphereGridRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -42,6 +45,16 @@ data class SphereGridUiState(
     val gridAvailable: Boolean get() = grid.totalNodes > 0
     val hasEdits: Boolean get() = overrides.isNotEmpty()
     val characterHasPath: Boolean get() = activated.isNotEmpty()
+
+    /** True when there is any player work at all to export. */
+    val hasAnythingToShare: Boolean get() = hasEdits || characterHasPath
+}
+
+/** One-off outcomes of a share/import action, delivered to the screen as events (not UI state). */
+sealed interface SphereGridEvent {
+    data class ExportReady(val code: String) : SphereGridEvent
+    data class ImportDone(val summary: SphereGridRepository.ImportSummary) : SphereGridEvent
+    data class ImportFailed(val reason: String) : SphereGridEvent
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -52,6 +65,10 @@ class SphereGridViewModel(
 
     private val gridType = MutableStateFlow(GridType.DEFAULT)
     private val character = MutableStateFlow(GridCharacter.DEFAULT)
+
+    /** One-shot results of a share/import action, consumed by the screen to drive clipboard + toasts. */
+    private val eventChannel = Channel<SphereGridEvent>(Channel.BUFFERED)
+    val events = eventChannel.receiveAsFlow()
 
     /** The parsed grid for the chosen type, reloaded whenever the type changes. */
     private val gridLoad = gridType
@@ -123,6 +140,27 @@ class SphereGridViewModel(
     /** Clears the selected character's whole path. Caller confirms first - cannot be undone. */
     fun clearCharacterPath() {
         viewModelScope.launch { repository.clearCharacterActivations(character.value) }
+    }
+
+    /** Encodes a shareable build for the current grid/character and hands the code to the screen. */
+    fun exportBuild(scope: BuildScope) {
+        viewModelScope.launch {
+            val code = repository.exportBuild(scope, character.value, gridType.value)
+            eventChannel.send(SphereGridEvent.ExportReady(code))
+        }
+    }
+
+    /** Applies a pasted build code. Caller confirms first - import replaces existing edits/paths. */
+    fun importBuild(text: String) {
+        viewModelScope.launch {
+            repository.importBuild(text, gridType.value)
+                .onSuccess { eventChannel.send(SphereGridEvent.ImportDone(it)) }
+                .onFailure {
+                    eventChannel.send(
+                        SphereGridEvent.ImportFailed(it.message ?: "That build code couldn't be read.")
+                    )
+                }
+        }
     }
 
     private data class GridLoad(
