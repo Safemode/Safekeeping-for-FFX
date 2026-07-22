@@ -25,6 +25,17 @@ data class MonsterCapture(val monster: Monster, val count: Int) {
     val isComplete: Boolean get() = count >= MAX_CAPTURES
 }
 
+/**
+ * True if [needle] appears anywhere the fiend carries text - its name, its area, or any detail
+ * column, which is what lets a search reach a type, a stolen or bribed item, or a creation's
+ * unlock and reward. Blank detail cells were dropped at parse time, so this only ever matches real
+ * data.
+ */
+private fun Monster.matches(needle: String): Boolean =
+    name.contains(needle, ignoreCase = true) ||
+        area.contains(needle, ignoreCase = true) ||
+        details.values.any { it.contains(needle, ignoreCase = true) }
+
 data class MonsterArenaUiState(
     val isLoading: Boolean = true,
     val query: String = "",
@@ -76,10 +87,7 @@ class MonsterArenaViewModel(
         val visible = if (needle.isEmpty()) {
             captures
         } else {
-            captures.filter {
-                it.monster.name.contains(needle, ignoreCase = true) ||
-                    it.monster.area.contains(needle, ignoreCase = true)
-            }
+            captures.filter { it.monster.matches(needle) }
         }
 
         MonsterArenaUiState(

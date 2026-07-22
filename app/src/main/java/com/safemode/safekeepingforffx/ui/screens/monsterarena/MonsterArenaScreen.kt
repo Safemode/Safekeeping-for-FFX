@@ -164,7 +164,7 @@ fun MonsterArenaScreen(
             SearchField(
                 query = state.query,
                 onQueryChange = viewModel::setQuery,
-                placeholder = "Search fiends and areas"
+                placeholder = "Search fiends, areas, types, drops"
             )
         }
 
