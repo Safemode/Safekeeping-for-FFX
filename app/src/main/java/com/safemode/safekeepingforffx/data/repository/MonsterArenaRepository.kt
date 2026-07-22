@@ -55,6 +55,27 @@ class MonsterArenaRepository(
         }
     }
 
+    /**
+     * Raises each fiend in [targets] to at least its required count in a single write, never
+     * lowering a count that is already higher - so a creation's auto-capture unlocks it without
+     * undoing progress the player already made towards another. Counts are clamped to
+     * 0..[MAX_CAPTURES] here, same as [setCount].
+     */
+    suspend fun captureAtLeast(targets: Map<String, Int>) {
+        if (targets.isEmpty()) return
+        val current = dao.getAll().associate { it.monsterId to it.count }
+        val now = System.currentTimeMillis()
+        val updates = targets.mapNotNull { (monsterId, needed) ->
+            val target = needed.coerceIn(0, MAX_CAPTURES)
+            if (target <= (current[monsterId] ?: 0)) {
+                null
+            } else {
+                MonsterCaptureEntity(monsterId = monsterId, count = target, updatedAt = now)
+            }
+        }
+        if (updates.isNotEmpty()) dao.upsertAll(updates)
+    }
+
     suspend fun clearAll() = dao.clearAll()
 
     private fun readAsset(): String =

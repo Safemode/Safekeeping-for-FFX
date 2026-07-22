@@ -195,3 +195,62 @@ private fun evaluateOriginal(
     // An unrecognised condition stays locked rather than guessing it open.
     return Triple(0, 0, false)
 }
+
+/**
+ * The fiends, and the count each needs, that would satisfy a creation's condition by capture alone,
+ * keyed by fiend id.
+ *
+ * Empty when the creation is not won by capturing: the conquest-gated Original Creations (Earth
+ * Eater, Greater Sphere, Catastrophe, Th'uban), whose "N Area / Species Conquest" conditions turn
+ * on other creations rather than fiends, and any condition we do not recognise. That emptiness is
+ * exactly what leaves those creations out of the long-press auto-capture.
+ */
+fun creationCaptureTargets(creation: Monster, monsters: List<Monster>): Map<String, Int> {
+    val capturable = monsters.filter { it.isCapturable }
+    return when (creation.creationKind()) {
+        CreationKind.AREA -> {
+            val condition = creation.unlockCondition.orEmpty()
+            val areaName = FROM_AREA.find(condition)?.groupValues?.get(1)
+                ?.let { resolveArea(it, capturable.map { monster -> monster.area }.toSet()) }
+            if (areaName == null) {
+                emptyMap()
+            } else {
+                capturable.filter { it.area == areaName }.associate { it.id to 1 }
+            }
+        }
+
+        CreationKind.SPECIES -> {
+            val target = normalize(creation.name)
+            capturable
+                .filter { it.feedsCreation?.let { feed -> normalize(feed) == target } == true }
+                .associate { it.id to (it.feedAmount ?: 1) }
+        }
+
+        CreationKind.ORIGINAL ->
+            originalCaptureTargets(creation.unlockCondition.orEmpty(), capturable)
+
+        null -> emptyMap()
+    }
+}
+
+/** The capture side of [evaluateOriginal] - the same rules, expressed as fiends to raise. */
+private fun originalCaptureTargets(
+    condition: String,
+    capturable: List<Monster>
+): Map<String, Int> {
+    // Conquest-gated originals turn on other creations, not fiends: nothing to capture.
+    if (AREA_CONQUEST.containsMatchIn(condition) || SPECIES_CONQUEST.containsMatchIn(condition)) {
+        return emptyMap()
+    }
+    if (condition.contains("underwater", ignoreCase = true)) {
+        val needed = FIRST_NUMBER.find(condition)?.value?.toIntOrNull() ?: 1
+        return capturable
+            .filter { it.feedsCreation?.let { feed -> normalize(feed) == "shinryu" } == true }
+            .associate { it.id to needed }
+    }
+    EVERY_FIEND.find(condition)?.let {
+        val needed = it.groupValues[1].toInt()
+        return capturable.associate { monster -> monster.id to needed }
+    }
+    return emptyMap()
+}

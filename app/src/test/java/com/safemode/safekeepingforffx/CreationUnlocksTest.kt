@@ -3,6 +3,7 @@ package com.safemode.safekeepingforffx
 import com.safemode.safekeepingforffx.data.reference.Monster
 import com.safemode.safekeepingforffx.data.reference.MonsterArenaCsvParser
 import com.safemode.safekeepingforffx.data.reference.computeCreationProgress
+import com.safemode.safekeepingforffx.data.reference.creationCaptureTargets
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -61,15 +62,71 @@ class CreationUnlocksTest {
     }
 
     @Test
-    fun `species names spelled differently from their feeders still match`() {
-        // Fiends feed "One Eye" and "Iron Clad"; the creation rows are "One-Eye" and "Ironclad".
-        for ((creation, feed) in listOf("One-Eye" to "One Eye", "Ironclad" to "Iron Clad")) {
-            val feeders = feedersOf(feed)
-            assertTrue("No feeders for $feed", feeders.isNotEmpty())
-            val counts = feeders.associate {
-                it.id to (it.details["Creation Unlock Amount Needed"]?.toInt() ?: 1)
-            }
-            assertTrue(creation, computeCreationProgress(asset, counts).getValue(idOf(creation)).unlocked)
+    fun `a species name spelled differently from its feeders still matches`() {
+        // Iron Giant fiends feed "Iron Clad" while the creation row is named "Ironclad", so the
+        // match only works because punctuation and spacing are folded away.
+        val creation = asset.first { it.name == "Ironclad" }
+        val feeders = asset.filter { it.isCapturable && it.details["Monster Type"] == "Iron Giant" }
+        assertTrue(feeders.isNotEmpty())
+        assertTrue(feeders.all { it.details["Creation Unlock"] == "Iron Clad" })
+
+        val counts = feeders.associate { it.id to it.details["Creation Unlock Amount Needed"]!!.toInt() }
+        assertTrue(computeCreationProgress(asset, counts).getValue(creation.id).unlocked)
+    }
+
+    @Test
+    fun `species auto-capture targets each feeder at its required amount`() {
+        // The worked example: Nega Elemental wants every Element fiend, three each.
+        val nega = asset.first { it.name == "Nega Elemental" }
+        val elements = asset.filter { it.isCapturable && it.details["Monster Type"] == "Element" }
+        val expected = elements.associate {
+            it.id to it.details["Creation Unlock Amount Needed"]!!.toInt()
+        }
+
+        val targets = creationCaptureTargets(nega, asset)
+        assertEquals(expected, targets)
+        assertTrue(computeCreationProgress(asset, targets).getValue(nega.id).unlocked)
+    }
+
+    @Test
+    fun `area auto-capture targets one of each fiend in the area`() {
+        val stratavis = asset.first { it.name == "Stratavis" }
+        val besaid = asset.filter { it.isCapturable && it.area == "Besaid" }
+
+        val targets = creationCaptureTargets(stratavis, asset)
+        assertEquals(besaid.map { it.id }.toSet(), targets.keys)
+        assertTrue(targets.values.all { it == 1 })
+        assertTrue(computeCreationProgress(asset, targets).getValue(stratavis.id).unlocked)
+    }
+
+    @Test
+    fun `original every-fiend auto-capture targets the whole capturable list`() {
+        val nemesis = asset.first { it.name == "Nemesis" }
+        val capturable = asset.filter { it.isCapturable }
+
+        val targets = creationCaptureTargets(nemesis, asset)
+        assertEquals(capturable.map { it.id }.toSet(), targets.keys)
+        assertTrue(targets.values.all { it == 10 })
+        assertTrue(computeCreationProgress(asset, targets).getValue(nemesis.id).unlocked)
+    }
+
+    @Test
+    fun `underwater auto-capture targets only the underwater fiends`() {
+        val shinryu = asset.first { it.name == "Shinryu" }
+        val underwater = feedersOf("Shinryu")
+
+        val targets = creationCaptureTargets(shinryu, asset)
+        assertEquals(underwater.map { it.id }.toSet(), targets.keys)
+        assertTrue(targets.values.all { it == 2 })
+        assertTrue(computeCreationProgress(asset, targets).getValue(shinryu.id).unlocked)
+    }
+
+    @Test
+    fun `conquest-gated originals offer no auto-capture`() {
+        // These four turn on other creations being conquered, not on captures, so they are excluded.
+        for (name in listOf("Earth Eater", "Greater Sphere", "Catastrophe", "Th'uban")) {
+            val creation = asset.first { it.name == name }
+            assertTrue(name, creationCaptureTargets(creation, asset).isEmpty())
         }
     }
 

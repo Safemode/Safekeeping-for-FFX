@@ -10,6 +10,8 @@ import com.safemode.safekeepingforffx.data.reference.CreationProgress
 import com.safemode.safekeepingforffx.data.reference.MAX_CAPTURES
 import com.safemode.safekeepingforffx.data.reference.Monster
 import com.safemode.safekeepingforffx.data.reference.computeCreationProgress
+import com.safemode.safekeepingforffx.data.reference.creationCaptureTargets
+import com.safemode.safekeepingforffx.data.reference.creationKind
 import com.safemode.safekeepingforffx.data.repository.MonsterArenaRepository
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +25,25 @@ import kotlinx.coroutines.launch
 /** One fiend plus how many of it the player has caught. */
 data class MonsterCapture(val monster: Monster, val count: Int) {
     val isComplete: Boolean get() = count >= MAX_CAPTURES
+}
+
+/** One fiend a creation's auto-capture would raise, and the count it would raise it to. */
+data class AutoCaptureFiend(val id: String, val name: String, val amount: Int)
+
+/**
+ * Everything the long-press auto-capture on a creation needs: which fiends it would set and to
+ * what. Only ever built for creations won by capturing, so a non-null entry is also the signal that
+ * the long-press should be offered at all.
+ */
+data class CreationAutoCapture(
+    val creationId: String,
+    val creationName: String,
+    val fiends: List<AutoCaptureFiend>
+) {
+    /** The single amount every fiend is raised to, or null on the rare mix (none in the data). */
+    val uniformAmount: Int? get() = fiends.map { it.amount }.distinct().singleOrNull()
+
+    val targets: Map<String, Int> get() = fiends.associate { it.id to it.amount }
 }
 
 /**
@@ -47,6 +68,11 @@ data class MonsterArenaUiState(
      * the fiends that unlocked it.
      */
     val creationProgress: Map<String, CreationProgress> = emptyMap(),
+    /**
+     * Long-press auto-capture data for each capture-based creation, keyed by its id. A creation
+     * missing from this map (the conquest-gated originals) simply offers no long-press.
+     */
+    val autoCaptures: Map<String, CreationAutoCapture> = emptyMap(),
     val capturedCount: Int = 0,
     val totalCount: Int = 0,
     /** Any count above zero, which is what makes a reset worth offering. */
@@ -90,12 +116,27 @@ class MonsterArenaViewModel(
             captures.filter { it.monster.matches(needle) }
         }
 
+        val byId = all.associateBy { it.id }
+        val autoCaptures = all
+            .filter { it.creationKind() != null }
+            .mapNotNull { creation ->
+                val targets = creationCaptureTargets(creation, all)
+                if (targets.isEmpty()) return@mapNotNull null
+                // targets keeps file order, so the dialog lists fiends area by area.
+                val fiends = targets.mapNotNull { (id, amount) ->
+                    byId[id]?.let { AutoCaptureFiend(id, it.name, amount) }
+                }
+                creation.id to CreationAutoCapture(creation.id, creation.name, fiends)
+            }
+            .toMap()
+
         MonsterArenaUiState(
             isLoading = !isLoaded,
             query = query,
             // groupBy keeps insertion order, so areas stay in file order.
             byArea = visible.groupBy { it.monster.area },
             creationProgress = computeCreationProgress(all, counts),
+            autoCaptures = autoCaptures,
             // Counted over everything, not the filtered view: searching narrows what you see, it
             // doesn't change how much you have caught. Arena creations are excluded because they
             // cannot be captured, so counting them would make the total unreachable.
@@ -122,6 +163,14 @@ class MonsterArenaViewModel(
         viewModelScope.launch {
             repository.setCount(capture.monster.id, capture.count + delta)
         }
+    }
+
+    /**
+     * Fills in exactly the fiends a creation needs, raising each to its required count without
+     * lowering any that are already higher. The lock then opens on the next state emission.
+     */
+    fun autoCapture(auto: CreationAutoCapture) {
+        viewModelScope.launch { repository.captureAtLeast(auto.targets) }
     }
 
     /**

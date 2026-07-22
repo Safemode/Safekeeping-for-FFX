@@ -5,13 +5,16 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,6 +32,7 @@ import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.RestartAlt
+import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -87,6 +91,9 @@ fun MonsterArenaScreen(
     // open rows would push everything else off screen.
     var expandedId by rememberSaveable { mutableStateOf<String?>(null) }
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
+    // The creation whose auto-capture confirmation is open. Stored by id, not by object, so it
+    // survives rotation and always reflects the latest computed targets.
+    var autoCaptureId by rememberSaveable { mutableStateOf<String?>(null) }
 
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -176,7 +183,8 @@ fun MonsterArenaScreen(
         ) {
             Banner(
                 Icons.Outlined.Info,
-                "Tap a fiend to see its details. Tap again to hide them."
+                "Tap a fiend to see its details. Long-press a creation to capture the fiends " +
+                    "it needs."
             )
         }
         HorizontalDivider()
@@ -204,6 +212,13 @@ fun MonsterArenaScreen(
                         onClick = {
                             expandedId = if (isExpanded) null else capture.monster.id
                         },
+                        // Only capture-based creations carry a target set, so only they take a
+                        // long-press; everything else leaves it null and behaves as before.
+                        onLongClick = if (state.autoCaptures.containsKey(capture.monster.id)) {
+                            { autoCaptureId = capture.monster.id }
+                        } else {
+                            null
+                        },
                         onDecrement = { viewModel.adjust(capture, -1) },
                         onIncrement = { viewModel.adjust(capture, 1) }
                     )
@@ -220,6 +235,18 @@ fun MonsterArenaScreen(
                 }
             }
         }
+    }
+
+    val autoCapture = autoCaptureId?.let { state.autoCaptures[it] }
+    if (autoCapture != null) {
+        AutoCaptureDialog(
+            auto = autoCapture,
+            onConfirm = {
+                viewModel.autoCapture(autoCapture)
+                autoCaptureId = null
+            },
+            onDismiss = { autoCaptureId = null }
+        )
     }
 
     if (showResetDialog) {
@@ -293,12 +320,14 @@ private fun MonsterDetails(monster: Monster, modifier: Modifier = Modifier) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun MonsterRow(
     capture: MonsterCapture,
     progress: CreationProgress?,
     expanded: Boolean,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
     onDecrement: () -> Unit,
     onIncrement: () -> Unit,
     modifier: Modifier = Modifier
@@ -307,8 +336,13 @@ private fun MonsterRow(
         modifier = modifier
             .fillMaxWidth()
             // The stepper buttons consume their own taps, so a row-level click can safely open the
-            // details without stealing them.
-            .clickable(onClick = onClick)
+            // details without stealing them. A long-press, where offered, auto-captures a creation's
+            // fiends.
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick,
+                onLongClickLabel = "Capture the fiends this creation needs"
+            )
             // Matches the height a stepper gives a row, so creations - which have no stepper - sit
             // at the same rhythm as everything else rather than reading as a denser list.
             .heightIn(min = ACTION_SLOT + 8.dp)
@@ -327,10 +361,24 @@ private fun MonsterRow(
         // Name plus its subtext - the fiend's type, or a creation's unlock note and reward - kept
         // in one column so every second line starts at the same place all the way down the list.
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = capture.monster.name,
-                style = MaterialTheme.typography.titleSmall
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = capture.monster.name,
+                    style = MaterialTheme.typography.titleSmall
+                )
+                // A quiet mark so the long-press is discoverable per row, not just from the hint at
+                // the top of the list. Only shown where the long-press actually does something.
+                if (onLongClick != null) {
+                    Icon(
+                        imageVector = Icons.Outlined.TouchApp,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .size(16.dp)
+                    )
+                }
+            }
             if (capture.monster.isCapturable) {
                 capture.monster.monsterType?.let { type ->
                     Text(
@@ -394,6 +442,55 @@ private fun MonsterRow(
             )
         }
     }
+}
+
+/**
+ * Above this many fiends the per-fiend list is dropped from the confirmation - the "every fiend"
+ * originals would otherwise print the whole bestiary. The summary line carries the meaning anyway.
+ */
+private const val MAX_LISTED_FIENDS = 12
+
+/**
+ * Confirms a creation's long-press auto-capture before it writes anything: it says how many fiends
+ * it will set and to what, lists them when the list is short enough to be useful, and is clear that
+ * higher counts are left untouched.
+ */
+@Composable
+private fun AutoCaptureDialog(
+    auto: CreationAutoCapture,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Auto-capture ${auto.creationName}?") },
+        text = {
+            Column {
+                val amount = auto.uniformAmount
+                val amountPhrase = if (amount != null) {
+                    "to $amount / $MAX_CAPTURES each"
+                } else {
+                    "to their required counts"
+                }
+                Text(
+                    "Sets the ${auto.fiends.size} fiends ${auto.creationName} needs $amountPhrase, " +
+                        "which unlocks it. Any already higher are left as they are."
+                )
+                if (auto.fiends.size <= MAX_LISTED_FIENDS) {
+                    Spacer(Modifier.height(8.dp))
+                    auto.fiends.forEach { fiend ->
+                        Text(
+                            text = "${fiend.name}  -  ${fiend.amount} / $MAX_CAPTURES",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Capture") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 /**
