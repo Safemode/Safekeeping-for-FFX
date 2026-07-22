@@ -138,14 +138,22 @@ class MonsterArenaCsvParserTest {
         assertEquals("Sleeping Powder", dingo.details["Rare"])
         assertEquals("Sleeping Powder (x4)", dingo.details["Bribe Item"])
 
-        // Detail order follows the header, which is what the expanded row renders.
+        // A wild fiend also carries its type and which creation it feeds. Detail order follows the
+        // header, which is what the expanded row renders.
         assertEquals(
-            listOf("Gil Cost", "Common", "Rare", "Win", "Bribe Amount", "Bribe Item"),
+            listOf(
+                "Gil Cost", "Common", "Rare", "Win", "Bribe Amount", "Bribe Item",
+                "Monster Type", "Creation Unlock", "Creation Unlock Amount Needed"
+            ),
             dingo.details.keys.toList()
         )
+        assertEquals("Lupine", dingo.details["Monster Type"])
+        assertEquals("Fenrir", dingo.details["Creation Unlock"])
+        assertEquals("3", dingo.details["Creation Unlock Amount Needed"])
 
         // Creations have drops but cannot be bribed, which the data says in words rather than by
-        // leaving the column blank.
+        // leaving the column blank. Their type and feed columns are blank, so they drop out, while
+        // the unlock condition and reward take their place.
         val stratavis = asset.first { it.name == "Stratavis" }
         assertEquals(
             mapOf(
@@ -154,7 +162,9 @@ class MonsterArenaCsvParserTest {
                 "Rare" to "Stamina Tablet (x2)",
                 "Win" to "Amulet (x4)",
                 "Bribe Amount" to "Cannot Bribe",
-                "Bribe Item" to "N/A"
+                "Bribe Item" to "N/A",
+                "Unlock Condition" to "One of each fiend from Besaid",
+                "Unlock Reward" to "Stamina Tonic (x99)"
             ),
             stratavis.details
         )

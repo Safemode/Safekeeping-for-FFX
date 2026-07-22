@@ -24,6 +24,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.RestartAlt
@@ -49,8 +51,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.safemode.safekeepingforffx.data.reference.CreationProgress
 import com.safemode.safekeepingforffx.data.reference.MAX_CAPTURES
 import com.safemode.safekeepingforffx.data.reference.Monster
+import com.safemode.safekeepingforffx.data.reference.MonsterColumns
+import com.safemode.safekeepingforffx.data.reference.monsterType
 import com.safemode.safekeepingforffx.ui.components.Banner
 import com.safemode.safekeepingforffx.ui.components.SearchField
 import com.safemode.safekeepingforffx.ui.components.SectionHeader
@@ -194,6 +199,7 @@ fun MonsterArenaScreen(
 
                     MonsterRow(
                         capture = capture,
+                        progress = state.creationProgress[capture.monster.id],
                         expanded = isExpanded,
                         onClick = {
                             expandedId = if (isExpanded) null else capture.monster.id
@@ -243,6 +249,16 @@ fun MonsterArenaScreen(
     }
 }
 
+/**
+ * Columns already surfaced on the collapsed row itself - the fiend's type, and a creation's
+ * condition and reward - so the expanded view drops them rather than repeating them.
+ */
+private val INLINE_DETAIL_KEYS = setOf(
+    MonsterColumns.MONSTER_TYPE,
+    MonsterColumns.UNLOCK_CONDITION,
+    MonsterColumns.UNLOCK_REWARD
+)
+
 /** The extra CSV columns, revealed under the fiend rather than over the page. */
 @Composable
 private fun MonsterDetails(monster: Monster, modifier: Modifier = Modifier) {
@@ -252,7 +268,8 @@ private fun MonsterDetails(monster: Monster, modifier: Modifier = Modifier) {
             .background(MaterialTheme.colorScheme.surfaceVariant)
             .padding(start = 32.dp, end = 16.dp, top = 8.dp, bottom = 12.dp)
     ) {
-        if (monster.details.isEmpty()) {
+        val rows = monster.details.filterKeys { it !in INLINE_DETAIL_KEYS }
+        if (rows.isEmpty()) {
             Text(
                 text = "No extra information recorded for this fiend yet.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -262,7 +279,7 @@ private fun MonsterDetails(monster: Monster, modifier: Modifier = Modifier) {
         }
 
         // Blank columns were dropped at parse time, so every row here has a value.
-        monster.details.forEach { (label, value) ->
+        rows.forEach { (label, value) ->
             Row(modifier = Modifier.padding(vertical = 3.dp)) {
                 Text(
                     text = label,
@@ -279,6 +296,7 @@ private fun MonsterDetails(monster: Monster, modifier: Modifier = Modifier) {
 @Composable
 private fun MonsterRow(
     capture: MonsterCapture,
+    progress: CreationProgress?,
     expanded: Boolean,
     onClick: () -> Unit,
     onDecrement: () -> Unit,
@@ -306,14 +324,28 @@ private fun MonsterRow(
                 .size(18.dp)
         )
 
-        Text(
-            text = capture.monster.name,
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.weight(1f)
-        )
+        // Name plus its subtext - the fiend's type, or a creation's unlock note and reward - kept
+        // in one column so every second line starts at the same place all the way down the list.
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = capture.monster.name,
+                style = MaterialTheme.typography.titleSmall
+            )
+            if (capture.monster.isCapturable) {
+                capture.monster.monsterType?.let { type ->
+                    Text(
+                        text = type,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else if (progress != null) {
+                CreationSubtext(progress)
+            }
+        }
 
-        // Arena creations are unlocked rather than captured, so they carry no count at all - only
-        // their details, which is what the row expands to show.
+        // Arena creations are unlocked rather than captured, so they carry no count at all - a lock
+        // that opens once their condition is met stands in for the stepper.
         if (capture.monster.isCapturable) {
             if (capture.isComplete) {
                 Icon(
@@ -346,6 +378,53 @@ private fun MonsterRow(
             IconButton(onClick = onIncrement, enabled = capture.count < MAX_CAPTURES) {
                 Icon(Icons.Filled.Add, contentDescription = "One more ${capture.monster.name}")
             }
+        } else {
+            val unlocked = progress?.unlocked == true
+            Icon(
+                imageVector = if (unlocked) Icons.Filled.LockOpen else Icons.Filled.Lock,
+                contentDescription = if (unlocked) "Unlocked" else "Locked",
+                tint = if (unlocked) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier
+                    .padding(end = 12.dp)
+                    .size(22.dp)
+            )
+        }
+    }
+}
+
+/**
+ * The two lines under a creation's name: what unlocks it (with a captured-so-far tally while it is
+ * still locked) and what it pays out. Turns green the moment the creation opens.
+ */
+@Composable
+private fun CreationSubtext(progress: CreationProgress, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        if (progress.requirement.isNotEmpty()) {
+            val tally = if (!progress.unlocked && progress.required > 0) {
+                "  -  ${progress.current} / ${progress.required}"
+            } else {
+                ""
+            }
+            Text(
+                text = progress.requirement + tally,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (progress.unlocked) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
+        }
+        if (progress.reward.isNotEmpty()) {
+            Text(
+                text = "Unlock Reward: ${progress.reward}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

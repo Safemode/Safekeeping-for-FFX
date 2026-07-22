@@ -6,8 +6,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.safemode.safekeepingforffx.FfxApplication
+import com.safemode.safekeepingforffx.data.reference.CreationProgress
 import com.safemode.safekeepingforffx.data.reference.MAX_CAPTURES
 import com.safemode.safekeepingforffx.data.reference.Monster
+import com.safemode.safekeepingforffx.data.reference.computeCreationProgress
 import com.safemode.safekeepingforffx.data.repository.MonsterArenaRepository
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +30,12 @@ data class MonsterArenaUiState(
     val query: String = "",
     /** Ordered by area, in the order the areas appear in the source file. */
     val byArea: Map<String, List<MonsterCapture>> = emptyMap(),
+    /**
+     * Live unlock state for every creation, keyed by its monster id. Computed over the full fiend
+     * list, not the filtered view, so a creation still knows it is unlocked while a search hides
+     * the fiends that unlocked it.
+     */
+    val creationProgress: Map<String, CreationProgress> = emptyMap(),
     val capturedCount: Int = 0,
     val totalCount: Int = 0,
     /** Any count above zero, which is what makes a reset worth offering. */
@@ -79,6 +87,7 @@ class MonsterArenaViewModel(
             query = query,
             // groupBy keeps insertion order, so areas stay in file order.
             byArea = visible.groupBy { it.monster.area },
+            creationProgress = computeCreationProgress(all, counts),
             // Counted over everything, not the filtered view: searching narrows what you see, it
             // doesn't change how much you have caught. Arena creations are excluded because they
             // cannot be captured, so counting them would make the total unreachable.
