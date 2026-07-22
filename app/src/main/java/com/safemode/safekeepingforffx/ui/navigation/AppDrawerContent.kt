@@ -1,8 +1,11 @@
 package com.safemode.safekeepingforffx.ui.navigation
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -27,12 +30,18 @@ fun AppDrawerContent(
         )
         HorizontalDivider()
 
-        drawerDestinations.forEach { destination ->
-            DrawerItem(destination, currentRoute, onDestinationClick)
+        // Takes the available space and scrolls when the screen is too short to show every
+        // destination, so nothing is clipped on low-resolution devices. On tall screens the
+        // weight still pushes Settings to the bottom, matching the previous layout.
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+        ) {
+            drawerDestinations.forEach { destination ->
+                DrawerItem(destination, currentRoute, onDestinationClick)
+            }
         }
-
-        // Pushes Settings to the bottom of the sheet rather than letting it trail the categories.
-        Spacer(modifier = Modifier.weight(1f))
 
         HorizontalDivider()
         DrawerItem(settingsDestination, currentRoute, onDestinationClick)
