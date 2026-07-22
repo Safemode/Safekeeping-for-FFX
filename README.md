@@ -19,7 +19,7 @@ The information inside the app comes from various online sources and community r
 - No ads
 
 
-### What this app tracks
+### App Functionality
 
 - Al Bhed Primers and their locations
 - Jecht Spheres and their locations
@@ -55,6 +55,8 @@ The information inside the app comes from various online sources and community r
 
 - Theme options - Light/Dark/OLED-friendly/Automatic
 - Toggle to show/hide the help information
+- Toggle for Sphere Grid to have tap-to-activate.
+  - This will make it much faster to plan out a route if you're taking defaults. Long-press a node to get the editing options
 - Game Version toggle since the Dark Aeons don't exist in the original NA PS2 release of the game, which hides appropriate irrelevant information
 - Progress Reset button
 
