@@ -1,138 +1,138 @@
-Area,Monster,Gil Cost,Common,Rare,Win,Bribe Amount,Bribe Item
-Besaid,Dingo,24,Potion,Sleeping Powder,Power Sphere (x2),2500,Sleeping Powder (x4)
-Besaid,Condor,18,Phoenix Down,Smoke Bomb,Speed Sphere (x2),1900,Smoke Bomb (x3)
-Besaid,Water Flan,27,Fish Scale,Dragon Scale,Magic Sphere (x2),6300,Water Gem (x2)
-Kilika,Dinonix,40,Soft,Petrify Grenade,Speed Sphere (x2),2800,Petrify Grenade (x24)
-Kilika,Killer Bee,34,Antidote,Poison Fang,Speed Sphere (x2),2200,Poison Fang
-Kilika,Yellow Element,49,Electro Marble,Lightning Marble,Magic Sphere (x2),6000,Lightning Marble (x8)
-Kilika,Ragora,72,Antidote,Remedy,Magic Sphere (x2),"15,600",Remedy (x8)
-Mi'ihen Highroad,Mi'ihen Fang,49,Potion,Sleeping Powder,Power Sphere (x2),3200,Sleeping Powder (x5)
-Mi'ihen Highroad,Ipiria,69,Soft,Petrify Grenade,Speed Sphere (x2),3600,Petrify Grenade (x3)
-Mi'ihen Highroad,Floating Eye,66,Echo Screen,Musk,Speed Sphere (x2),2800,Musk
-Mi'ihen Highroad,White Element,72,Antarctic Wind,Antarctic Wind (x2),Magic Sphere (x2),7800,Arctic Wind (x7)
-Mi'ihen Highroad,Raldo,63,Potion,Hypello Potion,Power Sphere (x2),4800,Hypello Potion (x10)
-Mi'ihen Highroad,Voivre,90,Potion,Silver Hourglass,Power Sphere (x2),5100,Silver Hourglass (x10)
-Mi'ihen Highroad,Bomb,105,Bomb Fragment (x2),???,Power Sphere (x2),"17,000",Bomb Core (x16)
-Mi'ihen Highroad,Dual Horn,157,Potion,Hi-Potion,Ability Sphere (x2),"37,500",High Potion (x60)
-Mushroom Rock Road,Raptor,72,Soft,Petrify Grenade,Speed Sphere (x2),5500,Petrify Grenade (x3)
-Mushroom Rock Road,Gandarewa,93,Electro Marble,Electro Marble (x2),Magic Sphere (x2),2960,Lightning Marble (x3)
-Mushroom Rock Road,Thunder Flan,75,Electro Marble,Electro Marble (x2),Magic Sphere (x2),9000,Lightning Marble (x8)
-Mushroom Rock Road,Red Element,82,Bomb Fragment (x2),Bomb Fragment (x2),Magic Sphere (x2),9000,Bomb Core (x8)
-Mushroom Rock Road,Lamashtu,108,Potion,Silver Hourglass,Power Sphere (x2),5500,Silver Hourglass (x10)
-Mushroom Rock Road,Funguar,63,Silence Grenade,Ether,Magic Sphere (x2),"10,800",Turbo Ether (x2)
-Mushroom Rock Road,Garuda,210,Smoke Bomb,Smoke Bomb (x2),Power Sphere (x2),"80,000",Smoke Bomb(x99)
-Djose,Garm,132,Hi-Potion,Sleeping Powder,Power Sphere (x2),4800,Sleeping Powder (x7)
-Djose,Simurgh,109,Smoke Bomb,Smoke Bomb (x2),Speed Sphere (x2),4000,Smoke Bomb (x5)
-Djose,Bite Bug,93,Antidote,Poison Fang,Speed Sphere (x2),4000,Poison Fang (x2)
-Djose,Snow Flan,139,Antarctic Wind (x2),Antarctic Wind (x2),Magic Sphere (x2),"12,000",Arctic Wind (x10)
-Djose,Bunyip,145,Hi-Potion,Hypello Potion,Power Sphere (x2),8000,Hypello Potion (x16)
-Djose,Basilisk,187,Petrify Grenade,Petrify Grenade,Ability Sphere (x2),"40,500",Petrify Grenade (x24)
-Djose,Ochu,780,Remedy,Remedy (x2),Power Sphere (x2),"144,000",Remedy (x70)
-Thunder Plains,Melusine,162,Gold Hourglass,Petrify Grenade,Speed Sphere (x2),"5,300",Petrify Grenade (x4)
-Thunder Plains,Aerouge,216,Electro Marble,Lightning Marble,Magic Sphere (x2),"4,000",Lightning Marble (x4)
-Thunder Plains,Buer,198,Hi-Potion,Musk,Speed Sphere (x2),"4,600",Musk (x2)
-Thunder Plains,Gold Element,160,Electro Marble,Electro Marble (x2),Magic Sphere (x2),"24,000",Lightning Marble (x20)
-Thunder Plains,Kusiraqqu,168,Hi-Potion,Silver Hourglass,Power Sphere (x2),"8,900",Silver Hourglass (x20)
-Thunder Plains,Larva,495,Lunar Curtain,Lunar Curtain (x2),Ability Sphere (x2),"29,960",Shining Thorn (x10)
-Thunder Plains,Iron Giant,900,Light Curtain,Light Curtain,Power Sphere (x2),"72,000",Stamina Tonic
-Thunder Plains,Quactuar,4000,Chocobo Feather,Chocobo Feather,Speed Sphere (x2),Cannot Bribe,N/A
-Macalania Woods,Snow Wolf,288,Sleeping Powder (x2),Sleeping Powder (x2),Power Sphere (x2),"8,000",Sleeping Powder (x11)
-Macalania Woods,Iguion,207,Soft,Petrify Grenade,Speed Sphere (x2),"7,400",Petrify Grenade (x5)
-Macalania Woods,Wasp,213,Hi-Potion,Poison Fang,Speed Sphere (x2),"7,200",Poison Fang (x5)
-Macalania Woods,Evil Eye,307,Hi-Potion,Musk,Speed Sphere (x2),"6,200",Musk (x5)
-Macalania Woods,Ice Flan,282,Arctic Wind,Arctic Wind (x2),Magic Sphere (x2),"27,000",Ice Gem (x9)
-Macalania Woods,Blue Element,270,Fish Scale (x2),Fish Scale (x3),Magic Sphere (x2),"30,000",Water Gem (x5)
-Macalania Woods,Murussu,247,Hi-Potion,Hypello Potion,Power Sphere (x2),"11,600",Hypello Potion (x24)
-Macalania Woods,Mafdet,258,Hi-Potion,Hypello Potion,Power Sphere (x2),"14,200",Hypello Potion (x28)
-Macalania Woods,Xiphos,330,Hi-Potion,Mega-Potion,Ability Sphere (x2),"54,000",Megalixir
-Macalania Woods,Chimera,1455,Shining Gem,Lightning Marble,Ability Sphere (x2),"105,000",Magic Tablet (x10)
-Bikanel,Sand Wolf,337,Sleeping Powder,Sleeping Powder (x2),Power Sphere (x2) Al Bhed Potion (x2),"9,000",Sleeping Powder (x12)
-Bikanel,Alcyone,360,Smoke Bomb,Smoke Bomb (x2),Speed Sphere (x2) Al Bhed Potion (x2),"8,600",Mega Phoenix (x2)
-Bikanel,Mushusuu,405,Hi-Potion,Silver Hourglass,Power Sphere (x2) Al Bhed Potion (x2),"13,600",Gold Hourglass (x5)
-Bikanel,Zu,1800,Smoke Bomb (x3),Smoke Bomb (x4),Power Sphere (x2) Al Bhed Potion (x3),"360,000",Skill Sphere (x2)
-Bikanel,Sand Worm,1500,Shadow Gem (x2),Stamina Spring (x2),Ability Sphere (x2),"900,000",Winning Formula (x15)
-Bikanel,Cactuar,4000,Chocobo Feather,Chocobo Wing,Speed Sphere (x2),Cannot Bribe,N/A
-The Calm Lands,Skoll,630,Dream Powder,Dream Powder (x2),Power Sphere (x2),"20,000",Dream Powder (x12)
-The Calm Lands,Neribos,480,Poison Fang,Poison Fang (x2),Magic Sphere (x2),"14,000",Poison Fang (x6)
-The Calm Lands,Flame Flan,672,Fire Gem,Fire Gem (x2),Magic Sphere (x2),"30,000",Fire Gem (x10)
-The Calm Lands,Shred,552,Hypello Potion,Hypello Potion (x2),Speed Sphere (x2),"39,000",Hypello Potion (x50)
-The Calm Lands,Anacondaur,1125,Petrify Grenade,Petrify Grenade (x2),Power Sphere (x2),"116,000",Healing Water (x16)
-The Calm Lands,Ogre,1470,Stamina Tablet,Stamina Spring (x2),Power Sphere (x2),"188,000",Stamina Tablet (x50)
-The Calm Lands,Coeurl,1650,Magic Tablet,Magic Tablet,Magic Sphere (x2),"120,000",Friend Sphere (x2)
-The Calm Lands,Chimera Brain,1500,Water Gem,Lightning Gem,Ability Sphere (x2),"196,000",Lv. 4 Sphere (x2)
-The Calm Lands,Malboro,1650,Remedy,Remedy,Magic Sphere (x2),"540,000",Wings to Discovery (x4)
-Cavern of the Stolen Fayth,Yowie,720,Petrify Grenade,Soft,Power Sphere (x2),"18,000",Petrify Grenade (x12)
-Cavern of the Stolen Fayth,Imp,915,Lightning Gem,Lightning Gem (x2),Magic Sphere (x2),"17,600",Lv. 1 Key Sphere (x4)
-Cavern of the Stolen Fayth,Dark Element,780,Shining Thorn,Shining Thorn (x2),Magic Sphere (x2),"36,000",Return Sphere (x3)
-Cavern of the Stolen Fayth,Nidhogg,903,Hi-Potion,Gold Hourglass,Power Sphere (x2),"40,000",Gold Hourglass (x12)
-Cavern of the Stolen Fayth,Thorn,795,Silence Grenade,Ether,Magic Sphere (x2),"81,600",Turbo Ether (x16)
-Cavern of the Stolen Fayth,Valaha,1080,Hi-Potion (x2),Hi-Potion (x2),Ability Sphere (x2),"174,000",X-Potion (x60)
-Cavern of the Stolen Fayth,Epaaj,1425,Hi-Potion,Hi-Potion (x2),Ability Sphere (x2),"174,000",Farplane Wind (x25)
-Cavern of the Stolen Fayth,Ghost,1215,Farplane Shadow,Farplane Shadow,Magic Sphere (x2),"199,980",Mega Phoenix (x38)
-Cavern of the Stolen Fayth,Tonberry,3000,Hi-Potion,Farplane Shadow,Power Sphere (x2),"270,000",Amulet (x2)
-Mt. Gagazet,Bandersnatch,1320,Dream Powder (x2),Dream Powder (x3),Power Sphere (x2),"36,000",Dream Powder (x20)
-Mt. Gagazet,Ahriman,975,Dream Powder (x2),Musk (x3),Speed Sphere (x2),"56,000",Farplane Wind (x6)
-Mt. Gagazet,Dark Flan,1620,Star Curtain,Fire Gem (x3),Magic Sphere (x2),"256,000",Wht Magic Sphere (x2)
-Mt. Gagazet,Grenade,810,Star Curtain (x2),Fire Gem (x3),Power Sphere (x2),"150,000",Shining Gem (x12)
-Mt. Gagazet,Grat,780,Antidote (x4),Remedy (x3),Magic Sphere (x2),"80,000",Remedy (x40)
-Mt. Gagazet,Grendel,1095,Hi-Potion,Mega Potion,Ability Sphere (x2),"190,000",Mega Potion (x60)
-Mt. Gagazet,Bashura,1095,Soul Spring,Soul Spring (x2),Power Sphere (x2),"340,000",Stamina Tablet (x80)
-Mt. Gagazet,Mandragora,1800,Remedy (x2),Remedy (x3),Magic Sphere (x2),"620,000",Return Sphere (x24)
-Mt. Gagazet,Behemoth,2025,Ether,Magic Tablet,Power Sphere (x2),"460,000",Lv. 2 Key Sphere (x30)
-Mt. Gagazet,Splasher,300,Frag Grenade,Frag Grenade,Power Sphere (x2),"12,000",Dragon Scale (x12)
-Mt. Gagazet,Achelous,630,Water Gem (x2),Healing Spring,Power Sphere (x2),"120,000",Healing Spring (x16)
-Mt. Gagazet,Maelspike,495,Water Gem (x2),Water Gem (x3),Magic Sphere (x2),"200,000",Stat Sphere
-Inside Sin,Exoray,1260,Ether,Ether,Magic Sphere (x2),"148,000",Turbo Ether (x30)
-Inside Sin,Wraith,1605,Farplane Shadow,Farplane Shadow,Magic Sphere (x2),"444,440",Farplane Wind (x60)
-Inside Sin,Gemini A,1666,Light Curtain,Light Curtain (x2),Power Sphere (x2),"720,000",Stamina Tonic (x10)
-Inside Sin,Gemini B,1666,Light Curtain,Light Curtain (x2),Power Sphere (x2),"720,000",Magic Tonic (x10)
-Inside Sin,Demonolith,2205,Petrify Grenade (x2),Petrify Grenade (x2),Magic Sphere (x2),"900,000",Lv. 3 Key Sphere (x40)
-Inside Sin,Great Malboro,2250,Remedy (x2),Magic Tonic,Magic Sphere (x2),"1,280,000",Wings to Discovery (x8)
-Inside Sin,Barbatos,2325,Star Curtain,Blessed Gem,Power Sphere (x2),"1,900,000",Teleport Sphere (x20)
-Inside Sin,Adamantoise,3300,Healing Water,Magic Tablet,Power Sphere (x2),"1,088,000",Special Sphere (x6)
-Inside Sin,Behemoth King,2775,Healing Spring,Twin Stars (x2),Power Sphere (x2),"1,350,000",Three Stars (x14)
-Omega Ruins,Zaurus,1425,Petrify Grenade (x2),Petrify Grenade (x3),Speed Sphere (x2),"164,000",Rename Card (x10)
-Omega Ruins,Floating Death,1897,Musk (x4),Musk (x5),Magic Sphere (x2),"160,800",Gambler's Spirit (x10)
-Omega Ruins,Black Element,1560,Hi-Potion,Shining Gem (x4),Magic Sphere (x2),"182,400",Blk Magic Sphere (x2)
-Omega Ruins,Halma,1545,Hypello Potion (x3),Shadow Gem (x2),Power Sphere (x2),"260,000",Supreme Geme (x20)
-Omega Ruins,Puroboros,1455,Fire Gem (x3),Fire Gem (x4),Magic Sphere (x2),"400,000",Shining Gem (x36)
-Omega Ruins,Spirit,1950,Stamina Tablet,Stamina Tablet (x2),Magic Sphere (x2),"240,000",Twin Stars (x10)
-Omega Ruins,Machea,2175,Hi-Potion (x2),Stamina Tonic,Magic Sphere (x2),"360,000",Chocobo Wing (x60)
-Omega Ruins,Master Coeurl,3045,Farplane Shadow (x2),Farplane Shadow (x4),Lv. 1 Key Sphere (x2),"260,000",Warp Sphere
-Omega Ruins,Master Tonberry,3600,Magic Spring,Tetra Elemental,Power Sphere (x2),"960,000",Pendulum (x3)
-Omega Ruins,Varuna,2670,Farplane Wind,Shining Gem (x4),Magic Sphere (x2),"1,120,000",Megalixir (x20)
-Area Creations,Stratavis,6000,Smoke Bomb (x3),Stamina Tablet (x2),Amulet (x4),Cannot Bribe,N/A
-Area Creations,Malboro Menace,6000,Magic Spring,Magic Spring (x2),Magic Tonic (x4),Cannot Bribe,N/A
-Area Creations,Kottos,6000,Stamina Tablet (x4),Soul Spring (x2),Dark Matter (x4),Cannot Bribe,N/A
-Area Creations,Coeurlregina,6000,Farplane Wind (x2),Blessed Gem (x3),Dark Matter (x2),Cannot Bribe,N/A
-Area Creations,Jormungand,6000,Three Stars,Three Stars,Supreme Gem (x4),Cannot Bribe,N/A
-Area Creations,Cactuar King,6000,Chocobo Wing (x2),Designer Wallet,Blessed Gem (x6),Cannot Bribe,N/A
-Area Creations,Espada,6000,Farplane Shadow (x4),Farplane Wind,Rename Card (x2),Cannot Bribe,N/A
-Area Creations,Abyss Worm,6000,Lightning Gem (x4),Stamina Tablet,Stamina Tonic (x2),Cannot Bribe,N/A
-Area Creations,Chimerageist,6000,Magic Spring (x2),Stamina Spring (x2),Return Sphere (x2),Cannot Bribe,N/A
-Area Creations,Don Tonberry,8000,Candle of Life (x2),Designer Wallet,Farplane Wind (x6),Cannot Bribe,N/A
-Area Creations,Catoblepas,6000,Healing Spring (x3),Stamina Tonic (x2),Three Stars (x2),Cannot Bribe,N/A
-Area Creations,Abadon,6000,Purifying Salt (x3),Shining Gem,Magic Spring (x2),Cannot Bribe,N/A
-Area Creations,Vorban,6000,Healing Spring (x2),Stamina Tablet,Friend Sphere (x2),Cannot Bribe,N/A
-Species Creations,Fenrir,8000,Chocobo Feather (x2),Chocobo Wing (x2),Agility Sphere (x2),Cannot Bribe,N/A
-Species Creations,Ornitholestes,8000,Rename Card,Chocobo Wing,Gambler's Spirit (x2),Cannot Bribe,N/A
-Species Creations,Pteryx,8000,Smoke Bomb (x4),Candle of Life,Dark Matter,Cannot Bribe,N/A
-Species Creations,Hornet,8000,Poison Fang (x4),Purifying Salt (x2),Accuracy Sphere,Cannot Bribe,N/A
-Species Creations,Vidatu,8000,Lightning Gem (x4),Magic Tonic,MP Sphere (x2),Cannot Bribe,N/A
-Species Creations,One-Eye,8000,Lunar Curtain (x3),Blessed Gem,Magic Defense Sphere (x2),Cannot Bribe,N/A
-Species Creations,Jumbo Flan,8000,Lunar Curtain (x3),Magic Tablet,Magic Sphere,Cannot Bribe,N/A
-Species Creations,Nega Elemental,8000,Star Curtain (x4),Twin Stars,Twin Stars (x2),Cannot Bribe,N/A
-Species Creations,Tanket,8000,Light Curtain (x4),Lunar Curtain (x4),Defense Sphere (x2),Cannot Bribe,N/A
-Species Creations,Fafnir,8000,Light Curtain (x4),Stamina Tablet (x2),Light Curtain (x40),Cannot Bribe,N/A
-Species Creations,Sleep Sprout,8000,Poison Fang (x4),Farplane Wind,Teleport Sphere (x2),Cannot Bribe,N/A
-Species Creations,Bomb King,8000,Shining Gem,Farplane Wind,Door to Tomorrow (x2),Cannot Bribe,N/A
-Species Creations,Juggernaut,8000,Lunar Curtain (x4),Shining Gem,Strength Sphere (x2),Cannot Bribe,N/A
-Species Creations,Ironclad,8000,Light Curtain (x4),Stamina Tablet,HP Sphere (x2),Cannot Bribe,N/A
-Original Creations,Earth Eater,"15,000",Gambler's Spirit,Lv. 1 Key Sphere,Fortune Sphere (x2),Cannot Bribe,N/A
-Original Creations,Greater Sphere,"15,000",Gambler's Spirit,Return Sphere,Luck Sphere (x2),Cannot Bribe,N/A
-Original Creations,Catastrophe,"15,000",Gambler's Spirit,Lv. 2 Key Sphere,Designer Wallet (x2),Cannot Bribe,N/A
-Original Creations,Th'uban,"15,000",Gambler's Spirit,Teleport Sphere,Underdog's Secret (x2),Cannot Bribe,N/A
-Original Creations,Neslug,"15,000",Gambler's Spirit,Friend Sphere,Pendulum (x2),Cannot Bribe,N/A
-Original Creations,Ultima Buster,"15,000",Gambler's Spirit,Lv. 3 Key Sphere,Dark Matter (x2),Cannot Bribe,N/A
-Original Creations,Shinryu,"15,000",Gambler's Spirit,Three Stars,Wings to Discovery (x2),Cannot Bribe,N/A
-Original Creations,Nemesis,"25,000",Lv. 4 Key Sphere,Warp Sphere,Warp Sphere (x2),Cannot Bribe,N/A
+Area,Monster,Gil Cost,Common,Rare,Win,Bribe Amount,Bribe Item,Monster Type,Creation Unlock,Creation Unlock Amount Needed,Unlock Condition,Unlock Reward
+Besaid,Dingo,24,Potion,Sleeping Powder,Power Sphere (x2),2500,Sleeping Powder (x4),Lupine,Fenrir,3,,
+Besaid,Condor,18,Phoenix Down,Smoke Bomb,Speed Sphere (x2),1900,Smoke Bomb (x3),Bird,Pteryx,5,,
+Besaid,Water Flan,27,Fish Scale,Dragon Scale,Magic Sphere (x2),6300,Water Gem (x2),Flan,Jumbo Flan,3,,
+Kilika,Dinonix,40,Soft,Petrify Grenade,Speed Sphere (x2),2800,Petrify Grenade (x24),Reptile,Ornitholestes,3,,
+Kilika,Killer Bee,34,Antidote,Poison Fang,Speed Sphere (x2),2200,Poison Fang,Wasp,Hornet,5,,
+Kilika,Yellow Element,49,Electro Marble,Lightning Marble,Magic Sphere (x2),6000,Lightning Marble (x8),Element,Nega Elemental,3,,
+Kilika,Ragora,72,Antidote,Remedy,Magic Sphere (x2),"15,600",Remedy (x8),Plant,N/A,,,
+Mi'ihen Highroad,Mi'ihen Fang,49,Potion,Sleeping Powder,Power Sphere (x2),3200,Sleeping Powder (x5),Lupine,Fenrir,3,,
+Mi'ihen Highroad,Ipiria,69,Soft,Petrify Grenade,Speed Sphere (x2),3600,Petrify Grenade (x3),Reptile,Ornitholestes,3,,
+Mi'ihen Highroad,Floating Eye,66,Echo Screen,Musk,Speed Sphere (x2),2800,Musk,Evil Eye,One Eye,5,,
+Mi'ihen Highroad,White Element,72,Antarctic Wind,Antarctic Wind (x2),Magic Sphere (x2),7800,Arctic Wind (x7),Element,Nega Elemental,3,,
+Mi'ihen Highroad,Raldo,63,Potion,Hypello Potion,Power Sphere (x2),4800,Hypello Potion (x10),Helm,Tanket,3,,
+Mi'ihen Highroad,Voivre,90,Potion,Silver Hourglass,Power Sphere (x2),5100,Silver Hourglass (x10),Drake,Fafnir,5,,
+Mi'ihen Highroad,Bomb,105,Bomb Fragment (x2),???,Power Sphere (x2),"17,000",Bomb Core (x16),Bomb,Bomb King,5,,
+Mi'ihen Highroad,Dual Horn,157,Potion,Hi-Potion,Ability Sphere (x2),"37,500",High Potion (x60),Ruminant,Juggernaut,5,,
+Mushroom Rock Road,Raptor,72,Soft,Petrify Grenade,Speed Sphere (x2),5500,Petrify Grenade (x3),Reptile,Ornitholestes,3,,
+Mushroom Rock Road,Gandarewa,93,Electro Marble,Electro Marble (x2),Magic Sphere (x2),2960,Lightning Marble (x3),Imp,Vidatu,5,,
+Mushroom Rock Road,Thunder Flan,75,Electro Marble,Electro Marble (x2),Magic Sphere (x2),9000,Lightning Marble (x8),Flan,Jumbo Flan,3,,
+Mushroom Rock Road,Red Element,82,Bomb Fragment (x2),Bomb Fragment (x2),Magic Sphere (x2),9000,Bomb Core (x8),Element,Nega Elemental,3,,
+Mushroom Rock Road,Lamashtu,108,Potion,Silver Hourglass,Power Sphere (x2),5500,Silver Hourglass (x10),Drake,Fafnir,5,,
+Mushroom Rock Road,Funguar,63,Silence Grenade,Ether,Magic Sphere (x2),"10,800",Turbo Ether (x2),Fungus,Sleep Sprout,5,,
+Mushroom Rock Road,Garuda,210,Smoke Bomb,Smoke Bomb (x2),Power Sphere (x2),"80,000",Smoke Bomb(x99),Huge Bird,N/A,,,
+Djose,Garm,132,Hi-Potion,Sleeping Powder,Power Sphere (x2),4800,Sleeping Powder (x7),Lupine,Fenrir,3,,
+Djose,Simurgh,109,Smoke Bomb,Smoke Bomb (x2),Speed Sphere (x2),4000,Smoke Bomb (x5),Bird,Pteryx,5,,
+Djose,Bite Bug,93,Antidote,Poison Fang,Speed Sphere (x2),4000,Poison Fang (x2),Wasp,Hornet,5,,
+Djose,Snow Flan,139,Antarctic Wind (x2),Antarctic Wind (x2),Magic Sphere (x2),"12,000",Arctic Wind (x10),Flan,Jumbo Flan,3,,
+Djose,Bunyip,145,Hi-Potion,Hypello Potion,Power Sphere (x2),8000,Hypello Potion (x16),Helm,Tanket,3,,
+Djose,Basilisk,187,Petrify Grenade,Petrify Grenade,Ability Sphere (x2),"40,500",Petrify Grenade (x24),Petrify Snake,N/A,,,
+Djose,Ochu,780,Remedy,Remedy (x2),Power Sphere (x2),"144,000",Remedy (x70),Huge Plant,N/A,,,
+Thunder Plains,Melusine,162,Gold Hourglass,Petrify Grenade,Speed Sphere (x2),"5,300",Petrify Grenade (x4),Reptile,Ornitholestes,3,,
+Thunder Plains,Aerouge,216,Electro Marble,Lightning Marble,Magic Sphere (x2),"4,000",Lightning Marble (x4),Imp,Vidatu,5,,
+Thunder Plains,Buer,198,Hi-Potion,Musk,Speed Sphere (x2),"4,600",Musk (x2),Evil Eye,One Eye,5,,
+Thunder Plains,Gold Element,160,Electro Marble,Electro Marble (x2),Magic Sphere (x2),"24,000",Lightning Marble (x20),Element,Nega Elemental,3,,
+Thunder Plains,Kusiraqqu,168,Hi-Potion,Silver Hourglass,Power Sphere (x2),"8,900",Silver Hourglass (x20),Drake,Fafnir,5,,
+Thunder Plains,Larva,495,Lunar Curtain,Lunar Curtain (x2),Ability Sphere (x2),"29,960",Shining Thorn (x10),Larva,N/A,,,
+Thunder Plains,Iron Giant,900,Light Curtain,Light Curtain,Power Sphere (x2),"72,000",Stamina Tonic,Iron Giant,Iron Clad,10,,
+Thunder Plains,Quactuar,4000,Chocobo Feather,Chocobo Feather,Speed Sphere (x2),Cannot Bribe,N/A,Cactuar,N/A,,,
+Macalania Woods,Snow Wolf,288,Sleeping Powder (x2),Sleeping Powder (x2),Power Sphere (x2),"8,000",Sleeping Powder (x11),Lupine,Fenrir,3,,
+Macalania Woods,Iguion,207,Soft,Petrify Grenade,Speed Sphere (x2),"7,400",Petrify Grenade (x5),Reptile,Ornitholestes,3,,
+Macalania Woods,Wasp,213,Hi-Potion,Poison Fang,Speed Sphere (x2),"7,200",Poison Fang (x5),Wasp,Hornet,5,,
+Macalania Woods,Evil Eye,307,Hi-Potion,Musk,Speed Sphere (x2),"6,200",Musk (x5),Evil Eye,One Eye,5,,
+Macalania Woods,Ice Flan,282,Arctic Wind,Arctic Wind (x2),Magic Sphere (x2),"27,000",Ice Gem (x9),Flan,Jumbo Flan,3,,
+Macalania Woods,Blue Element,270,Fish Scale (x2),Fish Scale (x3),Magic Sphere (x2),"30,000",Water Gem (x5),Element,Nega Elemental,3,,
+Macalania Woods,Murussu,247,Hi-Potion,Hypello Potion,Power Sphere (x2),"11,600",Hypello Potion (x24),Helm,Tanket,3,,
+Macalania Woods,Mafdet,258,Hi-Potion,Hypello Potion,Power Sphere (x2),"14,200",Hypello Potion (x28),Helm,Tanket,3,,
+Macalania Woods,Xiphos,330,Hi-Potion,Mega-Potion,Ability Sphere (x2),"54,000",Megalixir,Large Lizard,N/A,,,
+Macalania Woods,Chimera,1455,Shining Gem,Lightning Marble,Ability Sphere (x2),"105,000",Magic Tablet (x10),Chimera,N/A,,,
+Bikanel,Sand Wolf,337,Sleeping Powder,Sleeping Powder (x2),Power Sphere (x2) Al Bhed Potion (x2),"9,000",Sleeping Powder (x12),Lupine,Fenrir,3,,
+Bikanel,Alcyone,360,Smoke Bomb,Smoke Bomb (x2),Speed Sphere (x2) Al Bhed Potion (x2),"8,600",Mega Phoenix (x2),Bird,Pteryx,5,,
+Bikanel,Mushusuu,405,Hi-Potion,Silver Hourglass,Power Sphere (x2) Al Bhed Potion (x2),"13,600",Gold Hourglass (x5),Drake,Fafnir,5,,
+Bikanel,Zu,1800,Smoke Bomb (x3),Smoke Bomb (x4),Power Sphere (x2) Al Bhed Potion (x3),"360,000",Skill Sphere (x2),Giant Bird,N/A,,,
+Bikanel,Sand Worm,1500,Shadow Gem (x2),Stamina Spring (x2),Ability Sphere (x2),"900,000",Winning Formula (x15),Big Worm,N/A,,,
+Bikanel,Cactuar,4000,Chocobo Feather,Chocobo Wing,Speed Sphere (x2),Cannot Bribe,N/A,Cactuar,N/A,,,
+The Calm Lands,Skoll,630,Dream Powder,Dream Powder (x2),Power Sphere (x2),"20,000",Dream Powder (x12),Lupine,Fenrir,3,,
+The Calm Lands,Neribos,480,Poison Fang,Poison Fang (x2),Magic Sphere (x2),"14,000",Poison Fang (x6),Wasp,Hornet,5,,
+The Calm Lands,Flame Flan,672,Fire Gem,Fire Gem (x2),Magic Sphere (x2),"30,000",Fire Gem (x10),Flan,Jumbo Flan,3,,
+The Calm Lands,Shred,552,Hypello Potion,Hypello Potion (x2),Speed Sphere (x2),"39,000",Hypello Potion (x50),Helm,Tanket,3,,
+The Calm Lands,Anacondaur,1125,Petrify Grenade,Petrify Grenade (x2),Power Sphere (x2),"116,000",Healing Water (x16),Petrify Snake,N/A,,,
+The Calm Lands,Ogre,1470,Stamina Tablet,Stamina Spring (x2),Power Sphere (x2),"188,000",Stamina Tablet (x50),Ogre,N/A,,,
+The Calm Lands,Coeurl,1650,Magic Tablet,Magic Tablet,Magic Sphere (x2),"120,000",Friend Sphere (x2),Leopard,N/A,,,
+The Calm Lands,Chimera Brain,1500,Water Gem,Lightning Gem,Ability Sphere (x2),"196,000",Lv. 4 Sphere (x2),Chimera,N/A,,,
+The Calm Lands,Malboro,1650,Remedy,Remedy,Magic Sphere (x2),"540,000",Wings to Discovery (x4),Malboro,N/A,,,
+Cavern of the Stolen Fayth,Yowie,720,Petrify Grenade,Soft,Power Sphere (x2),"18,000",Petrify Grenade (x12),Reptile,Ornitholestes,3,,
+Cavern of the Stolen Fayth,Imp,915,Lightning Gem,Lightning Gem (x2),Magic Sphere (x2),"17,600",Lv. 1 Key Sphere (x4),Imp,Vidatu,5,,
+Cavern of the Stolen Fayth,Dark Element,780,Shining Thorn,Shining Thorn (x2),Magic Sphere (x2),"36,000",Return Sphere (x3),Element,Nega Elemental,3,,
+Cavern of the Stolen Fayth,Nidhogg,903,Hi-Potion,Gold Hourglass,Power Sphere (x2),"40,000",Gold Hourglass (x12),Drake,Fafnir,5,,
+Cavern of the Stolen Fayth,Thorn,795,Silence Grenade,Ether,Magic Sphere (x2),"81,600",Turbo Ether (x16),Fungus,Sleep Sprout,5,,
+Cavern of the Stolen Fayth,Valaha,1080,Hi-Potion (x2),Hi-Potion (x2),Ability Sphere (x2),"174,000",X-Potion (x60),Ruminant,Juggernaut,5,,
+Cavern of the Stolen Fayth,Epaaj,1425,Hi-Potion,Hi-Potion (x2),Ability Sphere (x2),"174,000",Farplane Wind (x25),Large Lizard,N/A,,,
+Cavern of the Stolen Fayth,Ghost,1215,Farplane Shadow,Farplane Shadow,Magic Sphere (x2),"199,980",Mega Phoenix (x38),Ghost,N/A,,,
+Cavern of the Stolen Fayth,Tonberry,3000,Hi-Potion,Farplane Shadow,Power Sphere (x2),"270,000",Amulet (x2),Tonberry,N/A,,,
+Mt. Gagazet,Bandersnatch,1320,Dream Powder (x2),Dream Powder (x3),Power Sphere (x2),"36,000",Dream Powder (x20),Lupine,Fenrir,3,,
+Mt. Gagazet,Ahriman,975,Dream Powder (x2),Musk (x3),Speed Sphere (x2),"56,000",Farplane Wind (x6),Evil Eye,One Eye,5,,
+Mt. Gagazet,Dark Flan,1620,Star Curtain,Fire Gem (x3),Magic Sphere (x2),"256,000",Wht Magic Sphere (x2),Flan,N/A,,,
+Mt. Gagazet,Grenade,810,Star Curtain (x2),Fire Gem (x3),Power Sphere (x2),"150,000",Shining Gem (x12),Bomb,Bomb King,5,,
+Mt. Gagazet,Grat,780,Antidote (x4),Remedy (x3),Magic Sphere (x2),"80,000",Remedy (x40),Reptile,N/A,,,
+Mt. Gagazet,Grendel,1095,Hi-Potion,Mega Potion,Ability Sphere (x2),"190,000",Mega Potion (x60),Ruminant,Juggernaut,5,,
+Mt. Gagazet,Bashura,1095,Soul Spring,Soul Spring (x2),Power Sphere (x2),"340,000",Stamina Tablet (x80),Ogre,N/A,,,
+Mt. Gagazet,Mandragora,1800,Remedy (x2),Remedy (x3),Magic Sphere (x2),"620,000",Return Sphere (x24),Huge Plant,N/A,,,
+Mt. Gagazet,Behemoth,2025,Ether,Magic Tablet,Power Sphere (x2),"460,000",Lv. 2 Key Sphere (x30),Behemoth,N/A,,,
+Mt. Gagazet,Splasher,300,Frag Grenade,Frag Grenade,Power Sphere (x2),"12,000",Dragon Scale (x12),Piranha,Shinryu,,,
+Mt. Gagazet,Achelous,630,Water Gem (x2),Healing Spring,Power Sphere (x2),"120,000",Healing Spring (x16),Water Creature,Shinryu,,,
+Mt. Gagazet,Maelspike,495,Water Gem (x2),Water Gem (x3),Magic Sphere (x2),"200,000",Stat Sphere,Armored Fish,Shinryu,,,
+Inside Sin,Exoray,1260,Ether,Ether,Magic Sphere (x2),"148,000",Turbo Ether (x30),Fungus,Sleep Sprout,5,,
+Inside Sin,Wraith,1605,Farplane Shadow,Farplane Shadow,Magic Sphere (x2),"444,440",Farplane Wind (x60),Ghost,N/A,,,
+Inside Sin,Gemini A,1666,Light Curtain,Light Curtain (x2),Power Sphere (x2),"720,000",Stamina Tonic (x10),Iron Giant,Iron Clad,10,,
+Inside Sin,Gemini B,1666,Light Curtain,Light Curtain (x2),Power Sphere (x2),"720,000",Magic Tonic (x10),Iron Giant,Iron Clad,10,,
+Inside Sin,Demonolith,2205,Petrify Grenade (x2),Petrify Grenade (x2),Magic Sphere (x2),"900,000",Lv. 3 Key Sphere (x40),Monolith,N/A,,,
+Inside Sin,Great Malboro,2250,Remedy (x2),Magic Tonic,Magic Sphere (x2),"1,280,000",Wings to Discovery (x8),Malboro,N/A,,,
+Inside Sin,Barbatos,2325,Star Curtain,Blessed Gem,Power Sphere (x2),"1,900,000",Teleport Sphere (x20),Armored Creature,N/A,,,
+Inside Sin,Adamantoise,3300,Healing Water,Magic Tablet,Power Sphere (x2),"1,088,000",Special Sphere (x6),Amoured tortoise,N/A,,,
+Inside Sin,Behemoth King,2775,Healing Spring,Twin Stars (x2),Power Sphere (x2),"1,350,000",Three Stars (x14),Behemoth,N/A,,,
+Omega Ruins,Zaurus,1425,Petrify Grenade (x2),Petrify Grenade (x3),Speed Sphere (x2),"164,000",Rename Card (x10),Reptile,Ornitholestes,3,,
+Omega Ruins,Floating Death,1897,Musk (x4),Musk (x5),Magic Sphere (x2),"160,800",Gambler's Spirit (x10),Evil Eye,One Eye,5,,
+Omega Ruins,Black Element,1560,Hi-Potion,Shining Gem (x4),Magic Sphere (x2),"182,400",Blk Magic Sphere (x2),Element,Nega Elemental,3,,
+Omega Ruins,Halma,1545,Hypello Potion (x3),Shadow Gem (x2),Power Sphere (x2),"260,000",Supreme Geme (x20),Helm,Tanket,3,,
+Omega Ruins,Puroboros,1455,Fire Gem (x3),Fire Gem (x4),Magic Sphere (x2),"400,000",Shining Gem (x36),Bomb,Bomb King,5,,
+Omega Ruins,Spirit,1950,Stamina Tablet,Stamina Tablet (x2),Magic Sphere (x2),"240,000",Twin Stars (x10),Larva,N/A,,,
+Omega Ruins,Machea,2175,Hi-Potion (x2),Stamina Tonic,Magic Sphere (x2),"360,000",Chocobo Wing (x60),Large Lizard,N/A,,,
+Omega Ruins,Master Coeurl,3045,Farplane Shadow (x2),Farplane Shadow (x4),Lv. 1 Key Sphere (x2),"260,000",Warp Sphere,Leopard,N/A,,,
+Omega Ruins,Master Tonberry,3600,Magic Spring,Tetra Elemental,Power Sphere (x2),"960,000",Pendulum (x3),Tonberry,N/A,,,
+Omega Ruins,Varuna,2670,Farplane Wind,Shining Gem (x4),Magic Sphere (x2),"1,120,000",Megalixir (x20),Demon,N/A,,,
+Area Creations,Stratavis,6000,Smoke Bomb (x3),Stamina Tablet (x2),Amulet (x4),Cannot Bribe,N/A,,,,One of each fiend from Besaid,Stamina Tonic (x99)
+Area Creations,Malboro Menace,6000,Magic Spring,Magic Spring (x2),Magic Tonic (x4),Cannot Bribe,N/A,,,,One of each fiend from Kilika,Poison Fang (x99)
+Area Creations,Kottos,6000,Stamina Tablet (x4),Soul Spring (x2),Dark Matter (x4),Cannot Bribe,N/A,,,,One of each fiend from Mi'ihen Highroad,Soul Spring (x99)
+Area Creations,Coeurlregina,6000,Farplane Wind (x2),Blessed Gem (x3),Dark Matter (x2),Cannot Bribe,N/A,,,,One of each fiend from Mushroom Rock Road,Candle of Life (x99)
+Area Creations,Jormungand,6000,Three Stars,Three Stars,Supreme Gem (x4),Cannot Bribe,N/A,,,,One of each fiend from Djose Highroad,Petrify Grenade (x99)
+Area Creations,Cactuar King,6000,Chocobo Wing (x2),Designer Wallet,Blessed Gem (x6),Cannot Bribe,N/A,,,,One of each fiend from Thunder Plains,Chocobo Wing (x99)
+Area Creations,Espada,6000,Farplane Shadow (x4),Farplane Wind,Rename Card (x2),Cannot Bribe,N/A,,,,One of each fiend from Macalania Woods,Shining Gem (x99)
+Area Creations,Abyss Worm,6000,Lightning Gem (x4),Stamina Tablet,Stamina Tonic (x2),Cannot Bribe,N/A,,,,One of each fiend from Bikanel,Shadow Gem (x99)
+Area Creations,Chimerageist,6000,Magic Spring (x2),Stamina Spring (x2),Return Sphere (x2),Cannot Bribe,N/A,,,,One of each fiend from The Calm Lands,Farplane Wind (x60)
+Area Creations,Don Tonberry,8000,Candle of Life (x2),Designer Wallet,Farplane Wind (x6),Cannot Bribe,N/A,,,,One of each fiend from Cavern of the Stolen Fayth,Silver Hourglass (x40)
+Area Creations,Catoblepas,6000,Healing Spring (x3),Stamina Tonic (x2),Three Stars (x2),Cannot Bribe,N/A,,,,One of each fiend from Mount Gagazet,Blossom Crown
+Area Creations,Abadon,6000,Purifying Salt (x3),Shining Gem,Magic Spring (x2),Cannot Bribe,N/A,,,,One of each fiend from Sin,Lunar Curtain (x99)
+Area Creations,Vorban,6000,Healing Spring (x2),Stamina Tablet,Friend Sphere (x2),Cannot Bribe,N/A,,,,One of each fiend from Omega Dungeon,Designer Wallet (x60)
+Species Creations,Fenrir,8000,Chocobo Feather (x2),Chocobo Wing (x2),Agility Sphere (x2),Cannot Bribe,N/A,,,,Capture 3 of each Lupine fiend,Chocobo Feather (x99)
+Species Creations,Ornitholestes,8000,Rename Card,Chocobo Wing,Gambler's Spirit (x2),Cannot Bribe,N/A,,,,Capture 3 of each Reptile fiend,Stamina Spring (x99)
+Species Creations,Pteryx,8000,Smoke Bomb (x4),Candle of Life,Dark Matter,Cannot Bribe,N/A,,,,Capture 3 of each Bird fiend,Mega Phoenix (x99)
+Species Creations,Hornet,8000,Poison Fang (x4),Purifying Salt (x2),Accuracy Sphere,Cannot Bribe,N/A,,,,Capture 3 of each Wasp fiend,Mana Tonic (x60)
+Species Creations,Vidatu,8000,Lightning Gem (x4),Magic Tonic,MP Sphere (x2),Cannot Bribe,N/A,,,,Capture 3 of each Imp fiend,Mana Spring (x99)
+Species Creations,One-Eye,8000,Lunar Curtain (x3),Blessed Gem,Magic Defense Sphere (x2),Cannot Bribe,N/A,,,,Capture 3 of each Evil Eye fiend,Stamina Tablet (x60)
+Species Creations,Jumbo Flan,8000,Lunar Curtain (x3),Magic Tablet,Magic Sphere,Cannot Bribe,N/A,,,,Capture 3 of each Flan fiend,Twin Stars (x60)
+Species Creations,Nega Elemental,8000,Star Curtain (x4),Twin Stars,Twin Stars (x2),Cannot Bribe,N/A,,,,Capture 3 of each Element fiend,Star Curtain (x99)
+Species Creations,Tanket,8000,Light Curtain (x4),Lunar Curtain (x4),Defense Sphere (x2),Cannot Bribe,N/A,,,,Capture 3 of each Helm fiend,Gold Hourglass (x99)
+Species Creations,Fafnir,8000,Light Curtain (x4),Stamina Tablet (x2),Light Curtain (x40),Cannot Bribe,N/A,,,,Capture 3 of each Drake fiend,Purifying Salt (x99)
+Species Creations,Sleep Sprout,8000,Poison Fang (x4),Farplane Wind,Teleport Sphere (x2),Cannot Bribe,N/A,,,,Capture 3 of each Fungus fiend,Healing Spring (x99)
+Species Creations,Bomb King,8000,Shining Gem,Farplane Wind,Door to Tomorrow (x2),Cannot Bribe,N/A,,,,Capture 3 of each Bomb fiend,Turbo Ether (x60)
+Species Creations,Juggernaut,8000,Lunar Curtain (x4),Shining Gem,Strength Sphere (x2),Cannot Bribe,N/A,,,,Capture 3 of each Ruminant fiend,Light Curtain (x99)
+Species Creations,Ironclad,8000,Light Curtain (x4),Stamina Tablet,HP Sphere (x2),Cannot Bribe,N/A,,,,Capture 3 of each Iron Giant fiend,Mana Tablet (x60)
+Original Creations,Earth Eater,"15,000",Gambler's Spirit,Lv. 1 Key Sphere,Fortune Sphere (x2),Cannot Bribe,N/A,,,,2 Area Conquest Unlocked,Three Stars (x60)
+Original Creations,Greater Sphere,"15,000",Gambler's Spirit,Return Sphere,Luck Sphere (x2),Cannot Bribe,N/A,,,,2 Species Conquest Unlocked,Supreme Gem (x60)
+Original Creations,Catastrophe,"15,000",Gambler's Spirit,Lv. 2 Key Sphere,Designer Wallet (x2),Cannot Bribe,N/A,,,,6 Area Conquest Unlocked,Door to Tomorrow (x99)
+Original Creations,Th'uban,"15,000",Gambler's Spirit,Teleport Sphere,Underdog's Secret (x2),Cannot Bribe,N/A,,,,6 Species Conquest Unlocked,Gambler's Spirit (x99)
+Original Creations,Neslug,"15,000",Gambler's Spirit,Friend Sphere,Pendulum (x2),Cannot Bribe,N/A,,,,Capture at least 1 of every fiend,Winning Formula (x99)
+Original Creations,Ultima Buster,"15,000",Gambler's Spirit,Lv. 3 Key Sphere,Dark Matter (x2),Cannot Bribe,N/A,,,,Capture at least 5 of every fiend,Dark Matter (x99)
+Original Creations,Shinryu,"15,000",Gambler's Spirit,Three Stars,Wings to Discovery (x2),Cannot Bribe,N/A,,,,Capture at least 2 of each underwater fiends,Megalixir (x30)
+Original Creations,Nemesis,"25,000",Lv. 4 Key Sphere,Warp Sphere,Warp Sphere (x2),Cannot Bribe,N/A,,,,Capture 10 of every fiend,Master Sphere (x10)
