@@ -39,7 +39,7 @@ object NodeSizing {
     // Stat icon scales
     const val HP_ICON_SCALE = 1.8f
     const val MP_ICON_SCALE = 1.8f
-    const val STRENGTH_ICON_SCALE = 1.8f
+    const val STRENGTH_ICON_SCALE = 2.2f
     const val DEFENSE_ICON_SCALE = 1.8f
     const val MAGIC_ICON_SCALE = 1.8f
     const val MAGIC_DEFENSE_ICON_SCALE = 1.8f
@@ -95,6 +95,27 @@ fun glyphColorFor(background: Color): Color {
     val luminance = 0.299f * background.red + 0.587f * background.green + 0.114f * background.blue
     return if (luminance > 0.6f) Color(0xFF1A1A1A) else Color.White
 }
+
+/**
+ * Node types whose icon is always drawn white, overriding the automatic light/dark contrast choice
+ * in [glyphColorFor] - used where a white mark is preferred over the contrast default.
+ */
+private val AlwaysWhiteIcons = setOf(
+    NodeType.WHITE_MAGIC,
+    NodeType.BLACK_MAGIC,
+    NodeType.SKILL,
+    NodeType.SPECIAL,
+    NodeType.ACCURACY,
+    NodeType.AGILITY,
+    NodeType.LUCK,
+)
+
+/**
+ * The colour a node's icon is tinted: forced white for the types in [AlwaysWhiteIcons], otherwise
+ * chosen to contrast with the node's [background] via [glyphColorFor].
+ */
+fun NodeType.iconColor(background: Color): Color =
+    if (this in AlwaysWhiteIcons) Color.White else glyphColorFor(background)
 
 /**
  * Stamps a node's icon centred in the node, tinted to [color] for contrast against the fill and

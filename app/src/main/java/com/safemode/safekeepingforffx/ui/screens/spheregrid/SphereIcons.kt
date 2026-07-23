@@ -36,8 +36,9 @@ fun rememberSphereIcons(): SphereIcons = SphereIcons(
         NodeType.ACCURACY to painterResource(R.drawable.ic_sg_accuracy),
         NodeType.EVASION to painterResource(R.drawable.ic_sg_evasion),
         NodeType.LUCK to painterResource(R.drawable.ic_sg_luck),
-        NodeType.WHITE_MAGIC to painterResource(R.drawable.ic_sg_white_magic),
-        NodeType.BLACK_MAGIC to painterResource(R.drawable.ic_sg_black_magic),
+        // White and black magic show each other's emblem (deliberate swap).
+        NodeType.WHITE_MAGIC to painterResource(R.drawable.ic_sg_black_magic),
+        NodeType.BLACK_MAGIC to painterResource(R.drawable.ic_sg_white_magic),
         NodeType.SKILL to painterResource(R.drawable.ic_sg_skill),
         NodeType.SPECIAL to painterResource(R.drawable.ic_sg_special),
     ),

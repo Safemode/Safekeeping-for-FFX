@@ -1647,7 +1647,7 @@ private fun GridCanvas(
             )
 
             if (r >= 9f) {
-                val glyphColor = glyphColorFor(color)
+                val glyphColor = dtype.iconColor(color)
                 val icon = if (dtype.isLock) {
                     (node.original as? NodeContent.Lock)?.level?.let { icons.forLock(it) }
                 } else {
@@ -1796,7 +1796,7 @@ private fun LegendSwatch(
         val color = type.color()
         drawCircle(color = color, radius = r, center = center)
         if (type == NodeType.EMPTY) return@Canvas
-        val glyphColor = glyphColorFor(color)
+        val glyphColor = type.iconColor(color)
         val icon = if (type.isLock) icons.forLock(1) else icons.forType(type)
         icon?.let { drawNodeIcon(it, center, r, glyphColor, NodeSizing.LEGEND_ICON_SCALE) }
     }
