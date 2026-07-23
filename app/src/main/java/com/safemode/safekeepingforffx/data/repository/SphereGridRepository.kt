@@ -9,6 +9,9 @@ import com.safemode.safekeepingforffx.data.local.SphereGridNodeDao
 import com.safemode.safekeepingforffx.data.local.SphereGridNodeEntity
 import com.safemode.safekeepingforffx.data.local.SphereGridRouteDao
 import com.safemode.safekeepingforffx.data.local.SphereGridRouteEntity
+import com.safemode.safekeepingforffx.data.reference.BASE_STATS_ASSET
+import com.safemode.safekeepingforffx.data.reference.BaseStats
+import com.safemode.safekeepingforffx.data.reference.BaseStatsCsvParser
 import com.safemode.safekeepingforffx.data.reference.BuildScope
 import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.GridData
@@ -40,6 +43,9 @@ class SphereGridRepository(
 ) {
     private val cache = ConcurrentHashMap<GridType, GridData>()
 
+    @Volatile
+    private var baseStatsCache: Map<GridCharacter, BaseStats>? = null
+
     /**
      * Serializes the read-then-write of a new [seq]. Each node tap launches its own coroutine, so two
      * quick taps can both read the same max before either writes and land on the same seq - which
@@ -64,6 +70,15 @@ class SphereGridRepository(
             cache.getOrPut(type) { SphereGridParser.parse(readAsset(asset), type.idPrefix) }
         }
     }
+
+    /**
+     * Every character's starting stats, parsed off the main thread once and reused. Reference data
+     * like the grid itself - the player never edits it, so there is nothing to observe.
+     */
+    suspend fun baseStats(): Map<GridCharacter, BaseStats> =
+        baseStatsCache ?: withContext(Dispatchers.IO) {
+            BaseStatsCsvParser.parse(readAsset(BASE_STATS_ASSET)).also { baseStatsCache = it }
+        }
 
     // --- Node content edits (shared across characters, keyed by grid-namespaced node id) ---
 

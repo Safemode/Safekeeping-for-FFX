@@ -7,6 +7,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.safemode.safekeepingforffx.FfxApplication
 import com.safemode.safekeepingforffx.data.reference.BuildScope
+import com.safemode.safekeepingforffx.data.reference.CharacterStatus
+import com.safemode.safekeepingforffx.data.reference.CharacterStatusCalculator
 import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.GridData
 import com.safemode.safekeepingforffx.data.reference.GridType
@@ -23,6 +25,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -199,6 +202,35 @@ class SphereGridViewModel(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = SphereGridUiState()
     )
+
+    /** Starting stats for every character, read once from the bundled asset. */
+    private val baseStats = flow { emit(runCatching { repository.baseStats() }.getOrDefault(emptyMap())) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+
+    /**
+     * The status of whichever character the canvas is currently showing, recomputed from the grid,
+     * the edits and the path in view. During a route replay that means the *route's* character and
+     * step, so stepping through a route walks their stats forward; otherwise it is live progress.
+     * Null while there is nothing coherent to describe - no grid, or a replay whose grid is still
+     * loading, where the live path would briefly be attributed to the route's character.
+     */
+    val characterStatus: StateFlow<CharacterStatus?> =
+        combine(uiState, routeView, baseStats) { state, route, stats ->
+            when {
+                !state.gridAvailable -> null
+                route != null && state.gridType != route.gridType -> null
+                else -> {
+                    val viewed = route?.character ?: state.character
+                    CharacterStatusCalculator.compute(
+                        character = viewed,
+                        baseStats = stats[viewed],
+                        grid = state.grid,
+                        overrides = route?.overrides ?: state.overrides,
+                        activated = route?.activated ?: state.activated
+                    )
+                }
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun setGridType(type: GridType) {
         gridType.value = type

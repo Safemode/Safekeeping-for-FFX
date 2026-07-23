@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
@@ -140,6 +141,7 @@ fun SphereGridScreen(
     var confirm by remember { mutableStateOf<ConfirmAction?>(null) }
     var showShareDialog by remember { mutableStateOf(false) }
     var showImportDialog by rememberSaveable { mutableStateOf(false) }
+    var showStatusSheet by rememberSaveable { mutableStateOf(false) }
 
     // Saved routes library + read-only replay of a route.
     val routeView by viewModel.routeView.collectAsStateWithLifecycle()
@@ -226,6 +228,7 @@ fun SphereGridScreen(
             SelectorBar(
                 gridType = state.gridType,
                 onGridTypeChange = viewModel::setGridType,
+                onOpenStatus = { showStatusSheet = true },
                 hasEdits = state.hasEdits,
                 characterHasPath = state.characterHasPath,
                 characterName = state.character.displayName,
@@ -448,6 +451,17 @@ fun SphereGridScreen(
         )
     }
 
+    if (showStatusSheet) {
+        // Collected here rather than at the top of the screen so the totals are only recomputed
+        // while the sheet is actually open.
+        val status by viewModel.characterStatus.collectAsStateWithLifecycle()
+        CharacterStatusSheet(
+            status = status,
+            gridLabel = state.gridType.label,
+            onDismiss = { showStatusSheet = false }
+        )
+    }
+
     if (showRoutesSheet) {
         RoutesSheet(
             routes = routes,
@@ -524,11 +538,16 @@ fun SphereGridScreen(
     }
 }
 
-/** The grid picker on the left and an overflow menu of destructive actions on the right. */
+/**
+ * The grid picker and the character status button on the left, an overflow menu of destructive
+ * actions on the right. The two buttons share a scrolling strip so a narrow screen slides them
+ * rather than squashing their labels.
+ */
 @Composable
 private fun SelectorBar(
     gridType: GridType,
     onGridTypeChange: (GridType) -> Unit,
+    onOpenStatus: () -> Unit,
     hasEdits: Boolean,
     characterHasPath: Boolean,
     characterName: String,
@@ -550,27 +569,43 @@ private fun SelectorBar(
             .padding(start = 12.dp, end = 4.dp, top = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box {
-            OutlinedButton(onClick = { gridMenu = true }) {
-                Text("${gridType.label} Grid")
-                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-            }
-            DropdownMenu(expanded = gridMenu, onDismissRequest = { gridMenu = false }) {
-                GridType.entries.forEach { type ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(if (type.isAvailable) type.label else "${type.label} (coming soon)")
-                        },
-                        onClick = {
-                            onGridTypeChange(type)
-                            gridMenu = false
-                        }
-                    )
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box {
+                OutlinedButton(onClick = { gridMenu = true }) {
+                    Text("${gridType.label} Grid")
+                    Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+                }
+                DropdownMenu(expanded = gridMenu, onDismissRequest = { gridMenu = false }) {
+                    GridType.entries.forEach { type ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(if (type.isAvailable) type.label else "${type.label} (coming soon)")
+                            },
+                            onClick = {
+                                onGridTypeChange(type)
+                                gridMenu = false
+                            }
+                        )
+                    }
                 }
             }
-        }
 
-        Spacer(Modifier.weight(1f))
+            OutlinedButton(onClick = onOpenStatus) {
+                Icon(
+                    imageVector = Icons.Filled.BarChart,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("Character Status", maxLines = 1)
+            }
+        }
 
         Box {
             IconButton(onClick = { overflow = true }) {

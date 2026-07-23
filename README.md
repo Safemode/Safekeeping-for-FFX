@@ -33,6 +33,7 @@ The information inside the app comes from various online sources and community r
 - Mix Overdrive Calculator, with a reverse search to see what items would be needed for a given result
 - Sphere Grid Planner - a pan/zoom view of the full Standard (860 nodes) and Expert (805 nodes) Sphere Grids, switchable via the grid-type selector. Tap a node to see its content, edit it (Clear Sphere customization), or activate it. Node edits are shared like the real grid, while each of the 7 characters tracks their own activated path. Each grid remembers its own pan/zoom position, with a button to reset the view.
 - Sphere Grid Routes - Create your own routes, and save them on your device, or export for others to import.
+- Character Status - a slide-up readout of what the grid in view has made of a character, swipeable across Attributes, Skills, Abilities, White Magic and Black Magic. Stats are each character's base values plus every activated node, with the in-game cap flagged once a stat maxes out, and each ability page shows what has been learned alongside what the grid still holds.
 
 ### Screenshots
 
@@ -72,5 +73,4 @@ The information inside the app comes from various online sources and community r
 ### To-Do
 1. Add screenshots where possible to help locate items/people
 2. Add detailed fiend locations for Monster Arena
-3. Add stat/ability tracking for Sphere Grid, including each character's base stats
 
