@@ -40,13 +40,13 @@ object NodeSizing {
     const val HP_ICON_SCALE = 1.8f
     const val MP_ICON_SCALE = 1.8f
     const val STRENGTH_ICON_SCALE = 2.2f
-    const val DEFENSE_ICON_SCALE = 1.8f
-    const val MAGIC_ICON_SCALE = 1.8f
-    const val MAGIC_DEFENSE_ICON_SCALE = 1.8f
-    const val AGILITY_ICON_SCALE = 1.8f
-    const val ACCURACY_ICON_SCALE = 1.8f
-    const val EVASION_ICON_SCALE = 1.8f
-    const val LUCK_ICON_SCALE = 1.8f
+    const val DEFENSE_ICON_SCALE = 2f
+    const val MAGIC_ICON_SCALE = 2.2f
+    const val MAGIC_DEFENSE_ICON_SCALE = 2f
+    const val AGILITY_ICON_SCALE = 2.2f
+    const val ACCURACY_ICON_SCALE = 2.2f
+    const val EVASION_ICON_SCALE = 2.2f
+    const val LUCK_ICON_SCALE = 2.2f
 
     // Ability icon scales
     const val WHITE_MAGIC_ICON_SCALE = 2.25f
