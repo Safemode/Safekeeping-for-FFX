@@ -1,58 +1,33 @@
 package com.safemode.safekeepingforffx.ui.screens.spheregrid
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.drawText
-import com.safemode.safekeepingforffx.data.reference.NodeType
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.hypot
-import kotlin.math.sin
 
-/**
- * The mark drawn inside a node. HP and MP read best as their letters; every other type gets its own
- * little vector symbol, drawn from scratch here to evoke the familiar sphere-grid metaphors - a
- * sword for Strength, a shield for Defense, a circled triangle for Magic, a shielded triangle for
- * Magic Defense, a winged boot for Agility, a crosshair for Accuracy, wind for Evasion, a star for
- * Luck, and - for the four ability families - a light emblem on a dark disc: a sparkle-star for
- * White Magic, a fuller star for Black Magic, crossed swords for Skill, a ringed bar for Special.
- * These are original simplified glyphs, not the game's own artwork.
- *
- * Returns the letter for a lettered type, or null for a type that draws a [drawNodeSymbol] shape.
- */
-fun NodeType.glyphLetter(): String? = when (this) {
-    NodeType.HP -> "H"
-    NodeType.MP -> "M"
-    else -> null
-}
-
-/** Every letter and lock digit the grid can draw, so they can be measured once and cached. */
-val GlyphLetters: List<String> = listOf("H", "M", "1", "2", "3", "4")
-
-/** Black on light nodes, white on dark ones, so the glyph always has contrast. */
+/** Black on light nodes, white on dark ones, so a node's icon always has contrast against its fill. */
 fun glyphColorFor(background: Color): Color {
     val luminance = 0.299f * background.red + 0.587f * background.green + 0.114f * background.blue
     return if (luminance > 0.6f) Color(0xFF1A1A1A) else Color.White
 }
 
-/** Draws a pre-measured letter centred in a node and scaled to its radius. */
-fun DrawScope.drawGlyphText(result: TextLayoutResult, center: Offset, radius: Float, color: Color) {
-    val factor = (radius * 1.25f) / result.size.height
-    scale(factor, pivot = center) {
-        drawText(
-            textLayoutResult = result,
-            color = color,
-            topLeft = Offset(
-                x = center.x - result.size.width / 2f,
-                y = center.y - result.size.height / 2f
-            )
-        )
+/**
+ * Stamps a node's icon centred in the node, tinted to [color] for contrast against the fill and
+ * scaled so the 40x40 source box spans [side] pixels - a little under the node's diameter, so the
+ * mark sits inside the activation ring rather than touching it.
+ */
+fun DrawScope.drawNodeIcon(painter: Painter, center: Offset, radius: Float, color: Color) {
+    val side = radius * 1.8f
+    translate(left = center.x - side / 2f, top = center.y - side / 2f) {
+        with(painter) {
+            draw(size = Size(side, side), colorFilter = ColorFilter.tint(color))
+        }
     }
 }
 
@@ -116,233 +91,4 @@ fun DrawScope.drawNodeLabel(
             )
         )
     }
-}
-
-/**
- * Draws the vector symbol for a symbol-type node. [background] is the node's fill colour, needed for
- * the couple of glyphs that carve into themselves (the Skill crescent, the leaf's vein). No-op for
- * lettered or empty types.
- */
-fun DrawScope.drawNodeSymbol(
-    type: NodeType,
-    center: Offset,
-    radius: Float,
-    color: Color,
-    background: Color
-) {
-    when (type) {
-        NodeType.STRENGTH -> drawSword(center, radius, color)
-        NodeType.DEFENSE -> drawShield(center, radius, color, filled = true)
-        NodeType.MAGIC -> drawCircledTriangle(center, radius, color)
-        NodeType.MAGIC_DEFENSE -> drawShieldedTriangle(center, radius, color)
-        NodeType.AGILITY -> drawWingedFoot(center, radius, color)
-        NodeType.ACCURACY -> drawCrosshair(center, radius, color)
-        NodeType.EVASION -> drawWind(center, radius, color)
-        NodeType.LUCK -> drawStar(center, radius, color)
-        NodeType.WHITE_MAGIC -> drawWhiteMagic(center, radius)
-        NodeType.BLACK_MAGIC -> drawBlackMagic(center, radius)
-        NodeType.SKILL -> drawSkill(center, radius)
-        NodeType.SPECIAL -> drawSpecial(center, radius)
-        else -> Unit
-    }
-}
-
-private fun DrawScope.drawSword(c: Offset, r: Float, color: Color) {
-    val w = (r * 0.14f).coerceAtLeast(1.2f)
-    val blade = Path().apply {
-        moveTo(c.x, c.y - 0.78f * r)
-        lineTo(c.x + 0.14f * r, c.y + 0.16f * r)
-        lineTo(c.x - 0.14f * r, c.y + 0.16f * r)
-        close()
-    }
-    drawPath(blade, color)
-    drawLine(color, Offset(c.x - 0.42f * r, c.y + 0.2f * r), Offset(c.x + 0.42f * r, c.y + 0.2f * r), w, StrokeCap.Round)
-    drawLine(color, Offset(c.x, c.y + 0.2f * r), Offset(c.x, c.y + 0.58f * r), w, StrokeCap.Round)
-    drawCircle(color, radius = (0.1f * r).coerceAtLeast(1.2f), center = Offset(c.x, c.y + 0.62f * r))
-}
-
-private fun DrawScope.shieldPath(c: Offset, r: Float): Path = Path().apply {
-    moveTo(c.x - 0.5f * r, c.y - 0.5f * r)
-    lineTo(c.x + 0.5f * r, c.y - 0.5f * r)
-    lineTo(c.x + 0.5f * r, c.y + 0.1f * r)
-    lineTo(c.x, c.y + 0.66f * r)
-    lineTo(c.x - 0.5f * r, c.y + 0.1f * r)
-    close()
-}
-
-private fun DrawScope.drawShield(c: Offset, r: Float, color: Color, filled: Boolean) {
-    val path = shieldPath(c, r)
-    if (filled) {
-        drawPath(path, color)
-    } else {
-        drawPath(path, color, style = Stroke(width = (r * 0.14f).coerceAtLeast(1.2f)))
-    }
-}
-
-private fun DrawScope.trianglePath(c: Offset, r: Float, yShift: Float): Path = Path().apply {
-    moveTo(c.x, c.y - 0.32f * r + yShift)
-    lineTo(c.x + 0.32f * r, c.y + 0.26f * r + yShift)
-    lineTo(c.x - 0.32f * r, c.y + 0.26f * r + yShift)
-    close()
-}
-
-private fun DrawScope.drawCircledTriangle(c: Offset, r: Float, color: Color) {
-    drawCircle(color, radius = 0.62f * r, center = c, style = Stroke(width = (r * 0.11f).coerceAtLeast(1.2f)))
-    drawPath(trianglePath(c, r * 0.92f, yShift = 0.03f * r), color)
-}
-
-private fun DrawScope.drawShieldedTriangle(c: Offset, r: Float, color: Color) {
-    drawShield(c, r, color, filled = false)
-    drawPath(trianglePath(c, r * 0.6f, yShift = -0.02f * r), color)
-}
-
-private fun DrawScope.drawWingedFoot(c: Offset, r: Float, color: Color) {
-    // A winged boot (the classic speed/agility talaria): broad feathers sweeping up from the ankle,
-    // the boot drawn on top. The heel sits under the ankle so the foot balances the wing rather than
-    // jutting to the lower-left.
-    val anchor = Offset(c.x + 0.02f * r, c.y - 0.02f * r)
-    fun feather(endX: Float, endY: Float, halfWidth: Float) {
-        val tip = Offset(c.x + endX * r, c.y + endY * r)
-        val dx = tip.x - anchor.x
-        val dy = tip.y - anchor.y
-        val len = hypot(dx, dy)
-        if (len <= 0f) return
-        val ux = dx / len
-        val uy = dy / len
-        val px = -uy
-        val py = ux
-        val hw = halfWidth * r
-        val midX = anchor.x + ux * len * 0.5f
-        val midY = anchor.y + uy * len * 0.5f
-        val path = Path().apply {
-            moveTo(anchor.x + px * hw, anchor.y + py * hw)
-            lineTo(midX + px * hw * 0.8f, midY + py * hw * 0.8f)
-            lineTo(tip.x, tip.y)
-            lineTo(midX - px * hw * 0.8f, midY - py * hw * 0.8f)
-            lineTo(anchor.x - px * hw, anchor.y - py * hw)
-            close()
-        }
-        drawPath(path, color)
-    }
-    feather(-0.60f, -0.50f, 0.13f)
-    feather(-0.42f, -0.42f, 0.14f)
-    feather(-0.22f, -0.34f, 0.14f)
-    feather(-0.02f, -0.30f, 0.13f)
-
-    val boot = Path().apply {
-        val points = listOf(
-            -0.04f to -0.10f, 0.22f to -0.10f, 0.24f to 0.14f, 0.56f to 0.18f,
-            0.62f to 0.26f, 0.58f to 0.36f, -0.16f to 0.36f, -0.16f to 0.14f, -0.04f to 0.10f
-        )
-        points.forEachIndexed { i, (x, y) ->
-            val px = c.x + x * r
-            val py = c.y + y * r
-            if (i == 0) moveTo(px, py) else lineTo(px, py)
-        }
-        close()
-    }
-    drawPath(boot, color)
-}
-
-private fun DrawScope.drawCrosshair(c: Offset, r: Float, color: Color) {
-    val w = (r * 0.1f).coerceAtLeast(1.1f)
-    drawCircle(color, radius = 0.42f * r, center = c, style = Stroke(width = w))
-    drawLine(color, Offset(c.x, c.y - 0.72f * r), Offset(c.x, c.y + 0.72f * r), w, StrokeCap.Round)
-    drawLine(color, Offset(c.x - 0.72f * r, c.y), Offset(c.x + 0.72f * r, c.y), w, StrokeCap.Round)
-}
-
-private fun DrawScope.drawWind(c: Offset, r: Float, color: Color) {
-    val w = (r * 0.13f).coerceAtLeast(1.2f)
-    listOf(-0.25f, 0.05f, 0.35f).forEach { off ->
-        val x = c.x + off * r
-        val bow = Path().apply {
-            moveTo(x, c.y - 0.45f * r)
-            quadraticBezierTo(x + 0.22f * r, c.y, x, c.y + 0.45f * r)
-        }
-        drawPath(bow, color, style = Stroke(width = w, cap = StrokeCap.Round))
-    }
-}
-
-// The four ability families share one look: a light emblem on a dark disc, so they read as a set.
-private val EmblemDisc = Color(0xFF241E36)
-private val EmblemStar = Color(0xFFF3EEFF)
-
-private fun DrawScope.emblemDisc(c: Offset, r: Float) {
-    drawCircle(EmblemDisc, radius = 0.72f * r, center = c)
-}
-
-/** A four-pointed star with points at N/E/S/W. [innerFactor] controls how full the points look. */
-private fun DrawScope.fourPointStar(c: Offset, r: Float, outerFactor: Float, innerFactor: Float) {
-    val outer = outerFactor * r
-    val inner = innerFactor * r
-    val path = Path()
-    for (i in 0 until 8) {
-        val angle = -PI / 2 + i * PI / 4
-        val radius = if (i % 2 == 0) outer else inner
-        val x = c.x + (radius * cos(angle)).toFloat()
-        val y = c.y + (radius * sin(angle)).toFloat()
-        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-    }
-    path.close()
-    drawPath(path, EmblemStar)
-}
-
-/** White Magic: a thin sparkle-star on the dark disc. */
-private fun DrawScope.drawWhiteMagic(c: Offset, r: Float) {
-    emblemDisc(c, r)
-    fourPointStar(c, r, outerFactor = 0.6f, innerFactor = 0.17f)
-}
-
-/** Black Magic: the same disc with a fuller, chunkier star, so it reads apart from White Magic. */
-private fun DrawScope.drawBlackMagic(c: Offset, r: Float) {
-    emblemDisc(c, r)
-    fourPointStar(c, r, outerFactor = 0.62f, innerFactor = 0.28f)
-}
-
-/** Skill: two crossed swords on the dark disc. */
-private fun DrawScope.drawSkill(c: Offset, r: Float) {
-    emblemDisc(c, r)
-    val w = (r * 0.12f).coerceAtLeast(1.5f)
-    emblemSword(Offset(c.x + 0.5f * r, c.y - 0.5f * r), Offset(c.x - 0.5f * r, c.y + 0.52f * r), w)
-    emblemSword(Offset(c.x - 0.5f * r, c.y - 0.5f * r), Offset(c.x + 0.5f * r, c.y + 0.52f * r), w)
-}
-
-private fun DrawScope.emblemSword(tip: Offset, hilt: Offset, w: Float) {
-    drawLine(EmblemStar, tip, hilt, w, StrokeCap.Round)
-    val dx = tip.x - hilt.x
-    val dy = tip.y - hilt.y
-    val len = kotlin.math.hypot(dx, dy)
-    val px = -dy / len
-    val py = dx / len
-    // Crossguard a little above the hilt, and a pommel at the hilt end.
-    val gx = hilt.x + 0.28f * dx
-    val gy = hilt.y + 0.28f * dy
-    val half = 0.16f * len
-    drawLine(EmblemStar, Offset(gx - px * half, gy - py * half), Offset(gx + px * half, gy + py * half), w, StrokeCap.Round)
-    drawCircle(EmblemStar, radius = w * 0.9f, center = hilt)
-}
-
-/** Special: a ringed bar - a circle crossed by a bar with two uprights - on the dark disc. */
-private fun DrawScope.drawSpecial(c: Offset, r: Float) {
-    emblemDisc(c, r)
-    val w = (r * 0.11f).coerceAtLeast(1.2f)
-    drawCircle(EmblemStar, radius = 0.46f * r, center = c, style = Stroke(width = w))
-    drawLine(EmblemStar, Offset(c.x - 0.5f * r, c.y), Offset(c.x + 0.5f * r, c.y), w, StrokeCap.Round)
-    drawLine(EmblemStar, Offset(c.x - 0.24f * r, c.y - 0.24f * r), Offset(c.x - 0.24f * r, c.y + 0.24f * r), w, StrokeCap.Round)
-    drawLine(EmblemStar, Offset(c.x + 0.24f * r, c.y - 0.24f * r), Offset(c.x + 0.24f * r, c.y + 0.24f * r), w, StrokeCap.Round)
-}
-
-private fun DrawScope.drawStar(c: Offset, r: Float, color: Color) {
-    val outer = 0.64f * r
-    val inner = 0.27f * r
-    val path = Path()
-    for (i in 0 until 10) {
-        val angle = -PI / 2 + i * PI / 5
-        val radius = if (i % 2 == 0) outer else inner
-        val x = c.x + (radius * cos(angle)).toFloat()
-        val y = c.y + (radius * sin(angle)).toFloat()
-        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-    }
-    path.close()
-    drawPath(path, color)
 }

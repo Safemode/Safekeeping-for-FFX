@@ -195,11 +195,7 @@ fun SphereGridScreen(
     val nodesById = remember(state.grid) { state.grid.nodes.associateBy { it.id } }
 
     val textMeasurer = rememberTextMeasurer()
-    val glyphCache = remember(textMeasurer) {
-        GlyphLetters.associateWith {
-            textMeasurer.measure(it, TextStyle(fontWeight = FontWeight.Bold, fontSize = 40.sp))
-        }
-    }
+    val sphereIcons = rememberSphereIcons()
     // Value/name labels are measured lazily and memoized - there are only a few dozen distinct
     // strings, so each is measured once and reused every frame.
     val labelStyle = remember { TextStyle(fontWeight = FontWeight.Medium, fontSize = 30.sp) }
@@ -276,7 +272,7 @@ fun SphereGridScreen(
             )
         }
 
-        Legend(glyphCache = glyphCache)
+        Legend(icons = sphereIcons)
         HorizontalDivider()
 
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
@@ -304,7 +300,7 @@ fun SphereGridScreen(
                     orderLabels = activeRoute.orderLabels,
                     focusNodeId = routeFocusTarget,
                     focusSignal = routeFocusSignal,
-                    glyphCache = glyphCache,
+                    icons = sphereIcons,
                     textMeasurer = textMeasurer,
                     labelCache = labelCache,
                     labelStyle = labelStyle,
@@ -323,7 +319,7 @@ fun SphereGridScreen(
                     characterColor = state.character.activationColor(),
                     selectedId = selectedNodeId,
                     tapActivates = state.tapActivates,
-                    glyphCache = glyphCache,
+                    icons = sphereIcons,
                     textMeasurer = textMeasurer,
                     labelCache = labelCache,
                     labelStyle = labelStyle,
@@ -1430,7 +1426,7 @@ private fun GridCanvas(
     characterColor: Color,
     selectedId: String?,
     tapActivates: Boolean,
-    glyphCache: Map<String, TextLayoutResult>,
+    icons: SphereIcons,
     textMeasurer: TextMeasurer,
     labelCache: MutableMap<String, TextLayoutResult>,
     labelStyle: TextStyle,
@@ -1661,17 +1657,12 @@ private fun GridCanvas(
 
             if (r >= 9f) {
                 val glyphColor = glyphColorFor(color)
-                if (dtype.isLock) {
-                    val level = (node.original as? NodeContent.Lock)?.level
-                    glyphCache[level?.toString()]?.let { drawGlyphText(it, center, r, glyphColor) }
+                val icon = if (dtype.isLock) {
+                    (node.original as? NodeContent.Lock)?.level?.let { icons.forLock(it) }
                 } else {
-                    val letter = dtype.glyphLetter()
-                    if (letter != null) {
-                        glyphCache[letter]?.let { drawGlyphText(it, center, r, glyphColor) }
-                    } else {
-                        drawNodeSymbol(dtype, center, r, glyphColor, background = color)
-                    }
+                    icons.forType(dtype)
                 }
+                icon?.let { drawNodeIcon(it, center, r, glyphColor) }
             }
 
             // In route replay the activation-order number sits above the node; otherwise the value or
@@ -1770,7 +1761,7 @@ private fun segmentVisible(ax: Float, ay: Float, bx: Float, by: Float, w: Float,
 
 @Composable
 private fun Legend(
-    glyphCache: Map<String, TextLayoutResult>,
+    icons: SphereIcons,
     modifier: Modifier = Modifier
 ) {
     val entries = remember {
@@ -1791,7 +1782,7 @@ private fun Legend(
     ) {
         entries.forEach { type ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                LegendSwatch(type = type, glyphCache = glyphCache)
+                LegendSwatch(type = type, icons = icons)
                 Spacer(modifier = Modifier.width(5.dp))
                 Text(
                     text = type.legendLabel(),
@@ -1806,7 +1797,7 @@ private fun Legend(
 @Composable
 private fun LegendSwatch(
     type: NodeType,
-    glyphCache: Map<String, TextLayoutResult>
+    icons: SphereIcons
 ) {
     Canvas(modifier = Modifier.size(18.dp)) {
         val center = Offset(size.width / 2f, size.height / 2f)
@@ -1815,11 +1806,7 @@ private fun LegendSwatch(
         drawCircle(color = color, radius = r, center = center)
         if (type == NodeType.EMPTY) return@Canvas
         val glyphColor = glyphColorFor(color)
-        val letter = if (type.isLock) "1" else type.glyphLetter()
-        if (letter != null) {
-            glyphCache[letter]?.let { drawGlyphText(it, center, r, glyphColor) }
-        } else {
-            drawNodeSymbol(type, center, r, glyphColor, background = color)
-        }
+        val icon = if (type.isLock) icons.forLock(1) else icons.forType(type)
+        icon?.let { drawNodeIcon(it, center, r, glyphColor) }
     }
 }
