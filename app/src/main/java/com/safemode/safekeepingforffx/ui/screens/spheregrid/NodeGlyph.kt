@@ -23,21 +23,38 @@ import com.safemode.safekeepingforffx.data.reference.NodeType
  * - [LOCK_RADIUS]     the lock gates
  *
  * Icon scale - how big the mark inside a node is, as a multiple of that node's radius (the icon's
- * 40x40 source box spans this many radii). Lower a value if icons crowd or overlap their neighbours;
- * raise it to fill the node more:
- * - [STAT_ICON_SCALE]     icon size on stat nodes
- * - [ABILITY_ICON_SCALE]  icon size on ability nodes - kept smaller than the others because that
- *                         artwork fills more of its box and the nodes are the largest, so at the
- *                         same scale it reaches into neighbouring nodes
- * - [LOCK_ICON_SCALE]     icon size on lock nodes
+ * 40x40 source box spans this many radii). Every icon has its own value, so art that fills its box
+ * differently can be dialled in one at a time. Lower a value if that icon crowds or overlaps its
+ * neighbours; raise it to fill the node more. The constants are grouped stat / ability / lock only
+ * for readability - each is independent.
  */
 object NodeSizing {
-    const val STAT_RADIUS = 15f
-    const val ABILITY_RADIUS = 24f
-    const val LOCK_RADIUS = 13f
+    const val STAT_RADIUS = 13f
+    const val ABILITY_RADIUS = 18f
+    const val LOCK_RADIUS = 12f
 
-    const val STAT_ICON_SCALE = 1.8f
-    const val ABILITY_ICON_SCALE = 1.35f
+    // Fallback for the Empty node (draws no icon) and drawNodeIcon's default parameter.
+    const val DEFAULT_ICON_SCALE = 1.8f
+
+    // Stat icon scales
+    const val HP_ICON_SCALE = 1.8f
+    const val MP_ICON_SCALE = 1.8f
+    const val STRENGTH_ICON_SCALE = 1.8f
+    const val DEFENSE_ICON_SCALE = 1.8f
+    const val MAGIC_ICON_SCALE = 1.8f
+    const val MAGIC_DEFENSE_ICON_SCALE = 1.8f
+    const val AGILITY_ICON_SCALE = 1.8f
+    const val ACCURACY_ICON_SCALE = 1.8f
+    const val EVASION_ICON_SCALE = 1.8f
+    const val LUCK_ICON_SCALE = 1.8f
+
+    // Ability icon scales
+    const val WHITE_MAGIC_ICON_SCALE = 2.25f
+    const val BLACK_MAGIC_ICON_SCALE = 2.25f
+    const val SKILL_ICON_SCALE = 2.25f
+    const val SPECIAL_ICON_SCALE = 2.25f
+
+    // Lock icon scale
     const val LOCK_ICON_SCALE = 1.7f
 }
 
@@ -48,11 +65,24 @@ fun NodeType.nodeRadius(): Float = when {
     else -> NodeSizing.STAT_RADIUS
 }
 
-/** The icon scale this node kind uses, from [NodeSizing]. */
-fun NodeType.iconScale(): Float = when {
-    isAbility -> NodeSizing.ABILITY_ICON_SCALE
-    isLock -> NodeSizing.LOCK_ICON_SCALE
-    else -> NodeSizing.STAT_ICON_SCALE
+/** The icon scale this node type uses, from [NodeSizing]. */
+fun NodeType.iconScale(): Float = when (this) {
+    NodeType.HP -> NodeSizing.HP_ICON_SCALE
+    NodeType.MP -> NodeSizing.MP_ICON_SCALE
+    NodeType.STRENGTH -> NodeSizing.STRENGTH_ICON_SCALE
+    NodeType.DEFENSE -> NodeSizing.DEFENSE_ICON_SCALE
+    NodeType.MAGIC -> NodeSizing.MAGIC_ICON_SCALE
+    NodeType.MAGIC_DEFENSE -> NodeSizing.MAGIC_DEFENSE_ICON_SCALE
+    NodeType.AGILITY -> NodeSizing.AGILITY_ICON_SCALE
+    NodeType.ACCURACY -> NodeSizing.ACCURACY_ICON_SCALE
+    NodeType.EVASION -> NodeSizing.EVASION_ICON_SCALE
+    NodeType.LUCK -> NodeSizing.LUCK_ICON_SCALE
+    NodeType.WHITE_MAGIC -> NodeSizing.WHITE_MAGIC_ICON_SCALE
+    NodeType.BLACK_MAGIC -> NodeSizing.BLACK_MAGIC_ICON_SCALE
+    NodeType.SKILL -> NodeSizing.SKILL_ICON_SCALE
+    NodeType.SPECIAL -> NodeSizing.SPECIAL_ICON_SCALE
+    NodeType.LOCK -> NodeSizing.LOCK_ICON_SCALE
+    NodeType.EMPTY -> NodeSizing.DEFAULT_ICON_SCALE
 }
 
 /** Black on light nodes, white on dark ones, so a node's icon always has contrast against its fill. */
@@ -72,7 +102,7 @@ fun DrawScope.drawNodeIcon(
     center: Offset,
     radius: Float,
     color: Color,
-    scale: Float = NodeSizing.STAT_ICON_SCALE
+    scale: Float = NodeSizing.DEFAULT_ICON_SCALE
 ) {
     val side = radius * scale
     translate(left = center.x - side / 2f, top = center.y - side / 2f) {
