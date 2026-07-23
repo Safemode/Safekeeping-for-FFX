@@ -1798,6 +1798,6 @@ private fun LegendSwatch(
         if (type == NodeType.EMPTY) return@Canvas
         val glyphColor = glyphColorFor(color)
         val icon = if (type.isLock) icons.forLock(1) else icons.forType(type)
-        icon?.let { drawNodeIcon(it, center, r, glyphColor, type.iconScale()) }
+        icon?.let { drawNodeIcon(it, center, r, glyphColor, NodeSizing.LEGEND_ICON_SCALE) }
     }
 }

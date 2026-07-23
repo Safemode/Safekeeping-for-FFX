@@ -56,6 +56,11 @@ object NodeSizing {
 
     // Lock icon scale
     const val LOCK_ICON_SCALE = 1.7f
+
+    // Legend swatches are all the same small circle, so every icon there uses this one scale rather
+    // than its per-node scale (some of which are large enough to overflow the tiny swatch). Keep it
+    // low enough that even the fullest icon fits inside the swatch circle.
+    const val LEGEND_ICON_SCALE = 1.5f
 }
 
 /** The world-space radius this node kind is drawn at, from [NodeSizing]. */
