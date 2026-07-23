@@ -43,6 +43,13 @@ android {
     }
 }
 
+// The app bundle (.aab) output filename derives from the archives base name, so this renames it to
+// safekeeping-for-ffx-release.aab / safekeeping-for-ffx-debug.aab. The APK names are set explicitly
+// in the androidComponents block below, whose outputFileName override takes precedence for APKs.
+base {
+    archivesName = "safekeeping-for-ffx"
+}
+
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
