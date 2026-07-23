@@ -103,10 +103,6 @@ import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 
-private const val STAT_RADIUS = 15f
-private const val ABILITY_RADIUS = 24f
-private const val LOCK_RADIUS = 13f
-
 /** World width framed when a route replay focuses on a step's node - a comfortable neighbourhood. */
 private const val FOCUS_WORLD_SPAN = 520f
 
@@ -1573,7 +1569,7 @@ private fun GridCanvas(
                 fun nodeAt(pos: Offset): String? {
                     val worldX = (pos.x - offset.x) / scale
                     val worldY = (pos.y - offset.y) / scale
-                    val touch = (44f / scale).coerceAtLeast(ABILITY_RADIUS)
+                    val touch = (44f / scale).coerceAtLeast(NodeSizing.ABILITY_RADIUS)
                     var bestId: String? = null
                     var bestDist = touch
                     nodes.forEach { node ->
@@ -1628,12 +1624,7 @@ private fun GridCanvas(
             val cy = node.y * scale + offset.y
             val content = overrides[node.id] ?: routeUnlockedOriginal(node, readOnly, activated)
             val dtype = content.displayType
-            val worldR = when {
-                dtype.isAbility -> ABILITY_RADIUS
-                dtype.isLock -> LOCK_RADIUS
-                else -> STAT_RADIUS
-            }
-            val r = (worldR * scale).coerceAtLeast(1.5f)
+            val r = (dtype.nodeRadius() * scale).coerceAtLeast(1.5f)
             if (cx < -r || cy < -r || cx > size.width + r || cy > size.height + r) return@forEach
 
             val color = dtype.color()
@@ -1662,7 +1653,7 @@ private fun GridCanvas(
                 } else {
                     icons.forType(dtype)
                 }
-                icon?.let { drawNodeIcon(it, center, r, glyphColor) }
+                icon?.let { drawNodeIcon(it, center, r, glyphColor, dtype.iconScale()) }
             }
 
             // In route replay the activation-order number sits above the node; otherwise the value or
@@ -1807,6 +1798,6 @@ private fun LegendSwatch(
         if (type == NodeType.EMPTY) return@Canvas
         val glyphColor = glyphColorFor(color)
         val icon = if (type.isLock) icons.forLock(1) else icons.forType(type)
-        icon?.let { drawNodeIcon(it, center, r, glyphColor) }
+        icon?.let { drawNodeIcon(it, center, r, glyphColor, type.iconScale()) }
     }
 }

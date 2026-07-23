@@ -10,6 +10,50 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.drawText
+import com.safemode.safekeepingforffx.data.reference.NodeType
+
+/**
+ * Sizing knobs for the sphere-grid nodes and the icons stamped on them. Change a number here and
+ * rebuild - the whole grid redraws. These are world-space sizes (before zoom), so they scale with
+ * pan/zoom along with everything else on the canvas.
+ *
+ * Node radii - how big each kind of node is drawn:
+ * - [STAT_RADIUS]     the small stat spheres (HP, Strength, Agility, ...)
+ * - [ABILITY_RADIUS]  the larger ability nodes (magic, skills, specials)
+ * - [LOCK_RADIUS]     the lock gates
+ *
+ * Icon scale - how big the mark inside a node is, as a multiple of that node's radius (the icon's
+ * 40x40 source box spans this many radii). Lower a value if icons crowd or overlap their neighbours;
+ * raise it to fill the node more:
+ * - [STAT_ICON_SCALE]     icon size on stat nodes
+ * - [ABILITY_ICON_SCALE]  icon size on ability nodes - kept smaller than the others because that
+ *                         artwork fills more of its box and the nodes are the largest, so at the
+ *                         same scale it reaches into neighbouring nodes
+ * - [LOCK_ICON_SCALE]     icon size on lock nodes
+ */
+object NodeSizing {
+    const val STAT_RADIUS = 15f
+    const val ABILITY_RADIUS = 24f
+    const val LOCK_RADIUS = 13f
+
+    const val STAT_ICON_SCALE = 1.8f
+    const val ABILITY_ICON_SCALE = 1.35f
+    const val LOCK_ICON_SCALE = 1.7f
+}
+
+/** The world-space radius this node kind is drawn at, from [NodeSizing]. */
+fun NodeType.nodeRadius(): Float = when {
+    isAbility -> NodeSizing.ABILITY_RADIUS
+    isLock -> NodeSizing.LOCK_RADIUS
+    else -> NodeSizing.STAT_RADIUS
+}
+
+/** The icon scale this node kind uses, from [NodeSizing]. */
+fun NodeType.iconScale(): Float = when {
+    isAbility -> NodeSizing.ABILITY_ICON_SCALE
+    isLock -> NodeSizing.LOCK_ICON_SCALE
+    else -> NodeSizing.STAT_ICON_SCALE
+}
 
 /** Black on light nodes, white on dark ones, so a node's icon always has contrast against its fill. */
 fun glyphColorFor(background: Color): Color {
@@ -19,11 +63,18 @@ fun glyphColorFor(background: Color): Color {
 
 /**
  * Stamps a node's icon centred in the node, tinted to [color] for contrast against the fill and
- * scaled so the 40x40 source box spans [side] pixels - a little under the node's diameter, so the
- * mark sits inside the activation ring rather than touching it.
+ * scaled so the 40x40 source box spans [scale] * [radius] pixels - a little under the node's
+ * diameter, so the mark sits inside the activation ring rather than touching it. Tune [scale] per
+ * node kind in [NodeSizing].
  */
-fun DrawScope.drawNodeIcon(painter: Painter, center: Offset, radius: Float, color: Color) {
-    val side = radius * 1.8f
+fun DrawScope.drawNodeIcon(
+    painter: Painter,
+    center: Offset,
+    radius: Float,
+    color: Color,
+    scale: Float = NodeSizing.STAT_ICON_SCALE
+) {
+    val side = radius * scale
     translate(left = center.x - side / 2f, top = center.y - side / 2f) {
         with(painter) {
             draw(size = Size(side, side), colorFilter = ColorFilter.tint(color))
