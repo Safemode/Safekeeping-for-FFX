@@ -107,6 +107,7 @@ private val AlwaysWhiteIcons = setOf(
     NodeType.SPECIAL,
     NodeType.ACCURACY,
     NodeType.AGILITY,
+    NodeType.EVASION,
     NodeType.LUCK,
 )
 
