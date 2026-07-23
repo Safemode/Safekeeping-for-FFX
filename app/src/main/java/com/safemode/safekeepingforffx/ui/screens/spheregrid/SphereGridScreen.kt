@@ -105,7 +105,11 @@ import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 
-/** World width framed when a route replay focuses on a step's node - a comfortable neighbourhood. */
+/**
+ * World width framed when the view is sent to a node, by a route replay step or by tapping an
+ * ability in the status sheet. Wide enough that the surrounding neighbourhood stays on screen, so
+ * the node arrives in context rather than filling the viewport on its own.
+ */
 private const val FOCUS_WORLD_SPAN = 520f
 
 private val GridBackground = Color(0xFF161824)
@@ -150,9 +154,10 @@ fun SphereGridScreen(
     var showSaveRouteDialog by remember { mutableStateOf(false) }
     var showImportRouteDialog by rememberSaveable { mutableStateOf(false) }
     var routeToRename by remember { mutableStateOf<SphereGridRepository.SavedRoute?>(null) }
-    // Replay focus: which node the canvas should ease to, bumped each time the player changes step.
-    var routeFocusTarget by remember { mutableStateOf<String?>(null) }
-    var routeFocusSignal by remember { mutableIntStateOf(0) }
+    // Which node the canvas should ease to, bumped each time something asks to be taken there:
+    // stepping a route replay, or tapping an ability in the character status sheet.
+    var focusTarget by remember { mutableStateOf<String?>(null) }
+    var focusSignal by remember { mutableIntStateOf(0) }
 
     // Per-grid pan/zoom memory: each grid keeps its own view when the player switches away and back.
     // resetSignal nudges the canvas to re-fit; canResetView drives the overlay reset button, which
@@ -305,8 +310,8 @@ fun SphereGridScreen(
                     tapActivates = false,
                     readOnly = true,
                     orderLabels = activeRoute.orderLabels,
-                    focusNodeId = routeFocusTarget,
-                    focusSignal = routeFocusSignal,
+                    focusNodeId = focusTarget,
+                    focusSignal = focusSignal,
                     icons = sphereIcons,
                     textMeasurer = textMeasurer,
                     labelCache = labelCache,
@@ -326,6 +331,8 @@ fun SphereGridScreen(
                     characterColor = state.character.activationColor(),
                     selectedId = selectedNodeId,
                     tapActivates = state.tapActivates,
+                    focusNodeId = focusTarget,
+                    focusSignal = focusSignal,
                     icons = sphereIcons,
                     textMeasurer = textMeasurer,
                     labelCache = labelCache,
@@ -371,8 +378,8 @@ fun SphereGridScreen(
                     val clamped = newIndex.coerceIn(0, activeRoute.stepCount)
                     viewModel.setRouteStep(clamped)
                     // Focus the node this step lands on; step 0 has none, so the view stays put.
-                    routeFocusTarget = activeRoute.steps.getOrNull(clamped - 1)?.nodeId
-                    routeFocusSignal++
+                    focusTarget = activeRoute.steps.getOrNull(clamped - 1)?.nodeId
+                    focusSignal++
                 }
             )
         }
@@ -459,6 +466,16 @@ fun SphereGridScreen(
             status = status,
             gridLabel = state.gridType.label,
             onSelectCharacter = viewModel::setCharacter,
+            onSelectAbility = { name, family ->
+                // Close the sheet and ease the grid onto that ability's node. If an edit has taken
+                // the ability off the grid entirely there is nowhere to go, so the sheet stays open
+                // rather than dismissing to an unchanged view.
+                viewModel.nodeForAbility(name, family)?.let { nodeId ->
+                    focusTarget = nodeId
+                    focusSignal++
+                    showStatusSheet = false
+                }
+            },
             onDismiss = { showStatusSheet = false }
         )
     }
@@ -1485,9 +1502,9 @@ private fun GridCanvas(
     readOnly: Boolean = false,
     /** Activation-order number to draw on each revealed node, for route replay. */
     orderLabels: Map<String, Int> = emptyMap(),
-    /** Route replay: the node to ease the view onto when [focusSignal] changes. */
+    /** The node to ease the view onto when [focusSignal] changes. */
     focusNodeId: String? = null,
-    /** Bumped by the caller each time it wants the view to re-focus (one focus per step change). */
+    /** Bumped by the caller each time it wants the view to re-focus (one focus per request). */
     focusSignal: Int = 0
 ) {
     val bounds = grid.bounds
@@ -1573,8 +1590,8 @@ private fun GridCanvas(
         if (resetSignal != 0) fitView?.let { applyView(it) }
     }
 
-    // Route replay: when the player changes step, ease the view to centre on that step's node, zoomed
-    // in to a comfortable neighbourhood so it's easy to see what the step does.
+    // Ease the view to centre on the requested node, zoomed in to a comfortable neighbourhood: the
+    // node a replay step lands on, or the one behind an ability tapped in the status sheet.
     LaunchedEffect(focusSignal) {
         if (focusSignal == 0) return@LaunchedEffect
         val target = nodes.firstOrNull { it.id == focusNodeId } ?: return@LaunchedEffect

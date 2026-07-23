@@ -2,6 +2,7 @@ package com.safemode.safekeepingforffx.ui.screens.spheregrid
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,8 +19,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.PrimaryScrollableTabRow
@@ -64,6 +68,9 @@ private enum class StatusPage(val title: String, val family: NodeType?) {
  * [onSelectCharacter] moves the planner's own selection rather than a copy local to the sheet, so
  * comparing two characters here leaves the grid already showing the last one picked once the sheet
  * is dismissed. The open page is kept across the switch, which is what makes the comparison useful.
+ *
+ * [onSelectAbility] closes the sheet and takes the player to that ability's node on the grid, which
+ * is the whole point of listing what the grid still holds - tap Holy to see where it actually is.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,6 +78,7 @@ fun CharacterStatusSheet(
     status: CharacterStatus?,
     gridLabel: String,
     onSelectCharacter: (GridCharacter) -> Unit,
+    onSelectAbility: (String, NodeType) -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -120,7 +128,11 @@ fun CharacterStatusSheet(
                 if (page.family == null) {
                     AttributesPage(lines = status.attributes, icons = icons)
                 } else {
-                    AbilitiesPage(group = status.group(page.family), icons = icons)
+                    AbilitiesPage(
+                        group = status.group(page.family),
+                        icons = icons,
+                        onSelectAbility = { name -> onSelectAbility(name, page.family) }
+                    )
                 }
             }
         }
@@ -218,7 +230,11 @@ private fun StatRow(line: StatLine, icons: SphereIcons) {
  * remainder is the planning half - it says what taking more of this grid would actually teach.
  */
 @Composable
-private fun AbilitiesPage(group: AbilityGroup, icons: SphereIcons) {
+private fun AbilitiesPage(
+    group: AbilityGroup,
+    icons: SphereIcons,
+    onSelectAbility: (String) -> Unit
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -249,7 +265,13 @@ private fun AbilitiesPage(group: AbilityGroup, icons: SphereIcons) {
             }
         } else {
             items(group.learned, key = { "learned_$it" }) { name ->
-                AbilityRow(name = name, family = group.family, icons = icons, learned = true)
+                AbilityRow(
+                    name = name,
+                    family = group.family,
+                    icons = icons,
+                    learned = true,
+                    onClick = { onSelectAbility(name) }
+                )
             }
         }
 
@@ -264,16 +286,31 @@ private fun AbilitiesPage(group: AbilityGroup, icons: SphereIcons) {
                 Spacer(Modifier.size(4.dp))
             }
             items(group.remaining, key = { "remaining_$it" }) { name ->
-                AbilityRow(name = name, family = group.family, icons = icons, learned = false)
+                AbilityRow(
+                    name = name,
+                    family = group.family,
+                    icons = icons,
+                    learned = false,
+                    onClick = { onSelectAbility(name) }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun AbilityRow(name: String, family: NodeType, icons: SphereIcons, learned: Boolean) {
+private fun AbilityRow(
+    name: String,
+    family: NodeType,
+    icons: SphereIcons,
+    learned: Boolean,
+    onClick: () -> Unit
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClickLabel = "Show on the grid", onClick = onClick)
+            .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // An unlearned ability keeps its family swatch but sits back, so the two groups read apart
@@ -287,7 +324,14 @@ private fun AbilityRow(name: String, family: NodeType, icons: SphereIcons, learn
                 MaterialTheme.colorScheme.onSurface
             } else {
                 MaterialTheme.colorScheme.onSurfaceVariant
-            }
+            },
+            modifier = Modifier.weight(1f)
+        )
+        Icon(
+            imageVector = Icons.Filled.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
         )
     }
 }

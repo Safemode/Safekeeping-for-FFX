@@ -166,6 +166,79 @@ class CharacterStatusTest {
         assertEquals(2, status.activatedNodes)
     }
 
+    @Test
+    fun abilityLookupPrefersTheNodeItWasLearnedFrom() {
+        val grid = gridAt(
+            Triple("n1", 0f, NodeContent.Ability("Cure", NodeType.WHITE_MAGIC)),
+            Triple("n2", 10f, NodeContent.Ability("Cure", NodeType.WHITE_MAGIC)),
+            Triple("n3", 20f, NodeContent.Attribute(NodeType.MP, 10))
+        )
+        val node = CharacterStatusCalculator.nodeForAbility(
+            name = "Cure",
+            family = NodeType.WHITE_MAGIC,
+            grid = grid,
+            overrides = emptyMap(),
+            activated = setOf("n2", "n3")
+        )
+        assertEquals("n2", node)
+    }
+
+    @Test
+    fun unlearnedAbilityResolvesToTheCopyNearestThePath() {
+        val grid = gridAt(
+            Triple("far", 0f, NodeContent.Ability("Holy", NodeType.WHITE_MAGIC)),
+            Triple("near", 90f, NodeContent.Ability("Holy", NodeType.WHITE_MAGIC)),
+            Triple("path", 100f, NodeContent.Attribute(NodeType.MP, 10))
+        )
+        val node = CharacterStatusCalculator.nodeForAbility(
+            name = "Holy",
+            family = NodeType.WHITE_MAGIC,
+            grid = grid,
+            overrides = emptyMap(),
+            activated = setOf("path")
+        )
+        assertEquals("near", node)
+    }
+
+    @Test
+    fun abilityLookupWithNoPathFallsBackToTheFirstCopy() {
+        val grid = gridAt(
+            Triple("n1", 0f, NodeContent.Ability("Flare", NodeType.BLACK_MAGIC)),
+            Triple("n2", 50f, NodeContent.Ability("Flare", NodeType.BLACK_MAGIC))
+        )
+        val node = CharacterStatusCalculator.nodeForAbility(
+            name = "Flare",
+            family = NodeType.BLACK_MAGIC,
+            grid = grid,
+            overrides = emptyMap(),
+            activated = emptySet()
+        )
+        assertEquals("n1", node)
+    }
+
+    /** An edit can take the last copy of an ability off the grid, leaving nowhere to jump to. */
+    @Test
+    fun abilityLookupIsNullWhenAnEditRemovedItFromTheGrid() {
+        val grid = gridOf("n1" to NodeContent.Ability("Ultima", NodeType.BLACK_MAGIC))
+        val node = CharacterStatusCalculator.nodeForAbility(
+            name = "Ultima",
+            family = NodeType.BLACK_MAGIC,
+            grid = grid,
+            overrides = mapOf("n1" to NodeContent.Attribute(NodeType.MAGIC, 4)),
+            activated = emptySet()
+        )
+        assertEquals(null, node)
+    }
+
+    /** Grid with explicit x positions, so "nearest to the path" has something to measure. */
+    private fun gridAt(vararg nodes: Triple<String, Float, NodeContent>): GridData = GridData(
+        nodes = nodes.map { (id, x, content) ->
+            SphereGridNode(id = id, x = x, y = 0f, original = content)
+        },
+        edges = emptyList(),
+        bounds = GridBounds(0f, 0f, 1f, 1f)
+    )
+
     private fun gridOf(vararg nodes: Pair<String, NodeContent>): GridData = GridData(
         nodes = nodes.mapIndexed { index, (id, content) ->
             SphereGridNode(id = id, x = index.toFloat(), y = 0f, original = content)

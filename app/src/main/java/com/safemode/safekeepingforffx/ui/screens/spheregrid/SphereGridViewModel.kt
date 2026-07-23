@@ -13,6 +13,7 @@ import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.GridData
 import com.safemode.safekeepingforffx.data.reference.GridType
 import com.safemode.safekeepingforffx.data.reference.NodeContent
+import com.safemode.safekeepingforffx.data.reference.NodeType
 import com.safemode.safekeepingforffx.data.reference.RouteEvent
 import com.safemode.safekeepingforffx.data.reference.SphereGridBuild
 import com.safemode.safekeepingforffx.data.reference.SphereGridNode
@@ -231,6 +232,23 @@ class SphereGridViewModel(
                 }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /**
+     * The node the status sheet should send the player to for an ability, resolved against the same
+     * view the sheet is describing. Null when no node on the grid holds it, in which case the caller
+     * leaves the view where it is.
+     */
+    fun nodeForAbility(name: String, family: NodeType): String? {
+        val state = uiState.value
+        val route = _routeView.value
+        return CharacterStatusCalculator.nodeForAbility(
+            name = name,
+            family = family,
+            grid = state.grid,
+            overrides = route?.overrides ?: state.overrides,
+            activated = route?.activated ?: state.activated
+        )
+    }
 
     fun setGridType(type: GridType) {
         gridType.value = type

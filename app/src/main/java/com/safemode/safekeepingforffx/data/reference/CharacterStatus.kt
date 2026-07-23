@@ -125,4 +125,41 @@ object CharacterStatusCalculator {
             activatedNodes = activatedNodes
         )
     }
+
+    /**
+     * Which node to jump to when the player taps an ability in the status sheet.
+     *
+     * The grid holds several abilities more than once - Cure sits on four Standard nodes - so "the"
+     * node has to be chosen. An ability the character has already learned resolves to the node they
+     * actually took it from. One they have not resolves to whichever copy sits closest to their
+     * path, which is the copy they would realistically walk to; with no path yet, to the first copy
+     * on the grid. Returns null if nothing on the grid holds the ability any more, which an edit can
+     * easily cause.
+     */
+    fun nodeForAbility(
+        name: String,
+        family: NodeType,
+        grid: GridData,
+        overrides: Map<String, NodeContent>,
+        activated: Set<String>
+    ): String? {
+        val candidates = grid.nodes.filter { node ->
+            val content = overrides[node.id] ?: node.original
+            content is NodeContent.Ability && content.name == name && content.family == family
+        }
+        if (candidates.isEmpty()) return null
+
+        candidates.firstOrNull { it.id in activated }?.let { return it.id }
+
+        val path = grid.nodes.filter { it.id in activated }
+        if (path.isEmpty()) return candidates.first().id
+
+        return candidates.minByOrNull { candidate ->
+            path.minOf { step ->
+                val dx = (candidate.x - step.x).toDouble()
+                val dy = (candidate.y - step.y).toDouble()
+                dx * dx + dy * dy
+            }
+        }?.id
+    }
 }
