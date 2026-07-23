@@ -62,19 +62,31 @@ object NodeSizing {
     // low enough that even the fullest icon fits inside the swatch circle.
     const val LEGEND_ICON_SCALE = 1.5f
 
-    // Outline thickness per node type, as a fraction of the icon's on-screen size. Only the types
-    // that have an outline use it (the forced-white icons - see AlwaysWhiteIcons in this file), so
-    // the rest fall back to DEFAULT. Raise a value for a heavier outline on that icon, lower it for
-    // a thinner one.
+    // Outline thickness per node type, as a fraction of the icon's on-screen size. Every icon gets a
+    // black outline (see NodeType.iconOutline); raise a value for a heavier outline on that icon,
+    // lower it for a thinner one. Grouped stat / ability / lock only for readability.
     const val DEFAULT_ICON_OUTLINE_FACTOR = 0.045f
+
+    // Stat icon outlines
+    const val HP_ICON_OUTLINE_FACTOR = 0.045f
+    const val MP_ICON_OUTLINE_FACTOR = 0.045f
+    const val STRENGTH_ICON_OUTLINE_FACTOR = 0.045f
+    const val DEFENSE_ICON_OUTLINE_FACTOR = 0.045f
+    const val MAGIC_ICON_OUTLINE_FACTOR = 0.045f
+    const val MAGIC_DEFENSE_ICON_OUTLINE_FACTOR = 0.045f
+    const val AGILITY_ICON_OUTLINE_FACTOR = 0.045f
+    const val ACCURACY_ICON_OUTLINE_FACTOR = 0.045f
+    const val EVASION_ICON_OUTLINE_FACTOR = 0.045f
+    const val LUCK_ICON_OUTLINE_FACTOR = 0.045f
+
+    // Ability icon outlines
     const val WHITE_MAGIC_ICON_OUTLINE_FACTOR = 0.045f
     const val BLACK_MAGIC_ICON_OUTLINE_FACTOR = 0.045f
     const val SKILL_ICON_OUTLINE_FACTOR = 0.045f
     const val SPECIAL_ICON_OUTLINE_FACTOR = 0.045f
-    const val ACCURACY_ICON_OUTLINE_FACTOR = 0.045f
-    const val AGILITY_ICON_OUTLINE_FACTOR = 0.045f
-    const val EVASION_ICON_OUTLINE_FACTOR = 0.045f
-    const val LUCK_ICON_OUTLINE_FACTOR = 0.045f
+
+    // Lock icon outline
+    const val LOCK_ICON_OUTLINE_FACTOR = 0.045f
 }
 
 /** The world-space radius this node kind is drawn at, from [NodeSizing]. */
@@ -133,23 +145,29 @@ fun NodeType.iconColor(background: Color): Color =
     if (this in AlwaysWhiteIcons) Color.White else glyphColorFor(background)
 
 /**
- * A contrast outline colour for a node type's icon, or null for no outline. The forced-white icons
- * get a black outline so they stay legible on light node fills; every other type relies on the
- * automatic light/dark tint for contrast and needs none.
+ * The outline colour for a node type's icon. Every icon gets a black outline for contrast against
+ * its node fill; the outline thickness is set per type by [iconOutlineFactor].
  */
-fun NodeType.iconOutline(): Color? = if (this in AlwaysWhiteIcons) Color.Black else null
+fun NodeType.iconOutline(): Color = Color.Black
 
-/** The outline thickness this node type uses, from [NodeSizing] (unused when it has no outline). */
+/** The outline thickness this node type uses, from [NodeSizing]. */
 fun NodeType.iconOutlineFactor(): Float = when (this) {
+    NodeType.HP -> NodeSizing.HP_ICON_OUTLINE_FACTOR
+    NodeType.MP -> NodeSizing.MP_ICON_OUTLINE_FACTOR
+    NodeType.STRENGTH -> NodeSizing.STRENGTH_ICON_OUTLINE_FACTOR
+    NodeType.DEFENSE -> NodeSizing.DEFENSE_ICON_OUTLINE_FACTOR
+    NodeType.MAGIC -> NodeSizing.MAGIC_ICON_OUTLINE_FACTOR
+    NodeType.MAGIC_DEFENSE -> NodeSizing.MAGIC_DEFENSE_ICON_OUTLINE_FACTOR
+    NodeType.AGILITY -> NodeSizing.AGILITY_ICON_OUTLINE_FACTOR
+    NodeType.ACCURACY -> NodeSizing.ACCURACY_ICON_OUTLINE_FACTOR
+    NodeType.EVASION -> NodeSizing.EVASION_ICON_OUTLINE_FACTOR
+    NodeType.LUCK -> NodeSizing.LUCK_ICON_OUTLINE_FACTOR
     NodeType.WHITE_MAGIC -> NodeSizing.WHITE_MAGIC_ICON_OUTLINE_FACTOR
     NodeType.BLACK_MAGIC -> NodeSizing.BLACK_MAGIC_ICON_OUTLINE_FACTOR
     NodeType.SKILL -> NodeSizing.SKILL_ICON_OUTLINE_FACTOR
     NodeType.SPECIAL -> NodeSizing.SPECIAL_ICON_OUTLINE_FACTOR
-    NodeType.ACCURACY -> NodeSizing.ACCURACY_ICON_OUTLINE_FACTOR
-    NodeType.AGILITY -> NodeSizing.AGILITY_ICON_OUTLINE_FACTOR
-    NodeType.EVASION -> NodeSizing.EVASION_ICON_OUTLINE_FACTOR
-    NodeType.LUCK -> NodeSizing.LUCK_ICON_OUTLINE_FACTOR
-    else -> NodeSizing.DEFAULT_ICON_OUTLINE_FACTOR
+    NodeType.LOCK -> NodeSizing.LOCK_ICON_OUTLINE_FACTOR
+    NodeType.EMPTY -> NodeSizing.DEFAULT_ICON_OUTLINE_FACTOR
 }
 
 /**

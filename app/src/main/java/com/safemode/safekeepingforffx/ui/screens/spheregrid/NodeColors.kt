@@ -43,8 +43,8 @@ object NodeColors {
     val LUCK = Color(0xFFFDD835)
     val WHITE_MAGIC = Color(0xFFCE93D8)
     val BLACK_MAGIC = Color(0xFF5E35B1)
-    val SKILL = Color(0xFFF06292)
-    val SPECIAL = Color(0xFFF06292)
+    val SKILL = Color(0xFF5e1f4a)
+    val SPECIAL = Color(0xFF5e1f4a)
     val LOCK = Color(0xFF373B4D)
     val EMPTY = Color(0xFF78909C)
 }
