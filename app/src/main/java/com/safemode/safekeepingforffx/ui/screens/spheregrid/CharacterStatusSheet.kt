@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.safemode.safekeepingforffx.data.reference.AbilityGroup
 import com.safemode.safekeepingforffx.data.reference.CharacterStatus
+import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.NodeType
 import com.safemode.safekeepingforffx.data.reference.StatLine
 import kotlinx.coroutines.launch
@@ -59,12 +60,17 @@ private enum class StatusPage(val title: String, val family: NodeType?) {
  * The sheet holds no state of its own beyond which page is showing - [status] is recomputed upstream
  * from whatever the canvas is drawing, so switching character, editing a node or stepping a route
  * replay updates these numbers underneath the open sheet.
+ *
+ * [onSelectCharacter] moves the planner's own selection rather than a copy local to the sheet, so
+ * comparing two characters here leaves the grid already showing the last one picked once the sheet
+ * is dismissed. The open page is kept across the switch, which is what makes the comparison useful.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CharacterStatusSheet(
     status: CharacterStatus?,
     gridLabel: String,
+    onSelectCharacter: (GridCharacter) -> Unit,
     onDismiss: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -86,6 +92,11 @@ fun CharacterStatusSheet(
 
         Column(modifier = Modifier.fillMaxSize()) {
             StatusHeader(status = status, gridLabel = gridLabel)
+            CharacterRow(
+                selected = status.character,
+                onSelect = onSelectCharacter,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
 
             PrimaryScrollableTabRow(
                 selectedTabIndex = pagerState.currentPage,

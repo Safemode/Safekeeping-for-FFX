@@ -458,6 +458,7 @@ fun SphereGridScreen(
         CharacterStatusSheet(
             status = status,
             gridLabel = state.gridType.label,
+            onSelectCharacter = viewModel::setCharacter,
             onDismiss = { showStatusSheet = false }
         )
     }
@@ -771,11 +772,19 @@ private fun SphereGridRepository.ImportSummary.message(): String {
     return if (parts.isEmpty()) "Nothing to import." else "Imported ${parts.joinToString(" and ")}."
 }
 
-/** A scrollable row of the seven characters; the selected one owns the path shown on the grid. */
+/**
+ * A scrollable row of the seven characters; the selected one owns the path shown on the grid. Shared
+ * with the character status sheet, which offers the same switch over the same selection - so picking
+ * a character there has already moved the grid by the time the sheet is dismissed.
+ */
 @Composable
-private fun CharacterRow(selected: GridCharacter, onSelect: (GridCharacter) -> Unit) {
+fun CharacterRow(
+    selected: GridCharacter,
+    onSelect: (GridCharacter) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
             .padding(horizontal = 12.dp, vertical = 4.dp),
@@ -1035,7 +1044,7 @@ private fun NodeEditor(
 }
 
 @Composable
-private fun ColorDot(color: Color) {
+fun ColorDot(color: Color) {
     Box(
         modifier = Modifier
             .size(14.dp)
