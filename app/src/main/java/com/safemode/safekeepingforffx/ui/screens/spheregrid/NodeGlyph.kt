@@ -61,6 +61,10 @@ object NodeSizing {
     // than its per-node scale (some of which are large enough to overflow the tiny swatch). Keep it
     // low enough that even the fullest icon fits inside the swatch circle.
     const val LEGEND_ICON_SCALE = 1.5f
+
+    // Thickness of the contrast outline drawn behind an outlined (forced-white) icon, as a fraction
+    // of the icon's on-screen size. Raise for a heavier outline, lower for a thinner one.
+    const val ICON_OUTLINE_FACTOR = 0.045f
 }
 
 /** The world-space radius this node kind is drawn at, from [NodeSizing]. */
@@ -119,24 +123,44 @@ fun NodeType.iconColor(background: Color): Color =
     if (this in AlwaysWhiteIcons) Color.White else glyphColorFor(background)
 
 /**
+ * A contrast outline colour for a node type's icon, or null for no outline. The forced-white icons
+ * get a black outline so they stay legible on light node fills; every other type relies on the
+ * automatic light/dark tint for contrast and needs none.
+ */
+fun NodeType.iconOutline(): Color? = if (this in AlwaysWhiteIcons) Color.Black else null
+
+/**
  * Stamps a node's icon centred in the node, tinted to [color] for contrast against the fill and
  * scaled so the 40x40 source box spans [scale] * [radius] pixels - a little under the node's
  * diameter, so the mark sits inside the activation ring rather than touching it. Tune [scale] per
  * node kind in [NodeSizing].
+ *
+ * If [outline] is set, the icon is first stamped in that colour at eight small offsets around the
+ * centre, so the tinted fill on top reads with an even outline - used to keep white icons legible on
+ * light node fills. Outline thickness is [NodeSizing.ICON_OUTLINE_FACTOR] of the icon size.
  */
 fun DrawScope.drawNodeIcon(
     painter: Painter,
     center: Offset,
     radius: Float,
     color: Color,
-    scale: Float = NodeSizing.DEFAULT_ICON_SCALE
+    scale: Float = NodeSizing.DEFAULT_ICON_SCALE,
+    outline: Color? = null
 ) {
     val side = radius * scale
-    translate(left = center.x - side / 2f, top = center.y - side / 2f) {
-        with(painter) {
-            draw(size = Size(side, side), colorFilter = ColorFilter.tint(color))
+    val left = center.x - side / 2f
+    val top = center.y - side / 2f
+    fun stamp(dx: Float, dy: Float, tint: Color) {
+        translate(left = left + dx, top = top + dy) {
+            with(painter) { draw(size = Size(side, side), colorFilter = ColorFilter.tint(tint)) }
         }
     }
+    if (outline != null) {
+        val d = (side * NodeSizing.ICON_OUTLINE_FACTOR).coerceAtLeast(0.6f)
+        stamp(-d, 0f, outline); stamp(d, 0f, outline); stamp(0f, -d, outline); stamp(0f, d, outline)
+        stamp(-d, -d, outline); stamp(d, -d, outline); stamp(-d, d, outline); stamp(d, d, outline)
+    }
+    stamp(0f, 0f, color)
 }
 
 /** Which side of a node its label sits on - chosen to point into open space away from neighbours. */
