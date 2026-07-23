@@ -62,9 +62,19 @@ object NodeSizing {
     // low enough that even the fullest icon fits inside the swatch circle.
     const val LEGEND_ICON_SCALE = 1.5f
 
-    // Thickness of the contrast outline drawn behind an outlined (forced-white) icon, as a fraction
-    // of the icon's on-screen size. Raise for a heavier outline, lower for a thinner one.
-    const val ICON_OUTLINE_FACTOR = 0.045f
+    // Outline thickness per node type, as a fraction of the icon's on-screen size. Only the types
+    // that have an outline use it (the forced-white icons - see AlwaysWhiteIcons in this file), so
+    // the rest fall back to DEFAULT. Raise a value for a heavier outline on that icon, lower it for
+    // a thinner one.
+    const val DEFAULT_ICON_OUTLINE_FACTOR = 0.045f
+    const val WHITE_MAGIC_ICON_OUTLINE_FACTOR = 0.045f
+    const val BLACK_MAGIC_ICON_OUTLINE_FACTOR = 0.045f
+    const val SKILL_ICON_OUTLINE_FACTOR = 0.045f
+    const val SPECIAL_ICON_OUTLINE_FACTOR = 0.045f
+    const val ACCURACY_ICON_OUTLINE_FACTOR = 0.045f
+    const val AGILITY_ICON_OUTLINE_FACTOR = 0.045f
+    const val EVASION_ICON_OUTLINE_FACTOR = 0.045f
+    const val LUCK_ICON_OUTLINE_FACTOR = 0.045f
 }
 
 /** The world-space radius this node kind is drawn at, from [NodeSizing]. */
@@ -129,6 +139,19 @@ fun NodeType.iconColor(background: Color): Color =
  */
 fun NodeType.iconOutline(): Color? = if (this in AlwaysWhiteIcons) Color.Black else null
 
+/** The outline thickness this node type uses, from [NodeSizing] (unused when it has no outline). */
+fun NodeType.iconOutlineFactor(): Float = when (this) {
+    NodeType.WHITE_MAGIC -> NodeSizing.WHITE_MAGIC_ICON_OUTLINE_FACTOR
+    NodeType.BLACK_MAGIC -> NodeSizing.BLACK_MAGIC_ICON_OUTLINE_FACTOR
+    NodeType.SKILL -> NodeSizing.SKILL_ICON_OUTLINE_FACTOR
+    NodeType.SPECIAL -> NodeSizing.SPECIAL_ICON_OUTLINE_FACTOR
+    NodeType.ACCURACY -> NodeSizing.ACCURACY_ICON_OUTLINE_FACTOR
+    NodeType.AGILITY -> NodeSizing.AGILITY_ICON_OUTLINE_FACTOR
+    NodeType.EVASION -> NodeSizing.EVASION_ICON_OUTLINE_FACTOR
+    NodeType.LUCK -> NodeSizing.LUCK_ICON_OUTLINE_FACTOR
+    else -> NodeSizing.DEFAULT_ICON_OUTLINE_FACTOR
+}
+
 /**
  * Stamps a node's icon centred in the node, tinted to [color] for contrast against the fill and
  * scaled so the 40x40 source box spans [scale] * [radius] pixels - a little under the node's
@@ -137,7 +160,7 @@ fun NodeType.iconOutline(): Color? = if (this in AlwaysWhiteIcons) Color.Black e
  *
  * If [outline] is set, the icon is first stamped in that colour at eight small offsets around the
  * centre, so the tinted fill on top reads with an even outline - used to keep white icons legible on
- * light node fills. Outline thickness is [NodeSizing.ICON_OUTLINE_FACTOR] of the icon size.
+ * light node fills. Outline thickness is [outlineFactor] of the icon size.
  */
 fun DrawScope.drawNodeIcon(
     painter: Painter,
@@ -145,7 +168,8 @@ fun DrawScope.drawNodeIcon(
     radius: Float,
     color: Color,
     scale: Float = NodeSizing.DEFAULT_ICON_SCALE,
-    outline: Color? = null
+    outline: Color? = null,
+    outlineFactor: Float = NodeSizing.DEFAULT_ICON_OUTLINE_FACTOR
 ) {
     val side = radius * scale
     val left = center.x - side / 2f
@@ -156,7 +180,7 @@ fun DrawScope.drawNodeIcon(
         }
     }
     if (outline != null) {
-        val d = (side * NodeSizing.ICON_OUTLINE_FACTOR).coerceAtLeast(0.6f)
+        val d = (side * outlineFactor).coerceAtLeast(0.6f)
         stamp(-d, 0f, outline); stamp(d, 0f, outline); stamp(0f, -d, outline); stamp(0f, d, outline)
         stamp(-d, -d, outline); stamp(d, -d, outline); stamp(-d, d, outline); stamp(d, d, outline)
     }

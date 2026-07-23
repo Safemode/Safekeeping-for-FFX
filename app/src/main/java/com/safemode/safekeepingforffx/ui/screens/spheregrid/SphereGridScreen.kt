@@ -1653,7 +1653,9 @@ private fun GridCanvas(
                 } else {
                     icons.forType(dtype)
                 }
-                icon?.let { drawNodeIcon(it, center, r, glyphColor, dtype.iconScale(), dtype.iconOutline()) }
+                icon?.let {
+                    drawNodeIcon(it, center, r, glyphColor, dtype.iconScale(), dtype.iconOutline(), dtype.iconOutlineFactor())
+                }
             }
 
             // In route replay the activation-order number sits above the node; otherwise the value or
@@ -1798,6 +1800,8 @@ private fun LegendSwatch(
         if (type == NodeType.EMPTY) return@Canvas
         val glyphColor = type.iconColor(color)
         val icon = if (type.isLock) icons.forLock(1) else icons.forType(type)
-        icon?.let { drawNodeIcon(it, center, r, glyphColor, NodeSizing.LEGEND_ICON_SCALE, type.iconOutline()) }
+        icon?.let {
+            drawNodeIcon(it, center, r, glyphColor, NodeSizing.LEGEND_ICON_SCALE, type.iconOutline(), type.iconOutlineFactor())
+        }
     }
 }
