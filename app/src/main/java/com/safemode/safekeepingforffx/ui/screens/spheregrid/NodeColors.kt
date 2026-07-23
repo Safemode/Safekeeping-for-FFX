@@ -21,27 +21,52 @@ fun GridCharacter.activationColor(): Color = when (this) {
 }
 
 /**
- * Placeholder colours for each node type, chosen to echo the legend on the reference image without
- * transcribing any of its text. The centres stay blank - a green sphere reads as "HP" the same way
- * it does on the grid itself, which is all a planner needs.
+ * The fill colour of each node type - the sphere's colour on the grid and its swatch in the legend.
+ * Change a value here and rebuild; every node of that type updates. Values are 0xAARRGGBB, so keep
+ * the leading FF for a fully opaque node.
+ *
+ * These are placeholder colours chosen to echo the legend on the reference image. Node centres stay
+ * blank - a green sphere reads as "HP" the same way it does on the grid itself. The icon drawn on
+ * top auto-contrasts against the fill (dark on light, light on dark) unless the type is forced white
+ * in AlwaysWhiteIcons - see NodeGlyph.kt.
  */
+object NodeColors {
+    val HP = Color(0xFF66BB6A)
+    val MP = Color(0xFF29B6F6)
+    val STRENGTH = Color(0xFFEF5350)
+    val DEFENSE = Color(0xFF5C6BC0)
+    val MAGIC = Color(0xFFEC407A)
+    val MAGIC_DEFENSE = Color(0xFF3F51B5)
+    val AGILITY = Color(0xFFFDD835)
+    val ACCURACY = Color(0xFFFFB300)
+    val EVASION = Color(0xFFFFF176)
+    val LUCK = Color(0xFFFFD54F)
+    val WHITE_MAGIC = Color(0xFFCE93D8)
+    val BLACK_MAGIC = Color(0xFF5E35B1)
+    val SKILL = Color(0xFFF06292)
+    val SPECIAL = Color(0xFFFF8A65)
+    val LOCK = Color(0xFF373B4D)
+    val EMPTY = Color(0xFF78909C)
+}
+
+/** The fill colour for a node type, from the [NodeColors] config. */
 fun NodeType.color(): Color = when (this) {
-    NodeType.HP -> Color(0xFF66BB6A)
-    NodeType.MP -> Color(0xFF29B6F6)
-    NodeType.STRENGTH -> Color(0xFFEF5350)
-    NodeType.DEFENSE -> Color(0xFF5C6BC0)
-    NodeType.MAGIC -> Color(0xFFEC407A)
-    NodeType.MAGIC_DEFENSE -> Color(0xFF3F51B5)
-    NodeType.AGILITY -> Color(0xFFFDD835)
-    NodeType.ACCURACY -> Color(0xFFFFB300)
-    NodeType.EVASION -> Color(0xFFFFF176)
-    NodeType.LUCK -> Color(0xFFFFD54F)
-    NodeType.WHITE_MAGIC -> Color(0xFFCE93D8)
-    NodeType.BLACK_MAGIC -> Color(0xFF5E35B1)
-    NodeType.SKILL -> Color(0xFFF06292)
-    NodeType.SPECIAL -> Color(0xFFFF8A65)
-    NodeType.LOCK -> Color(0xFF373B4D)
-    NodeType.EMPTY -> Color(0xFF78909C)
+    NodeType.HP -> NodeColors.HP
+    NodeType.MP -> NodeColors.MP
+    NodeType.STRENGTH -> NodeColors.STRENGTH
+    NodeType.DEFENSE -> NodeColors.DEFENSE
+    NodeType.MAGIC -> NodeColors.MAGIC
+    NodeType.MAGIC_DEFENSE -> NodeColors.MAGIC_DEFENSE
+    NodeType.AGILITY -> NodeColors.AGILITY
+    NodeType.ACCURACY -> NodeColors.ACCURACY
+    NodeType.EVASION -> NodeColors.EVASION
+    NodeType.LUCK -> NodeColors.LUCK
+    NodeType.WHITE_MAGIC -> NodeColors.WHITE_MAGIC
+    NodeType.BLACK_MAGIC -> NodeColors.BLACK_MAGIC
+    NodeType.SKILL -> NodeColors.SKILL
+    NodeType.SPECIAL -> NodeColors.SPECIAL
+    NodeType.LOCK -> NodeColors.LOCK
+    NodeType.EMPTY -> NodeColors.EMPTY
 }
 
 /** A short, human-readable label for the legend. Node centres themselves stay unlabelled. */
