@@ -45,6 +45,7 @@ The information inside the app comes from various online sources and community r
   <img src="screenshots/celestial-weapons.png" alt="Celestial Weapons" width="200">
   <img src="screenshots/ronso-rage.png" alt="Ronso Rage" width="200">
   <img src="screenshots/monster-arena.png" alt="Monster Arena" width="200">
+  <img src="screenshots/sphere-grid.png" alt="Sphere Grid" width="200">
   <img src="screenshots/mix-calculator-combine.png" alt="Mix Overdrive Combination" width="200">
   <img src="screenshots/mix-calculator-lookup.png" alt="Mix Overdrive Lookup" width="200">
   <img src="screenshots/settings.png" alt="Settings" width="200">
