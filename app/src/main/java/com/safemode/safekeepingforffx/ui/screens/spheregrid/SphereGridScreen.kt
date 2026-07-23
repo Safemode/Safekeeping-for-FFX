@@ -193,6 +193,11 @@ fun SphereGridScreen(
 
     val textMeasurer = rememberTextMeasurer()
     val sphereIcons = rememberSphereIcons()
+    // The legend gets its own painter instances, separate from the grid's. A VectorPainter keeps its
+    // last draw size in snapshot state, so sharing one instance between the grid (drawn large and at
+    // zoom-dependent sizes) and the legend (a fixed tiny swatch) made the legend icons jump on zoom
+    // and tap. Independent painters keep the legend's size and placement fixed.
+    val legendIcons = rememberSphereIcons()
     // Value/name labels are measured lazily and memoized - there are only a few dozen distinct
     // strings, so each is measured once and reused every frame.
     val labelStyle = remember {
@@ -271,7 +276,7 @@ fun SphereGridScreen(
             )
         }
 
-        Legend(icons = sphereIcons)
+        Legend(icons = legendIcons)
         HorizontalDivider()
 
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
