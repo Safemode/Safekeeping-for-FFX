@@ -75,15 +75,15 @@ object NodeSizing {
     const val MAGIC_ICON_OUTLINE_FACTOR = 0.045f
     const val MAGIC_DEFENSE_ICON_OUTLINE_FACTOR = 0.045f
     const val AGILITY_ICON_OUTLINE_FACTOR = 0.045f
-    const val ACCURACY_ICON_OUTLINE_FACTOR = 0.045f
+    const val ACCURACY_ICON_OUTLINE_FACTOR = 0.040f
     const val EVASION_ICON_OUTLINE_FACTOR = 0.045f
     const val LUCK_ICON_OUTLINE_FACTOR = 0.045f
 
     // Ability icon outlines
     const val WHITE_MAGIC_ICON_OUTLINE_FACTOR = 0.045f
-    const val BLACK_MAGIC_ICON_OUTLINE_FACTOR = 0.045f
-    const val SKILL_ICON_OUTLINE_FACTOR = 0.045f
-    const val SPECIAL_ICON_OUTLINE_FACTOR = 0.045f
+    const val BLACK_MAGIC_ICON_OUTLINE_FACTOR = 0.035f
+    const val SKILL_ICON_OUTLINE_FACTOR = 0.035f
+    const val SPECIAL_ICON_OUTLINE_FACTOR = 0.035f
 
     // Lock icon outline
     const val LOCK_ICON_OUTLINE_FACTOR = 0.045f
@@ -233,7 +233,9 @@ object LabelTuning {
 /**
  * Draws a small text label beside a node - the stat amount ("+2") or the ability name - on the side
  * given by [placement]. Scaled to the node's size and capped in width, so a long name shrinks rather
- * than sprawling over its neighbours.
+ * than sprawling over its neighbours. Multi-line labels (a wrapped ability name) are sized so each
+ * line is about [LabelTuning.HEIGHT_FACTOR] of the node radius, rather than shrinking the whole block
+ * to one line's worth of height.
  */
 fun DrawScope.drawNodeLabel(
     result: TextLayoutResult,
@@ -243,7 +245,8 @@ fun DrawScope.drawNodeLabel(
     placement: LabelPlacement
 ) {
     if (result.size.height == 0 || result.size.width == 0) return
-    val targetHeight = nodeRadius * LabelTuning.HEIGHT_FACTOR
+    val lineCount = result.lineCount.coerceAtLeast(1)
+    val targetHeight = nodeRadius * LabelTuning.HEIGHT_FACTOR * lineCount
     val maxWidth = nodeRadius * LabelTuning.MAX_WIDTH_FACTOR
     val factor = minOf(targetHeight / result.size.height, maxWidth / result.size.width)
     val scaledW = result.size.width * factor

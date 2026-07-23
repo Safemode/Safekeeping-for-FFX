@@ -85,6 +85,7 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -194,7 +195,9 @@ fun SphereGridScreen(
     val sphereIcons = rememberSphereIcons()
     // Value/name labels are measured lazily and memoized - there are only a few dozen distinct
     // strings, so each is measured once and reused every frame.
-    val labelStyle = remember { TextStyle(fontWeight = FontWeight.Medium, fontSize = 30.sp) }
+    val labelStyle = remember {
+        TextStyle(fontWeight = FontWeight.Medium, fontSize = 30.sp, textAlign = TextAlign.Center)
+    }
     val labelCache = remember { mutableMapOf<String, TextLayoutResult>() }
 
     val activeRoute = routeView
@@ -1669,7 +1672,7 @@ private fun GridCanvas(
                 } else {
                     val label = when (content) {
                         is NodeContent.Attribute -> "+${content.value}"
-                        is NodeContent.Ability -> content.name
+                        is NodeContent.Ability -> wrapAbilityLabel(content.name)
                         else -> null
                     }
                     if (label != null) {
@@ -1704,6 +1707,31 @@ private fun GridCanvas(
             }
         }
     }
+}
+
+/**
+ * Splits a multi-word ability name across two lines so it takes up less width beside the node and is
+ * less likely to run into a neighbour - e.g. "Silence Attack" becomes "Silence\nAttack". The break is
+ * the word boundary nearest the middle by character count. Single-word names are left as one line.
+ */
+private fun wrapAbilityLabel(name: String): String {
+    val words = name.split(' ').filter { it.isNotEmpty() }
+    if (words.size < 2) return name
+    val target = name.length / 2
+    var bestSplit = 1
+    var bestDiff = Int.MAX_VALUE
+    var consumed = 0
+    for (i in 0 until words.size - 1) {
+        consumed += words[i].length + 1 // include the space that would be replaced by a break
+        val diff = abs(consumed - target)
+        if (diff < bestDiff) {
+            bestDiff = diff
+            bestSplit = i + 1
+        }
+    }
+    val first = words.subList(0, bestSplit).joinToString(" ")
+    val second = words.subList(bestSplit, words.size).joinToString(" ")
+    return "$first\n$second"
 }
 
 /**
