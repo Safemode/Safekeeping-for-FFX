@@ -8,6 +8,7 @@ import com.safemode.safekeepingforffx.data.reference.GridData
 import com.safemode.safekeepingforffx.data.reference.NodeContent
 import com.safemode.safekeepingforffx.data.reference.NodeType
 import com.safemode.safekeepingforffx.data.reference.SphereGridNode
+import com.safemode.safekeepingforffx.data.reference.SphereGridParser
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -164,6 +165,22 @@ class CharacterStatusTest {
         assertTrue(status.attributes.all { it.fromGrid == 0 })
         assertEquals(1030, status.attributes.first { it.attribute == NodeType.HP }.total)
         assertEquals(2, status.activatedNodes)
+    }
+
+    /**
+     * The premise nodeForAbility rests on: on the bundled grids an ability sits on exactly one node,
+     * so a jump normally has a single candidate. Only player edits can produce a second copy.
+     */
+    @Test
+    fun bundledGridsHoldEachAbilityExactlyOnce() {
+        listOf("sphere_grid.json", "expert_sphere_grid.json").forEach { asset ->
+            val grid = SphereGridParser.parse(File("src/main/assets/$asset").readText())
+            val names = grid.nodes.map { it.original }
+                .filterIsInstance<NodeContent.Ability>()
+                .map { it.name }
+            val duplicated = names.groupingBy { it }.eachCount().filterValues { it > 1 }
+            assertEquals("$asset should hold no ability twice", emptyMap<String, Int>(), duplicated)
+        }
     }
 
     @Test

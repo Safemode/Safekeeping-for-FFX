@@ -129,12 +129,12 @@ object CharacterStatusCalculator {
     /**
      * Which node to jump to when the player taps an ability in the status sheet.
      *
-     * The grid holds several abilities more than once - Cure sits on four Standard nodes - so "the"
-     * node has to be chosen. An ability the character has already learned resolves to the node they
-     * actually took it from. One they have not resolves to whichever copy sits closest to their
+     * On both vanilla grids every ability sits on exactly one node, so there is normally a single
+     * candidate and no choice to make. Edits break that: nothing stops the player writing Cure onto
+     * a dozen nodes, so the tie has to be broken anyway. A learned ability resolves to the node the
+     * character actually took it from; an unlearned one to whichever copy sits closest to their
      * path, which is the copy they would realistically walk to; with no path yet, to the first copy
-     * on the grid. Returns null if nothing on the grid holds the ability any more, which an edit can
-     * easily cause.
+     * on the grid. Returns null when no node holds the ability, which an edit can also cause.
      */
     fun nodeForAbility(
         name: String,
