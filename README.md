@@ -72,5 +72,5 @@ The information inside the app comes from various online sources and community r
 ### To-Do
 1. Add screenshots where possible to help locate items/people
 2. Add detailed fiend locations for Monster Arena
-3. Probably make an actual icon instead of using the default from Android Studio
+3. Add stat/ability tracking for Sphere Grid, including each character's base stats
 
