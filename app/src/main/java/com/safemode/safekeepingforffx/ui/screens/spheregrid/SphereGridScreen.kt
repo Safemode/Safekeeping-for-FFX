@@ -258,6 +258,19 @@ fun SphereGridScreen(
                         onConfirm = viewModel::clearCharacterPath
                     )
                 },
+                canActivateAll = state.gridAvailable && !state.isLoading,
+                onActivateAll = {
+                    confirm = ConfirmAction(
+                        title = "Activate everything for ${state.character.displayName}?",
+                        message = "Every attribute and ability node on the ${state.gridType.label} " +
+                            "grid joins ${state.character.displayName}'s path, so Character Status " +
+                            "shows their totals with the whole grid taken. Locks and blank nodes are " +
+                            "left alone. The path they have now can't be brought back afterwards - " +
+                            "only cleared and rebuilt.",
+                        confirmLabel = "Activate all",
+                        onConfirm = viewModel::activateAllContentNodes
+                    )
+                },
                 canShare = state.hasAnythingToShare,
                 onShareBuild = { showShareDialog = true },
                 onImportBuild = { showImportDialog = true },
@@ -589,6 +602,8 @@ private fun SelectorBar(
     characterName: String,
     onRevertEdits: () -> Unit,
     onClearPath: () -> Unit,
+    canActivateAll: Boolean,
+    onActivateAll: () -> Unit,
     canShare: Boolean,
     onShareBuild: () -> Unit,
     onImportBuild: () -> Unit,
@@ -680,6 +695,14 @@ private fun SelectorBar(
                     }
                 )
                 HorizontalDivider()
+                DropdownMenuItem(
+                    text = { Text("Activate all attribute and ability nodes") },
+                    enabled = canActivateAll,
+                    onClick = {
+                        overflow = false
+                        onActivateAll()
+                    }
+                )
                 DropdownMenuItem(
                     text = { Text("Revert all edits") },
                     enabled = hasEdits,

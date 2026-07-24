@@ -333,6 +333,25 @@ class SphereGridViewModel(
         viewModelScope.launch { repository.clearCharacterActivations(character.value) }
     }
 
+    /**
+     * Adds every stat and ability node on the current grid to the selected character's path, so the
+     * status sheet shows what they would look like with the whole grid taken. Locks and blanks are
+     * left alone. Caller confirms first - this cannot be undone short of clearing the path, since
+     * the nodes the player had actually taken are no longer distinguishable afterwards.
+     */
+    fun activateAllContentNodes() {
+        viewModelScope.launch {
+            val name = character.value.displayName
+            val count = repository.activateContentNodes(character.value, gridType.value)
+            eventChannel.send(
+                SphereGridEvent.Notice(
+                    if (count == 0) "Nothing to activate on this grid."
+                    else "Activated $count nodes for $name."
+                )
+            )
+        }
+    }
+
     /** Encodes a shareable build for the current grid/character and hands the code to the screen. */
     fun exportBuild(scope: BuildScope) {
         viewModelScope.launch {

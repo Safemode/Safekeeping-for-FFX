@@ -122,6 +122,39 @@ class SphereGridRepository(
     suspend fun clearCharacterActivations(character: GridCharacter) =
         activationDao.clearCharacter(character.name)
 
+    /**
+     * Activates every node on [gridType] that holds a stat or an ability for [character], so the
+     * planner can show what their totals look like with the whole grid taken. Locks and blank nodes
+     * are skipped - neither gives anything, and a lock is a gate rather than a gain.
+     *
+     * Content is read the same way the canvas reads it: a player edit if there is one, else the
+     * node's vanilla content, so a node edited into a stat counts and one blanked out does not.
+     * Written as a single upsert rather than a tap at a time, since this is several hundred rows.
+     * Returns how many nodes were activated, for the confirmation message.
+     */
+    suspend fun activateContentNodes(character: GridCharacter, gridType: GridType): Int {
+        val grid = grid(gridType)
+        val overrides = nodeDao.snapshot().mapNotNull { row ->
+            NodeContent.decode(row.content)?.let { row.nodeId to it }
+        }.toMap()
+
+        val targets = grid.nodes.filter { node ->
+            when (overrides[node.id] ?: node.original) {
+                is NodeContent.Attribute, is NodeContent.Ability -> true
+                else -> false
+            }
+        }.map { it.id }
+        if (targets.isEmpty()) return 0
+
+        seqMutex.withLock {
+            var seq = nextSeq()
+            activationDao.upsertAll(
+                targets.map { SphereGridActivationEntity(character.name, it, seq++) }
+            )
+        }
+        return targets.size
+    }
+
     /** Full wipe used by the Settings "Reset all progress": both edits and every character's path. */
     suspend fun clearAll() {
         nodeDao.clearAll()

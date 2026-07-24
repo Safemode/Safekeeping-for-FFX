@@ -93,6 +93,33 @@ class SphereGridTest {
         assertTrue("n355 (Lv.2 lock) should be linked to n357 (HP +200)", linked)
     }
 
+    /**
+     * What "Activate all attribute and ability nodes" takes: everything holding a stat or an
+     * ability, and nothing else. Locks are gates rather than gains and blanks give nothing, so both
+     * stay off the path - which is also why neither counts toward the Character Status node total.
+     * Pinned as counts so a data edit that turned locks or blanks into content would be noticed.
+     */
+    @Test
+    fun activateAllSelectsEveryStatAndAbilityNodeOnly() {
+        val byKind = grid.nodes.groupingBy { node ->
+            when (node.original) {
+                is NodeContent.Attribute -> "stat"
+                is NodeContent.Ability -> "ability"
+                is NodeContent.Lock -> "lock"
+                NodeContent.Empty -> "blank"
+            }
+        }.eachCount()
+
+        assertEquals(860, byKind.values.sum())
+        assertEquals(85, byKind.getValue("ability"))
+        assertEquals(77, byKind.getValue("lock"))
+
+        val selected = byKind.getValue("stat") + byKind.getValue("ability")
+        val skipped = byKind.getValue("lock") + byKind.getValue("blank")
+        assertEquals("Every node is either taken or skipped", 860, selected + skipped)
+        assertTrue("Activate-all should take the bulk of the grid", selected > skipped)
+    }
+
     @Test
     fun contentEncodingRoundTrips() {
         val samples = listOf(
