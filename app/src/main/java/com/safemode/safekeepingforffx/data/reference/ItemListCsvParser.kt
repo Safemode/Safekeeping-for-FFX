@@ -52,7 +52,7 @@ object ItemListCsvParser {
             items = items,
             note = "Tap an item marked with a paw to open the Monster Arena narrowed to the " +
                 "fiends that carry it, whether stolen, dropped, bribed for or paid out by a " +
-                "creation. Items no fiend has stay untappable.",
+                "creation.",
             trackProgress = false
         )
     }
