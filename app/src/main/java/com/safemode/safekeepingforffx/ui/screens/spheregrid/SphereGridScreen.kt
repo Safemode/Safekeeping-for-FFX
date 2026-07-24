@@ -1553,6 +1553,14 @@ private fun GridCanvas(
             if (a != null && b != null) EdgeSegment(a.id, b.id, a.x, a.y, b.x, b.y) else null
         }
     }
+    // Blank nodes the character has walked through. They earn no activation rim - they gave nothing -
+    // so the path is instead drawn on across them, which needs them identified before the draw pass.
+    val blanksOnPath = remember(nodes, overrides, activated, readOnly) {
+        nodes.mapNotNullTo(HashSet()) { node ->
+            val content = overrides[node.id] ?: routeUnlockedOriginal(node, readOnly, activated)
+            node.id.takeIf { it in activated && content is NodeContent.Empty }
+        }
+    }
     // Which side each node's label sits on, decided once from its connections so it points into the
     // emptiest direction instead of always downward onto whatever node is below it.
     val labelPlacement = remember(grid) {
@@ -1811,6 +1819,62 @@ private fun GridCanvas(
                     center = center,
                     style = Stroke(width = (r * 0.14f).coerceAtLeast(1.2f))
                 )
+            }
+        }
+
+        // Walked blanks, drawn last so they sit on the node rather than under it. The character's own
+        // link is carried on across the node at low opacity, so the path visibly runs through it -
+        // enough to show the node was tapped without the full rim that would claim it gave something.
+        // The faint hub keeps a blank readable even when nothing next to it is on the path.
+        if (blanksOnPath.isNotEmpty()) {
+            val blankRadius = (NodeType.EMPTY.nodeRadius() * scale).coerceAtLeast(1.5f)
+            val trailColor = characterColor.copy(alpha = 0.4f)
+            val trailWidth = linkWidth * 0.8f
+
+            nodes.forEach { node ->
+                if (node.id !in blanksOnPath) return@forEach
+                val cx = node.x * scale + offset.x
+                val cy = node.y * scale + offset.y
+                if (cx < -blankRadius || cy < -blankRadius ||
+                    cx > size.width + blankRadius || cy > size.height + blankRadius
+                ) {
+                    return@forEach
+                }
+                drawCircle(trailColor, radius = blankRadius * 0.28f, center = Offset(cx, cy))
+            }
+
+            edges.forEach { seg ->
+                if (seg.fromId !in activated || seg.toId !in activated) return@forEach
+                val fromBlank = seg.fromId in blanksOnPath
+                val toBlank = seg.toId in blanksOnPath
+                if (!fromBlank && !toBlank) return@forEach
+                val ax = seg.ax * scale + offset.x
+                val ay = seg.ay * scale + offset.y
+                val bx = seg.bx * scale + offset.x
+                val by = seg.by * scale + offset.y
+                if (!segmentVisible(ax, ay, bx, by, size.width, size.height)) return@forEach
+                val len = hypot(bx - ax, by - ay)
+                if (len < 0.5f) return@forEach
+                val ux = (bx - ax) / len
+                val uy = (by - ay) / len
+                // Only the stretch inside the blank itself, so the line stops at its rim and never
+                // paints over the node at the other end.
+                if (fromBlank) {
+                    drawLine(
+                        trailColor,
+                        Offset(ax, ay),
+                        Offset(ax + ux * blankRadius, ay + uy * blankRadius),
+                        strokeWidth = trailWidth
+                    )
+                }
+                if (toBlank) {
+                    drawLine(
+                        trailColor,
+                        Offset(bx, by),
+                        Offset(bx - ux * blankRadius, by - uy * blankRadius),
+                        strokeWidth = trailWidth
+                    )
+                }
             }
         }
     }
