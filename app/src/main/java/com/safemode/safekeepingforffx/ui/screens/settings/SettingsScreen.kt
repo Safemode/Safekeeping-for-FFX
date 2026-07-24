@@ -45,6 +45,7 @@ import com.safemode.safekeepingforffx.BuildConfig
 import com.safemode.safekeepingforffx.R
 import com.safemode.safekeepingforffx.data.reference.GameVersion
 import com.safemode.safekeepingforffx.data.reference.ThemePreference
+import com.safemode.safekeepingforffx.ui.screens.spheregrid.FULL_EDITOR_LABEL
 
 private const val SOURCE_URL = "https://github.com/Safemode/Safekeeping-for-FFX"
 
@@ -59,6 +60,7 @@ fun SettingsScreen(
     var showResetDialog by remember { mutableStateOf(false) }
     val showHelp by viewModel.showHelp.collectAsStateWithLifecycle()
     val tapActivates by viewModel.sphereGridTapActivates.collectAsStateWithLifecycle()
+    val fullNodeEditor by viewModel.sphereGridFullNodeEditor.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
@@ -87,6 +89,16 @@ fun SettingsScreen(
                 "the details instead.",
             checked = tapActivates,
             onCheckedChange = viewModel::setSphereGridTapActivates
+        )
+        HorizontalDivider()
+
+        SwitchRow(
+            label = FULL_EDITOR_LABEL,
+            description = "What the node editor offers when you edit a node's content. Off shows " +
+                "only the spheres a max-stats plan places - HP +300, MP +40 and the +4 attributes. " +
+                "On adds every other attribute value and all 85 abilities.",
+            checked = fullNodeEditor,
+            onCheckedChange = viewModel::setSphereGridFullNodeEditor
         )
         HorizontalDivider()
 

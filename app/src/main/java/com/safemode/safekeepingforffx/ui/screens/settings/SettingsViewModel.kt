@@ -70,6 +70,16 @@ class SettingsViewModel(
         viewModelScope.launch { settingsRepository.setSphereGridTapActivates(value) }
     }
 
+    val sphereGridFullNodeEditor = settingsRepository.sphereGridFullNodeEditor.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = false
+    )
+
+    fun setSphereGridFullNodeEditor(value: Boolean) {
+        viewModelScope.launch { settingsRepository.setSphereGridFullNodeEditor(value) }
+    }
+
     /** Caller is responsible for confirming with the user first - this cannot be undone. */
     fun resetProgress() {
         viewModelScope.launch {

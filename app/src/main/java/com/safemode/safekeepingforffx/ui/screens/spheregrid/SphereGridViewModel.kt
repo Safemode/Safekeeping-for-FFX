@@ -43,7 +43,9 @@ data class SphereGridUiState(
     val activated: Set<String> = emptySet(),
     val showHelp: Boolean = true,
     /** When true a tap activates a node and a long-press opens its details; otherwise tap opens. */
-    val tapActivates: Boolean = false
+    val tapActivates: Boolean = false,
+    /** When true the node editor offers every attribute and ability; otherwise the short list. */
+    val fullNodeEditor: Boolean = false
 ) {
     fun current(node: SphereGridNode): NodeContent = overrides[node.id] ?: node.original
     fun isEdited(node: SphereGridNode): Boolean = overrides.containsKey(node.id)
@@ -178,8 +180,11 @@ class SphereGridViewModel(
 
     private val settings = combine(
         settingsRepository.showHelp,
-        settingsRepository.sphereGridTapActivates
-    ) { showHelp, tapActivates -> showHelp to tapActivates }
+        settingsRepository.sphereGridTapActivates,
+        settingsRepository.sphereGridFullNodeEditor
+    ) { showHelp, tapActivates, fullNodeEditor ->
+        GridSettings(showHelp, tapActivates, fullNodeEditor)
+    }
 
     val uiState = combine(
         gridLoad,
@@ -195,8 +200,9 @@ class SphereGridViewModel(
             character = character,
             overrides = overrides,
             activated = activated,
-            showHelp = settings.first,
-            tapActivates = settings.second
+            showHelp = settings.showHelp,
+            tapActivates = settings.tapActivates,
+            fullNodeEditor = settings.fullNodeEditor
         )
     }.stateIn(
         scope = viewModelScope,
@@ -450,6 +456,13 @@ class SphereGridViewModel(
                 }
         }
     }
+
+    /** The player settings the planner reads, combined into one value for the state fold. */
+    private data class GridSettings(
+        val showHelp: Boolean,
+        val tapActivates: Boolean,
+        val fullNodeEditor: Boolean
+    )
 
     private data class GridLoad(
         val type: GridType,

@@ -432,6 +432,7 @@ fun SphereGridScreen(
                 node = editing,
                 current = state.current(editing),
                 abilities = state.grid.abilities,
+                fullCatalog = state.fullNodeEditor,
                 onApply = { content ->
                     viewModel.setContent(editing, content)
                     editingNodeId = null
@@ -978,10 +979,15 @@ private fun NodeEditor(
     node: SphereGridNode,
     current: NodeContent,
     abilities: List<com.safemode.safekeepingforffx.data.reference.GridAbility>,
+    fullCatalog: Boolean,
     onApply: (NodeContent?) -> Unit
 ) {
     var query by rememberSaveable { mutableStateOf("") }
-    val filtered = remember(query, abilities) {
+    // Restricted to the max-stats spheres, abilities are off the table entirely, so the search box
+    // and the whole list below it come off with them.
+    val catalog = if (fullCatalog) AttributeCatalog else MaxStatAttributeCatalog
+    val filtered = remember(query, abilities, fullCatalog) {
+        if (!fullCatalog) return@remember emptyList()
         val needle = query.trim()
         if (needle.isEmpty()) abilities
         else abilities.filter { it.name.contains(needle, ignoreCase = true) }
@@ -1018,7 +1024,7 @@ private fun NodeEditor(
             Text("Attributes", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.size(8.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AttributeCatalog.forEach { attr ->
+                catalog.forEach { attr ->
                     FilterChip(
                         selected = current == attr,
                         onClick = { onApply(attr) },
@@ -1027,11 +1033,23 @@ private fun NodeEditor(
                     )
                 }
             }
-            Spacer(Modifier.size(20.dp))
-            Text("Abilities", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.size(8.dp))
-            SearchBox(query = query, onQueryChange = { query = it })
-            Spacer(Modifier.size(8.dp))
+            if (fullCatalog) {
+                Spacer(Modifier.size(20.dp))
+                Text("Abilities", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.size(8.dp))
+                SearchBox(query = query, onQueryChange = { query = it })
+                Spacer(Modifier.size(8.dp))
+            } else {
+                // Without this the short list looks like the whole editor, and there is nothing on
+                // screen to say the abilities and smaller stat values are a setting away.
+                Spacer(Modifier.size(12.dp))
+                Text(
+                    text = "Showing the spheres a max-stats plan uses. Turn on \"$FULL_EDITOR_LABEL\" " +
+                        "in Settings for every attribute value and all 85 abilities.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
         items(filtered, key = { "${it.family}_${it.name}" }) { ability ->

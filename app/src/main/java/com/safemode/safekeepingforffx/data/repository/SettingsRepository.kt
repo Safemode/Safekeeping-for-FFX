@@ -46,6 +46,15 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         preferences[SPHERE_GRID_TAP_ACTIVATES] ?: false
     }
 
+    /**
+     * What the Sphere Grid node editor offers. Defaults to false, the short list: the spheres a
+     * max-stats plan actually places - HP +300, MP +40 and the +4 attributes - and no abilities.
+     * True restores the full catalog, every attribute value and all 85 abilities.
+     */
+    val sphereGridFullNodeEditor: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[SPHERE_GRID_FULL_NODE_EDITOR] ?: false
+    }
+
     suspend fun setGameVersion(version: GameVersion) {
         dataStore.edit { it[GAME_VERSION] = version.name }
     }
@@ -58,6 +67,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { it[SPHERE_GRID_TAP_ACTIVATES] = value }
     }
 
+    suspend fun setSphereGridFullNodeEditor(value: Boolean) {
+        dataStore.edit { it[SPHERE_GRID_FULL_NODE_EDITOR] = value }
+    }
+
     suspend fun setTheme(theme: ThemePreference) {
         dataStore.edit { it[THEME] = theme.name }
     }
@@ -67,5 +80,6 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val THEME = stringPreferencesKey("theme")
         val SHOW_HELP = booleanPreferencesKey("show_help")
         val SPHERE_GRID_TAP_ACTIVATES = booleanPreferencesKey("sphere_grid_tap_activates")
+        val SPHERE_GRID_FULL_NODE_EDITOR = booleanPreferencesKey("sphere_grid_full_node_editor")
     }
 }

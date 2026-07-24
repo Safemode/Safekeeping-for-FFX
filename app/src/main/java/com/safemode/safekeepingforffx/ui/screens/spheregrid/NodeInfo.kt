@@ -21,6 +21,28 @@ val AttributeCatalog: List<NodeContent.Attribute> = buildList {
     }
 }
 
+/**
+ * The Settings row governing what the node editor offers, named once here so the editor's own
+ * pointer to that setting and the row itself cannot drift apart.
+ */
+const val FULL_EDITOR_LABEL = "Sphere Grid: full node editor"
+
+/**
+ * The short list the node editor offers unless the player has turned the full catalog back on: the
+ * only spheres a max-stats plan ever places. Every other value is strictly worse on a node you are
+ * choosing the content of, so hiding them leaves less to scroll past while planning.
+ *
+ * Derived from [AttributeCatalog] rather than written out again, so a new value added there is
+ * either picked up here or deliberately left out - it cannot be quietly forgotten.
+ */
+val MaxStatAttributeCatalog: List<NodeContent.Attribute> = AttributeCatalog.filter { attr ->
+    when (attr.attribute) {
+        NodeType.HP -> attr.value == 300
+        NodeType.MP -> attr.value == 40
+        else -> attr.value == 4
+    }
+}
+
 /** Full attribute name for a stat node, e.g. "Magic Defense" (the legend uses a shorter form). */
 fun NodeType.attributeName(): String = when (this) {
     NodeType.HP -> "HP"
