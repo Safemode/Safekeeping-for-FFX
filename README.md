@@ -9,6 +9,18 @@ I primarily used Claude Code for this app. I'm no programmer, and given this app
 
 The information inside the app comes from various online sources and community references.
 
+## Google Play Release
+
+The app is currently in Closed Testing with Google, which has their requirement of 12+ testers opted in and have the app installed for at least 14 days.
+
+If you would like to join this testing, follow the steps below:
+
+1. Join the Google Group - https://groups.google.com/g/safekeeping-for-ffx-alpha
+2. Join the Testing Program - https://play.google.com/apps/testing/com.safemode.safekeepingforffx
+3. Install the app in the Google Play Store - https://play.google.com/store/apps/details?id=com.safemode.safekeepingforffx
+
+There can be a little bit of a delay between joining the Group/Program and showing available on the Play Store, so you may need to wait a little bit and then check again.
+
 ## Main Goals of this app
 
 - Track progress of various things in the game
