@@ -348,6 +348,11 @@ private fun String.plural(count: Int): String = if (count == 1) this else "${thi
 /**
  * Backup and restore. Both directions go through the system file picker, so the player chooses the
  * location and no storage permission is needed.
+ *
+ * Deliberately just the two buttons: what a backup holds is obvious from the label, and the one
+ * thing that genuinely needs saying - that restoring replaces rather than merges - is said in the
+ * confirmation dialog, where it can name the file and where the player is actually about to act
+ * on it.
  */
 @Composable
 private fun BackupSection(
@@ -359,21 +364,6 @@ private fun BackupSection(
         text = "Backup and restore",
         style = MaterialTheme.typography.titleMedium,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp)
-    )
-    Text(
-        text = "A backup is a single .json file holding everything you've tracked: every " +
-            "checklist, your Monster Arena capture counts, the Sphere Grid's node edits and each " +
-            "character's path, your saved routes, and these settings. Keep it anywhere - it's " +
-            "how you move to a new phone or get back after a reinstall.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = 16.dp)
-    )
-    Text(
-        text = "Restoring replaces what's in the app - it doesn't merge.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)
     )
 
     Row(
