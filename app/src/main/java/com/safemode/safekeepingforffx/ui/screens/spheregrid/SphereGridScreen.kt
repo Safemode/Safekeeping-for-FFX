@@ -154,6 +154,7 @@ fun SphereGridScreen(
     var showSaveRouteDialog by remember { mutableStateOf(false) }
     var showImportRouteDialog by rememberSaveable { mutableStateOf(false) }
     var routeToRename by remember { mutableStateOf<SphereGridRepository.SavedRoute?>(null) }
+    var showRouteApplyScope by remember { mutableStateOf(false) }
     // Which node the canvas should ease to, bumped each time something asks to be taken there:
     // stepping a route replay, or tapping an ability in the character status sheet.
     var focusTarget by remember { mutableStateOf<String?>(null) }
@@ -220,13 +221,15 @@ fun SphereGridScreen(
                 onSelectCharacter = viewModel::setRouteCharacter,
                 onExit = viewModel::exitRouteView,
                 onApply = {
-                    confirm = ConfirmAction(
-                        title = "Make this your live progress?",
-                        message = "This overwrites your current grid edits and the route's character " +
-                            "paths with \"${activeRoute.name}\". This can't be undone.",
-                        confirmLabel = "Overwrite",
-                        onConfirm = viewModel::applyRouteToProgress
-                    )
+                    // A route carrying several paths asks how much of it to take before the
+                    // overwrite warning, so the warning can name what is actually at stake.
+                    if (activeRoute.availableCharacters.size > 1) {
+                        showRouteApplyScope = true
+                    } else {
+                        confirm = applyRouteConfirm(activeRoute, RouteApplyScope.ALL_CHARACTERS) {
+                            viewModel.applyRouteToProgress(RouteApplyScope.ALL_CHARACTERS)
+                        }
+                    }
                 }
             )
         } else {
@@ -525,6 +528,19 @@ fun SphereGridScreen(
         )
     }
 
+    if (showRouteApplyScope && activeRoute != null) {
+        RouteApplyScopeDialog(
+            route = activeRoute,
+            onDismiss = { showRouteApplyScope = false },
+            onPick = { scope ->
+                showRouteApplyScope = false
+                confirm = applyRouteConfirm(activeRoute, scope) {
+                    viewModel.applyRouteToProgress(scope)
+                }
+            }
+        )
+    }
+
     routeToRename?.let { route ->
         RenameRouteDialog(
             currentName = route.name,
@@ -683,6 +699,76 @@ private fun SelectorBar(
             }
         }
     }
+}
+
+/**
+ * Asks how much of a multi-character route to adopt, ahead of the overwrite warning. Taking just the
+ * character on screen is the safe answer, so it leads.
+ */
+@Composable
+private fun RouteApplyScopeDialog(
+    route: RouteViewState,
+    onDismiss: () -> Unit,
+    onPick: (RouteApplyScope) -> Unit
+) {
+    val count = route.availableCharacters.size
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Apply which paths?") },
+        text = {
+            Column {
+                Text(
+                    "\"${route.name}\" carries paths for $count characters. Choose how much of it to " +
+                        "make your own:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.size(8.dp))
+                listOf(
+                    RouteApplyScope.VIEWED_CHARACTER to
+                        "${route.character.displayName}'s path only",
+                    RouteApplyScope.ALL_CHARACTERS to "All $count characters' paths"
+                ).forEach { (scope, label) ->
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(scope) }
+                            .padding(vertical = 14.dp)
+                    )
+                    HorizontalDivider()
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+/** The overwrite warning, worded for how much of the route is about to be adopted. */
+private fun applyRouteConfirm(
+    route: RouteViewState,
+    scope: RouteApplyScope,
+    onConfirm: () -> Unit
+): ConfirmAction {
+    val viewedOnly = scope == RouteApplyScope.VIEWED_CHARACTER
+    val paths = when {
+        viewedOnly -> "${route.character.displayName}'s path"
+        route.availableCharacters.size > 1 ->
+            "the paths of all ${route.availableCharacters.size} characters in it"
+        else -> "the route's character paths"
+    }
+    val untouched = if (viewedOnly) " Every other character's path is left alone." else ""
+    return ConfirmAction(
+        title = "Make this your live progress?",
+        message = "This overwrites your current grid edits and $paths with \"${route.name}\"." +
+            "$untouched This can't be undone.",
+        confirmLabel = "Overwrite",
+        onConfirm = onConfirm
+    )
 }
 
 /** Lets the player choose how much of their work a shared build code should carry. */

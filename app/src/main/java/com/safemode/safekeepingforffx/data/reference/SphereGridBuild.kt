@@ -57,7 +57,20 @@ data class SphereGridBuild(
     val gridType: GridType,
     val events: List<RouteEvent>,
     val name: String? = null
-)
+) {
+    /** Every character this build carries a path for, in the order they first appear. */
+    val characters: List<GridCharacter>
+        get() = events.filterIsInstance<RouteEvent.Activate>().map { it.character }.distinct()
+
+    /**
+     * This build narrowed to one character's path. Edits ride along unchanged - they are grid-wide,
+     * and the path only makes sense on the grid it was walked on - but every other character's
+     * activations are dropped, so applying the result leaves their live paths untouched.
+     */
+    fun forCharacterOnly(character: GridCharacter): SphereGridBuild = copy(
+        events = events.filter { it !is RouteEvent.Activate || it.character == character }
+    )
+}
 
 /**
  * Turns a [SphereGridBuild] into a compact copy/paste code and back. The code is plain JSON (so it

@@ -152,6 +152,18 @@ data class RouteViewState(
     }
 }
 
+/**
+ * How much of a replayed route to adopt when making it live progress. Only meaningful for a route
+ * carrying more than one character's path; with a single path the two are the same thing.
+ */
+enum class RouteApplyScope {
+    /** Replace only the character currently on screen, leaving everyone else's live path alone. */
+    VIEWED_CHARACTER,
+
+    /** Replace the path of every character the route carries. */
+    ALL_CHARACTERS
+}
+
 /** One-off outcomes of a share/import action, delivered to the screen as events (not UI state). */
 sealed interface SphereGridEvent {
     data class ExportReady(val code: String) : SphereGridEvent
@@ -461,12 +473,20 @@ class SphereGridViewModel(
      * Overwrites the player's live progress with the route being viewed and leaves the replay,
      * switching to the viewed character so the adopted path is on screen. Caller confirms first -
      * this replaces the grid edits and the route's character paths and can't be undone.
+     *
+     * [scope] decides how much of a multi-character route is adopted. Narrowed to the viewed
+     * character, only their path is replaced and everyone else's live path is left as it was; the
+     * route's grid edits are applied either way, since they are shared and the path depends on them.
      */
-    fun applyRouteToProgress() {
+    fun applyRouteToProgress(scope: RouteApplyScope = RouteApplyScope.ALL_CHARACTERS) {
         val build = openRouteBuild ?: return
         val viewedCharacter = _routeView.value?.character
+        val toApply = when {
+            scope == RouteApplyScope.ALL_CHARACTERS || viewedCharacter == null -> build
+            else -> build.forCharacterOnly(viewedCharacter)
+        }
         viewModelScope.launch {
-            repository.applyBuild(build, build.gridType)
+            repository.applyBuild(toApply, build.gridType)
                 .onSuccess {
                     viewedCharacter?.let { character.value = it }
                     exitRouteView()
