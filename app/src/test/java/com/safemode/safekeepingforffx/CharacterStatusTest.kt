@@ -164,7 +164,42 @@ class CharacterStatusTest {
         )
         assertTrue(status.attributes.all { it.fromGrid == 0 })
         assertEquals(1030, status.attributes.first { it.attribute == NodeType.HP }.total)
+        // Both were taken, but neither gave anything, so neither counts toward the total.
+        assertEquals(0, status.activatedNodes)
+    }
+
+    /** A blank node is on the path but bought nothing; only the nodes with content are counted. */
+    @Test
+    fun blankNodesDoNotCountTowardTheTotal()  {
+        val grid = gridOf(
+            "n1" to NodeContent.Attribute(NodeType.STRENGTH, 4),
+            "n2" to NodeContent.Empty,
+            "n3" to NodeContent.Empty,
+            "n4" to NodeContent.Ability("Cure", NodeType.WHITE_MAGIC)
+        )
+        val status = CharacterStatusCalculator.compute(
+            character = GridCharacter.TIDUS,
+            baseStats = baseStats[GridCharacter.TIDUS],
+            grid = grid,
+            overrides = emptyMap(),
+            activated = setOf("n1", "n2", "n3", "n4")
+        )
         assertEquals(2, status.activatedNodes)
+    }
+
+    /** Writing content onto an activated blank makes it count, the same edit that gives it a rim. */
+    @Test
+    fun aBlankEditedIntoAnAttributeCounts() {
+        val grid = gridOf("n1" to NodeContent.Empty)
+        val status = CharacterStatusCalculator.compute(
+            character = GridCharacter.TIDUS,
+            baseStats = baseStats[GridCharacter.TIDUS],
+            grid = grid,
+            overrides = mapOf("n1" to NodeContent.Attribute(NodeType.STRENGTH, 4)),
+            activated = setOf("n1")
+        )
+        assertEquals(1, status.activatedNodes)
+        assertEquals(19, status.attributes.first { it.attribute == NodeType.STRENGTH }.total)
     }
 
     /**

@@ -49,6 +49,7 @@ data class CharacterStatus(
     val character: GridCharacter,
     val attributes: List<StatLine>,
     val abilities: Map<NodeType, AbilityGroup>,
+    /** Activated nodes that gave the character something; blanks and walked locks are not counted. */
     val activatedNodes: Int
 ) {
     fun group(family: NodeType): AbilityGroup =
@@ -90,13 +91,17 @@ object CharacterStatusCalculator {
                 onGrid.getOrPut(content.family) { LinkedHashSet() }.add(content.name)
             }
             if (node.id !in activated) return@forEach
-            activatedNodes++
             when (content) {
-                is NodeContent.Attribute ->
+                is NodeContent.Attribute -> {
                     gains[content.attribute] = (gains[content.attribute] ?: 0) + content.value
-                is NodeContent.Ability ->
+                    activatedNodes++
+                }
+                is NodeContent.Ability -> {
                     learned.getOrPut(content.family) { LinkedHashSet() }.add(content.name)
-                // An activated blank node, and a lock the path has walked through, add nothing.
+                    activatedNodes++
+                }
+                // A blank node, and a lock the path has walked through, gave the character nothing,
+                // so neither adds to the stats nor counts as a node they gained something from.
                 else -> Unit
             }
         }

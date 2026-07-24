@@ -1736,17 +1736,22 @@ private fun GridCanvas(
             val center = Offset(cx, cy)
             val isActivated = activated.contains(node.id)
 
+            // A blank node gained nothing when it was taken, so it keeps the plain edge even on the
+            // path - the coloured links running through it already show the path passes here, and
+            // ringing every empty node buries the nodes that actually gave something. Write content
+            // onto it and it earns its rim like any other node.
+            val ringed = isActivated && content !is NodeContent.Empty
             drawCircle(color = color, radius = r, center = center)
             // The rim marks activation - the selected character's own colour when they have taken this
             // node, a plain dark edge otherwise. Because it rides the node's own outline it never
             // reaches a neighbouring node, so a whole activated path stays readable instead of a mass
             // of rings.
             drawCircle(
-                color = if (isActivated) characterColor else Color.Black.copy(alpha = 0.3f),
+                color = if (ringed) characterColor else Color.Black.copy(alpha = 0.3f),
                 radius = r,
                 center = center,
                 style = Stroke(
-                    width = if (isActivated) (r * 0.18f).coerceAtLeast(1.6f)
+                    width = if (ringed) (r * 0.18f).coerceAtLeast(1.6f)
                     else (r * 0.12f).coerceAtLeast(0.8f)
                 )
             )

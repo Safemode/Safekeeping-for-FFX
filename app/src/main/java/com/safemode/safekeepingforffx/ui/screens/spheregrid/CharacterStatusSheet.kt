@@ -158,7 +158,10 @@ private fun StatusHeader(status: CharacterStatus, gridLabel: String) {
         Column {
             Text(status.character.displayName, style = MaterialTheme.typography.titleLarge)
             Text(
-                text = "$gridLabel grid · " + if (nodes == 1) "1 node activated" else "$nodes nodes activated",
+                // Blanks are activated but gave nothing, so counting them here would overstate what
+                // the path has actually bought.
+                text = "$gridLabel grid · " +
+                    if (nodes == 1) "1 node with content" else "$nodes nodes with content",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
