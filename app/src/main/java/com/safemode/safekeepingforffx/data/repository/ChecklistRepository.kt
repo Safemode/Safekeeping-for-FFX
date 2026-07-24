@@ -30,7 +30,8 @@ class ChecklistRepository(private val dao: ChecklistProgressDao) {
                     section = item.section,
                     tag = item.tag,
                     imageRes = item.imageRes,
-                    storyStage = item.storyStage
+                    storyStage = item.storyStage,
+                    stageNote = item.stageNote
                 )
             }
         }

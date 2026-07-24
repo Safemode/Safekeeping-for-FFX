@@ -108,6 +108,16 @@ fun ChecklistItemRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            // Only ever set while the list is in story order, where the header above says "you can
+            // have this now" and this says what that actually costs.
+            item.stageNote?.let { note ->
+                Text(
+                    text = note,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
             (item.caution as? Caution.Guarded)?.let { guarded ->
                 Text(
                     // Phrased to sidestep verb agreement - "Dark Magus Sisters" is plural,

@@ -18,5 +18,7 @@ data class ChecklistItem(
     val tag: String? = null,
     @param:DrawableRes val imageRes: Int? = null,
     /** Earliest point in the story this is reachable, when the category tracks that. */
-    val storyStage: StoryStage? = null
+    val storyStage: StoryStage? = null,
+    /** What collecting it there involves. Only carried while the list is in story order. */
+    val stageNote: String? = null
 )

@@ -29,5 +29,14 @@ data class ReferenceItem(
      * offer that list in story order as well as in its groups; leave it null and the category has
      * only its groups. See [ChecklistCategory.hasStoryOrder].
      */
-    val storyStage: StoryStage? = null
+    val storyStage: StoryStage? = null,
+    /**
+     * What getting this actually costs you *at* [storyStage] - the backtrack, the prerequisite, the
+     * minigame you have to sit through. Shown only in story order, where it answers the question
+     * that ordering raises: the list says you can have this now, so what do you have to do?
+     *
+     * [detail] says where the thing is and is true whenever you read it. This says what standing
+     * here and going to get it involves, which is only meaningful once "here" is on screen.
+     */
+    val stageNote: String? = null
 )

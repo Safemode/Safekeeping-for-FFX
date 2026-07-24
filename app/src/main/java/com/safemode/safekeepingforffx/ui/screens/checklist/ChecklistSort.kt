@@ -29,7 +29,9 @@ enum class ChecklistSort(val label: String, val description: String) {
  * rather than being dropped, though a category is only offered this order when every item has one.
  */
 internal fun List<ChecklistItem>.inOrder(sort: ChecklistSort): List<ChecklistItem> = when (sort) {
-    ChecklistSort.GROUPED -> this
+    // Stage notes are answers to "why is this listed here?", so they only make sense once a stage
+    // is on screen. Dropped rather than hidden by the row, which has no idea what order it is in.
+    ChecklistSort.GROUPED -> map { it.copy(stageNote = null) }
     ChecklistSort.CHRONOLOGICAL -> sortedBy { it.storyStage?.ordinal ?: Int.MAX_VALUE }
         .map { it.copy(section = it.storyStage?.label, tag = it.tag ?: it.shortSection) }
 }

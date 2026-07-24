@@ -25,9 +25,12 @@ class ChecklistSortTest {
             section = it.section,
             tag = it.tag,
             imageRes = it.imageRes,
-            storyStage = it.storyStage
+            storyStage = it.storyStage,
+            stageNote = it.stageNote
         )
     }
+
+    private fun List<ChecklistItem>.stageOf(id: String) = first { it.id == id }.storyStage
 
     private val celestial = items(CelestialWeapons.items)
 
@@ -44,8 +47,31 @@ class ChecklistSortTest {
     }
 
     @Test
-    fun `grouped order leaves the list exactly as declared`() {
-        assertEquals(celestial, celestial.inOrder(ChecklistSort.GROUPED))
+    fun `every celestial weapon entry explains what getting it there involves`() {
+        val missing = CelestialWeapons.items.filter { it.stageNote.isNullOrBlank() }
+        assertEquals(emptyList<ReferenceItem>(), missing)
+    }
+
+    @Test
+    fun `grouped order leaves the sequence exactly as declared`() {
+        assertEquals(
+            celestial.map { it.id },
+            celestial.inOrder(ChecklistSort.GROUPED).map { it.id }
+        )
+    }
+
+    @Test
+    fun `grouped order drops the stage notes and keeps the original headers`() {
+        val grouped = celestial.inOrder(ChecklistSort.GROUPED)
+
+        assertTrue(grouped.all { it.stageNote == null })
+        assertEquals("Tidus - Caladbolg", grouped.first { it.id == "celestial_tidus_weapon" }.section)
+    }
+
+    @Test
+    fun `chronological order keeps the stage notes`() {
+        val sorted = celestial.inOrder(ChecklistSort.CHRONOLOGICAL)
+        assertTrue(sorted.all { !it.stageNote.isNullOrBlank() })
     }
 
     @Test
@@ -90,6 +116,32 @@ class ChecklistSortTest {
                 sorted.indexOf(weapon) > mirror
             )
         }
+    }
+
+    /**
+     * The three that are easy to get wrong by reasoning from "when would I actually do this"
+     * instead of "when does the game first allow it". Each one was mis-staged once already.
+     */
+    @Test
+    fun `availability is judged by what the game allows, not by what is sensible`() {
+        // Blitzball opens at save spheres the moment Luca ends. The Sigil being a long grind is a
+        // fact about the player's time, not about when the game hands it over.
+        assertEquals(StoryStage.LUCA, celestial.stageOf("celestial_wakka_sigil"))
+
+        // Reachable by walking back south to the Thunder Plains; it does not wait for the airship.
+        assertEquals(StoryStage.CALM_LANDS, celestial.stageOf("celestial_kimahri_weapon"))
+
+        // The inverse trap: the butterfly hunt is playable from your first visit to the woods, but
+        // its prize table only includes the Sigil once you have the airship.
+        assertEquals(StoryStage.AIRSHIP, celestial.stageOf("celestial_kimahri_sigil"))
+    }
+
+    @Test
+    fun `Tidus's crest and sigil are not transposed`() {
+        // The Sun Crest is the Zanarkand one, behind Yunalesca; the Sun Sigil is the 0-0-0 chocobo
+        // race back in the Calm Lands. Swapping these is the most common way to get Tidus wrong.
+        assertEquals(StoryStage.ZANARKAND_RUINS, celestial.stageOf("celestial_tidus_crest"))
+        assertEquals(StoryStage.CALM_LANDS, celestial.stageOf("celestial_tidus_sigil"))
     }
 
     @Test

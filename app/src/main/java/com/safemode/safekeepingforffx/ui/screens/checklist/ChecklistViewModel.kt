@@ -102,7 +102,7 @@ class ChecklistViewModel(
     private fun ChecklistItem.matches(query: String): Boolean {
         val needle = query.trim()
         if (needle.isEmpty()) return true
-        return sequenceOf(title, location, detail, section, tag)
+        return sequenceOf(title, location, detail, section, tag, stageNote)
             .any { it?.contains(needle, ignoreCase = true) == true }
     }
 
