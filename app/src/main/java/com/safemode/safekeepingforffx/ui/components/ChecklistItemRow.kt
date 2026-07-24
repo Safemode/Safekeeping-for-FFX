@@ -3,6 +3,8 @@ package com.safemode.safekeepingforffx.ui.components
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,7 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.safemode.safekeepingforffx.data.reference.Caution
 import com.safemode.safekeepingforffx.domain.ChecklistItem
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 fun ChecklistItemRow(
     item: ChecklistItem,
@@ -58,7 +60,10 @@ fun ChecklistItemRow(
             Checkbox(checked = item.isChecked, onCheckedChange = null)
         }
         Column(modifier = Modifier.padding(start = if (trackProgress) 16.dp else 0.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // Flows rather than a plain Row: a title can carry a group badge, a screenshot hint and
+            // a Dark Aeon name at once, and "Dark Magus Sisters" alone is wider than most phones
+            // have left over. Wrapping beats silently clipping the warning.
+            FlowRow(itemVerticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = item.title,
                     style = MaterialTheme.typography.titleSmall,

@@ -29,7 +29,8 @@ class ChecklistRepository(private val dao: ChecklistProgressDao) {
                     isChecked = item.id in checked,
                     section = item.section,
                     tag = item.tag,
-                    imageRes = item.imageRes
+                    imageRes = item.imageRes,
+                    storyStage = item.storyStage
                 )
             }
         }

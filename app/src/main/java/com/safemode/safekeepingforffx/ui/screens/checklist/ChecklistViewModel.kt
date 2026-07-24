@@ -30,6 +30,9 @@ data class ChecklistUiState(
     val note: String? = null,
     /** False hides the advice banners at the top of the list. */
     val showHelp: Boolean = true,
+    val sort: ChecklistSort = ChecklistSort.DEFAULT,
+    /** False for the categories that have only one sensible order, which hides the picker. */
+    val canSort: Boolean = false,
     val isLoading: Boolean = true
 ) {
     val isSearching: Boolean get() = query.isNotBlank()
@@ -48,13 +51,20 @@ class ChecklistViewModel(
 
     private val _query = MutableStateFlow("")
 
+    /**
+     * Deliberately not persisted, and reset every time the screen is left: story order is something
+     * you reach for while standing in an area, not a preference about the list.
+     */
+    private val _sort = MutableStateFlow(ChecklistSort.DEFAULT)
+
     val uiState = combine(
         repository.observeCategory(category.id, category.items),
         settingsRepository.gameVersion,
         _query,
-        settingsRepository.showHelp
-    ) { items, version, query, showHelp ->
-        val adjusted = items.map { it.forVersion(version) }
+        settingsRepository.showHelp,
+        _sort
+    ) { items, version, query, showHelp, sort ->
+        val adjusted = items.map { it.forVersion(version) }.inOrder(sort)
         ChecklistUiState(
             items = adjusted,
             visibleItems = adjusted.filter { it.matches(query) },
@@ -66,13 +76,24 @@ class ChecklistViewModel(
             totalCount = adjusted.size,
             note = noteFor(version),
             showHelp = showHelp,
+            sort = sort,
+            canSort = category.hasStoryOrder,
             isLoading = false
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = ChecklistUiState(totalCount = category.items.size)
+        initialValue = ChecklistUiState(
+            totalCount = category.items.size,
+            // Settled up front so the picker doesn't pop in a frame after the list.
+            canSort = category.hasStoryOrder
+        )
     )
+
+    /** No-op for categories without story stages, so the screen can call it unconditionally. */
+    fun setSort(sort: ChecklistSort) {
+        if (category.hasStoryOrder) _sort.update { sort }
+    }
 
     /**
      * Every field the row can show is searchable, so "Besaid", "sigil" and a player's name all

@@ -35,7 +35,7 @@ There can be a little bit of a delay between joining the Group/Program and showi
 
 - Al Bhed Primers and their locations
 - Jecht Spheres and their locations
-- Celestial Weapons and their locations
+- Celestial Weapons and their locations, grouped by weapon or in story order
 - Ronso Rages for Kimahri and the targets
 - Besaid Auroch Blitzball Team Key Techniques
 - All possible Blitzball Recruits from other teams & free agents

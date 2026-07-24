@@ -23,5 +23,11 @@ data class ReferenceItem(
      * Bundled in-game screenshot showing exactly where the item sits, or null if none exists.
      * A drawable rather than a URL so the screen works with no connection.
      */
-    @param:DrawableRes val imageRes: Int? = null
+    @param:DrawableRes val imageRes: Int? = null,
+    /**
+     * Earliest point in the story this becomes reachable. Set it on every item in a category to
+     * offer that list in story order as well as in its groups; leave it null and the category has
+     * only its groups. See [ChecklistCategory.hasStoryOrder].
+     */
+    val storyStage: StoryStage? = null
 )

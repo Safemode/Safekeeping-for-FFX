@@ -17,12 +17,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -128,6 +132,17 @@ fun ChecklistScreen(
         onDispose { onSearchDismissChange(null) }
     }
 
+    // Re-ordering shuffles every row, so the old scroll offset means nothing afterwards. Tracked
+    // against the last sort actually rendered rather than keyed on state.sort alone, so this can't
+    // fire on first composition and fight the focus scroll below.
+    var lastSort by remember { mutableStateOf(state.sort) }
+    LaunchedEffect(state.sort) {
+        if (state.sort != lastSort) {
+            lastSort = state.sort
+            listState.scrollToItem(0)
+        }
+    }
+
     // Keyed on the load flag rather than on `rows`, so ticking a checkbox doesn't yank the list
     // back to the focused item.
     LaunchedEffect(focusItemId, state.isLoading) {
@@ -151,6 +166,11 @@ fun ChecklistScreen(
                 totalCount = state.totalCount,
                 onReset = { showResetDialog = true }
             )
+        }
+        // Deliberately outside the collapsing header. Re-ordering the list is a way of reading it,
+        // not a one-off setup step, so it stays reachable without scrolling back to the top.
+        if (state.canSort) {
+            SortSelector(sort = state.sort, onSortChange = viewModel::setSort)
         }
         AnimatedVisibility(
             // An active search stays put even when scrolling down: hiding the field while it is
@@ -254,6 +274,49 @@ fun ChecklistScreen(
                 TextButton(onClick = { showResetDialog = false }) { Text("Cancel") }
             }
         )
+    }
+}
+
+/**
+ * The order picker, built like the Sphere Grid's grid picker so the two read as the same control:
+ * a pill showing what you are looking at, tapped to swap it.
+ *
+ * Each choice carries a line of explanation - unlike the grid picker, the labels alone don't say
+ * what changes.
+ */
+@Composable
+private fun SortSelector(
+    sort: ChecklistSort,
+    onSortChange: (ChecklistSort) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var menu by remember { mutableStateOf(false) }
+
+    Box(modifier = modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp)) {
+        OutlinedButton(onClick = { menu = true }) {
+            Text("${sort.label} Order")
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            ChecklistSort.entries.forEach { option ->
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text("${option.label} Order")
+                            Text(
+                                text = option.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    onClick = {
+                        onSortChange(option)
+                        menu = false
+                    }
+                )
+            }
+        }
     }
 }
 

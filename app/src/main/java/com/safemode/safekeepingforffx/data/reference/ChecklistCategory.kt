@@ -25,4 +25,10 @@ data class ChecklistCategory(
      * headline collections Home reports on.
      */
     val showOnHome: Boolean = true
-)
+) {
+    /**
+     * Whether this list can also be shown in story order. Every item has to carry a stage or the
+     * ordering would silently strand the ones that don't, so it is all or nothing.
+     */
+    val hasStoryOrder: Boolean = items.isNotEmpty() && items.all { it.storyStage != null }
+}
