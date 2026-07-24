@@ -60,7 +60,7 @@ object NodeSizing {
     // Legend swatches are all the same small circle, so every icon there uses this one scale rather
     // than its per-node scale (some of which are large enough to overflow the tiny swatch). Keep it
     // low enough that even the fullest icon fits inside the swatch circle.
-    const val LEGEND_ICON_SCALE = 1.5f
+    const val LEGEND_ICON_SCALE = 2.2f
 
     // Outline thickness per node type, as a fraction of the icon's on-screen size. Every icon gets a
     // black outline (see NodeType.iconOutline); raise a value for a heavier outline on that icon,
