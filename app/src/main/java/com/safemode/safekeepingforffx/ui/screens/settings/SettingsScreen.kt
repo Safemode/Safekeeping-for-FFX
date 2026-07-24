@@ -1,12 +1,17 @@
 package com.safemode.safekeepingforffx.ui.screens.settings
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -19,22 +24,26 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -43,6 +52,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.safemode.safekeepingforffx.BuildConfig
 import com.safemode.safekeepingforffx.R
+import com.safemode.safekeepingforffx.data.backup.BackupCounts
+import com.safemode.safekeepingforffx.data.backup.backupFileName
 import com.safemode.safekeepingforffx.data.reference.GameVersion
 import com.safemode.safekeepingforffx.data.reference.ThemePreference
 import com.safemode.safekeepingforffx.ui.screens.spheregrid.FULL_EDITOR_LABEL
@@ -61,6 +72,40 @@ fun SettingsScreen(
     val showHelp by viewModel.showHelp.collectAsStateWithLifecycle()
     val tapActivates by viewModel.sphereGridTapActivates.collectAsStateWithLifecycle()
     val fullNodeEditor by viewModel.sphereGridFullNodeEditor.collectAsStateWithLifecycle()
+
+    val context = LocalContext.current
+    val busy by viewModel.busy.collectAsStateWithLifecycle()
+    var showRestoreConfirm by remember { mutableStateOf(false) }
+    var backupResult by remember { mutableStateOf<BackupEvent?>(null) }
+
+    // The system file picker owns where the file goes and what it's called, so the app needs no
+    // storage permission and the backup lands somewhere the player can actually find it - their
+    // own Downloads folder, Drive, wherever they choose.
+    val backupLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) viewModel.backUp(contentSink(context.contentResolver, uri))
+    }
+    // Deliberately not filtered to application/json: providers label a .json file inconsistently -
+    // some report octet-stream, some nothing at all - and a filter that hides the player's own
+    // backup is worse than one that shows too much. The file's contents are validated on read.
+    val restoreLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) viewModel.restore(contentSource(context.contentResolver, uri))
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is BackupEvent.Saved ->
+                    Toast.makeText(context, "Backup saved", Toast.LENGTH_SHORT).show()
+                // Restores land in a dialog rather than a toast: one replaced everything the player
+                // had, and the other needs to be read, not glanced at.
+                is BackupEvent.Restored, is BackupEvent.Failed -> backupResult = event
+            }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -143,6 +188,18 @@ fun SettingsScreen(
 
         HorizontalDivider()
 
+        BackupSection(
+            busy = busy,
+            onBackUp = {
+                // The picker opens with the name pre-filled; the player can rename it, and the
+                // date is already in the suggestion so most won't need to.
+                backupLauncher.launch(backupFileName())
+            },
+            onRestore = { showRestoreConfirm = true }
+        )
+
+        HorizontalDivider()
+
         Text(
             text = "Progress",
             style = MaterialTheme.typography.titleMedium,
@@ -205,6 +262,118 @@ fun SettingsScreen(
                 TextButton(onClick = { viewModel.acknowledgeReset() }) { Text("OK") }
             }
         )
+    }
+
+    if (showRestoreConfirm) {
+        AlertDialog(
+            onDismissRequest = { showRestoreConfirm = false },
+            title = { Text("Restore from a backup?") },
+            text = {
+                Text(
+                    "Everything you have now - checklists, capture counts, the Sphere Grid and " +
+                        "your saved routes - is replaced by what's in the backup file. This can't " +
+                        "be undone, so back up first if you might want your current progress."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showRestoreConfirm = false
+                        // "*/*" for the reason given where the launcher is declared.
+                        restoreLauncher.launch(arrayOf("*/*"))
+                    }
+                ) {
+                    Text("Choose file", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRestoreConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    when (val result = backupResult) {
+        is BackupEvent.Restored -> AlertDialog(
+            onDismissRequest = { backupResult = null },
+            title = { Text("Backup restored") },
+            text = { Text(result.counts.summary()) },
+            confirmButton = {
+                TextButton(onClick = { backupResult = null }) { Text("OK") }
+            }
+        )
+        is BackupEvent.Failed -> AlertDialog(
+            onDismissRequest = { backupResult = null },
+            title = { Text("That didn't work") },
+            text = { Text(result.reason) },
+            confirmButton = {
+                TextButton(onClick = { backupResult = null }) { Text("OK") }
+            }
+        )
+        else -> Unit
+    }
+}
+
+/**
+ * What a restore brought in, one line per section that had anything. An empty backup is called out
+ * rather than reported as five zeroes - it's the one result the player is likely to have not meant.
+ */
+private fun BackupCounts.summary(): String {
+    if (isEmpty) return "That backup was empty, so everything is now cleared."
+    return buildList {
+        if (checkedItems > 0) add("$checkedItems checked ${"item".plural(checkedItems)}")
+        if (capturedFiends > 0) add("$capturedFiends captured ${"fiend".plural(capturedFiends)}")
+        if (gridEdits > 0) add("$gridEdits grid ${"edit".plural(gridEdits)}")
+        if (gridActivations > 0) add("$gridActivations activated ${"node".plural(gridActivations)}")
+        if (savedRoutes > 0) add("$savedRoutes saved ${"route".plural(savedRoutes)}")
+    }.joinToString(separator = "\n", prefix = "Restored:\n") { "- $it" }
+}
+
+private fun String.plural(count: Int): String = if (count == 1) this else "${this}s"
+
+/**
+ * Backup and restore. Both directions go through the system file picker, so the player chooses the
+ * location and no storage permission is needed.
+ */
+@Composable
+private fun BackupSection(
+    busy: Boolean,
+    onBackUp: () -> Unit,
+    onRestore: () -> Unit
+) {
+    Text(
+        text = "Backup and restore",
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp)
+    )
+    Text(
+        text = "A backup is a single .json file holding everything you've tracked: every " +
+            "checklist, your Monster Arena capture counts, the Sphere Grid's node edits and each " +
+            "character's path, your saved routes, and these settings. Keep it anywhere - it's " +
+            "how you move to a new phone or get back after a reinstall.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 16.dp)
+    )
+    Text(
+        text = "Restoring replaces what's in the app - it doesn't merge.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)
+    )
+
+    Row(
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Button(onClick = onBackUp, enabled = !busy) { Text("Back up now") }
+        OutlinedButton(onClick = onRestore, enabled = !busy) { Text("Restore") }
+        if (busy) {
+            CircularProgressIndicator(
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }
 

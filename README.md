@@ -61,6 +61,7 @@ The information inside the app comes from various online sources and community r
 - Toggle for Sphere Grid to have tap-to-activate.
   - This will make it much faster to plan out a route if you're taking defaults. Long-press a node to get the editing options
 - Game Version toggle since the Dark Aeons don't exist in the original NA PS2 release of the game, which hides appropriate irrelevant information
+- Backup and Restore - writes everything you've tracked to a single `.json` file (every checklist, Monster Arena capture counts, Sphere Grid node edits and per-character paths, saved routes, and your settings). You pick where it goes through the system file picker, so no storage permission is needed and the file can live in Downloads, Drive, or anywhere else. Restoring replaces what's in the app rather than merging, which is what makes it work for moving to a new phone or coming back after a reinstall. Backups are named `safekeeping-for-ffx-backup-<date>-<time>.json`.
 - Progress Reset button
 
 

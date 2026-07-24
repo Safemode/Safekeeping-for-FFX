@@ -2,7 +2,9 @@ package com.safemode.safekeepingforffx.di
 
 import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
+import com.safemode.safekeepingforffx.BuildConfig
 import com.safemode.safekeepingforffx.data.local.FfxDatabase
+import com.safemode.safekeepingforffx.data.repository.BackupRepository
 import com.safemode.safekeepingforffx.data.repository.ChecklistRepository
 import com.safemode.safekeepingforffx.data.repository.ItemListRepository
 import com.safemode.safekeepingforffx.data.repository.MixRepository
@@ -38,6 +40,25 @@ class AppContainer(context: Context) {
             database.sphereGridNodeDao(),
             database.sphereGridActivationDao(),
             database.sphereGridRouteDao()
+        )
+    }
+
+    /**
+     * Spans every store the player writes to, so it is built here from the DAOs directly rather
+     * than layered on the feature repositories - see [BackupRepository]. The app version is passed
+     * in rather than read inside, keeping the data layer free of generated build classes.
+     */
+    val backupRepository by lazy {
+        BackupRepository(
+            database = database,
+            checklistDao = database.checklistProgressDao(),
+            monsterCaptureDao = database.monsterCaptureDao(),
+            nodeDao = database.sphereGridNodeDao(),
+            activationDao = database.sphereGridActivationDao(),
+            routeDao = database.sphereGridRouteDao(),
+            settingsRepository = settingsRepository,
+            appVersion = BuildConfig.VERSION_NAME,
+            appVersionCode = BuildConfig.VERSION_CODE
         )
     }
 }

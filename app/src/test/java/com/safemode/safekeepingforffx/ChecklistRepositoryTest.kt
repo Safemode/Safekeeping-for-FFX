@@ -41,9 +41,15 @@ class ChecklistRepositoryTest {
         override fun observeCategory(categoryId: String): Flow<List<ChecklistProgressEntity>> =
             flowOf(stored.filter { it.categoryId == categoryId })
 
+        override suspend fun snapshot(): List<ChecklistProgressEntity> = stored.toList()
+
         override suspend fun upsert(entity: ChecklistProgressEntity) {
             stored.removeAll { it.categoryId == entity.categoryId && it.itemId == entity.itemId }
             stored += entity
+        }
+
+        override suspend fun upsertAll(entities: List<ChecklistProgressEntity>) {
+            entities.forEach { upsert(it) }
         }
 
         override suspend fun clearCategory(categoryId: String) {
