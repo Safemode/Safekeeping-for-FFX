@@ -57,6 +57,42 @@ class SphereGridTest {
         }
     }
 
+    /**
+     * The single-linked locks: ones joining only one node instead of gating a way through. All three
+     * are correct - the real grid does have locks that lead nowhere, and each of these was checked
+     * against the game. Each hangs off an ability hub and stops there: n244 off Copycat, n426 off
+     * Zombie Attack, n864 off Doublecast.
+     *
+     * So this pins the set rather than forbidding it. A *new* single-linked lock appearing means a
+     * connection went missing from the data, which is the shape the one real bug had: the Lv.2 lock
+     * below Delay Buster (n355) hung off a plain stat node with an orphaned HP +200 beside it.
+     */
+    @Test
+    fun singleLinkedLocksAreTheKnownSet() {
+        val degree = grid.nodes.associate { node ->
+            node.id to grid.edges.count { it.fromId == node.id || it.toId == node.id }
+        }
+        val singleLinked = grid.nodes
+            .filter { it.original is NodeContent.Lock && degree.getValue(it.id) < 2 }
+            .map { it.id }
+            .toSet()
+
+        assertEquals(
+            "Locks that lead nowhere in the real grid - a new one here means a link went missing",
+            setOf("n244", "n426", "n864"),
+            singleLinked
+        )
+    }
+
+    /** The Lv.2 lock below Delay Buster gates the HP +200 beside it - a link missing until 0.8. */
+    @Test
+    fun theLockBelowDelayBusterGatesItsNeighbour() {
+        val linked = grid.edges.any { edge ->
+            setOf(edge.fromId, edge.toId) == setOf("n355", "n357")
+        }
+        assertTrue("n355 (Lv.2 lock) should be linked to n357 (HP +200)", linked)
+    }
+
     @Test
     fun contentEncodingRoundTrips() {
         val samples = listOf(
