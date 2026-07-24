@@ -9,6 +9,7 @@ import com.safemode.safekeepingforffx.FfxApplication
 import com.safemode.safekeepingforffx.data.reference.CreationProgress
 import com.safemode.safekeepingforffx.data.reference.MAX_CAPTURES
 import com.safemode.safekeepingforffx.data.reference.Monster
+import com.safemode.safekeepingforffx.data.reference.carriesItem
 import com.safemode.safekeepingforffx.data.reference.computeCreationProgress
 import com.safemode.safekeepingforffx.data.reference.creationCaptureTargets
 import com.safemode.safekeepingforffx.data.reference.creationKind
@@ -47,9 +48,17 @@ data class CreationAutoCapture(
     val targets: Map<String, Int> get() = fiends.associate { it.id to it.amount }
 }
 
+/** The free-text search and the item filter, carried together so one [combine] can take both. */
+private data class Filters(val query: String, val item: String?)
+
 data class MonsterArenaUiState(
     val isLoading: Boolean = true,
     val query: String = "",
+    /**
+     * An item the list is narrowed to, set when an item list row sent you here. Unlike [query] it
+     * matches whole items only, so Potion doesn't drag in the Hi-Potions.
+     */
+    val itemFilter: String? = null,
     /** Ordered by area, in the order the areas appear in the source file. */
     val byArea: Map<String, List<MonsterCapture>> = emptyMap(),
     /**
@@ -71,7 +80,10 @@ data class MonsterArenaUiState(
     val showHelp: Boolean = true
 ) {
     val isSearching: Boolean get() = query.isNotBlank()
-    val hasNoMatches: Boolean get() = isSearching && byArea.isEmpty()
+
+    /** True while anything at all is narrowing the list, which is what an empty result means. */
+    val isFiltered: Boolean get() = isSearching || itemFilter != null
+    val hasNoMatches: Boolean get() = isFiltered && byArea.isEmpty()
     val isEmpty: Boolean get() = !isLoading && totalCount == 0
 }
 
@@ -81,6 +93,7 @@ class MonsterArenaViewModel(
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
+    private val _itemFilter = MutableStateFlow<String?>(null)
     private val monsters = MutableStateFlow<List<Monster>>(emptyList())
     private val loaded = MutableStateFlow(false)
 
@@ -91,20 +104,22 @@ class MonsterArenaViewModel(
         }
     }
 
+    private val filters = combine(_query, _itemFilter) { query, item -> Filters(query, item) }
+
     val uiState = combine(
         monsters,
         repository.observeCaptures(),
-        _query,
+        filters,
         loaded,
         settingsRepository.showHelp
-    ) { all, counts, query, isLoaded, showHelp ->
+    ) { all, counts, (query, itemFilter), isLoaded, showHelp ->
         val captures = all.map { MonsterCapture(it, counts[it.id] ?: 0) }
         val needle = query.trim()
-        val visible = if (needle.isEmpty()) {
-            captures
-        } else {
-            captures.filter { it.monster.matchesSearch(needle) }
-        }
+        // Both narrow at once and independently: the filter says which fiends carry the item, the
+        // search then looks inside that.
+        val visible = captures
+            .filter { itemFilter == null || it.monster.carriesItem(itemFilter) }
+            .filter { needle.isEmpty() || it.monster.matchesSearch(needle) }
 
         val byId = all.associateBy { it.id }
         val autoCaptures = all
@@ -123,6 +138,7 @@ class MonsterArenaViewModel(
         MonsterArenaUiState(
             isLoading = !isLoaded,
             query = query,
+            itemFilter = itemFilter,
             // groupBy keeps insertion order, so areas stay in file order.
             byArea = visible.groupBy { it.monster.area },
             creationProgress = computeCreationProgress(all, counts),
@@ -146,6 +162,11 @@ class MonsterArenaViewModel(
 
     fun setQuery(value: String) {
         _query.update { value }
+    }
+
+    /** Null shows every fiend again. Kept apart from the search so each can be cleared alone. */
+    fun setItemFilter(item: String?) {
+        _itemFilter.update { item?.takeIf { it.isNotBlank() } }
     }
 
     /** [delta] is +1 or -1; the repository clamps to 0..[MAX_CAPTURES]. */

@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Lock
@@ -38,6 +39,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -81,8 +83,8 @@ private val ACTION_SLOT = 48.dp
 @Composable
 fun MonsterArenaScreen(
     modifier: Modifier = Modifier,
-    /** A search to arrive with, set when an item list row sent you here to find its sources. */
-    initialQuery: String? = null,
+    /** An item to open narrowed to, set when an item list row sent you here to find its sources. */
+    initialItemFilter: String? = null,
     onSearchDismissChange: ((() -> Unit)?) -> Unit = {},
     viewModel: MonsterArenaViewModel = viewModel(factory = MonsterArenaViewModel.Factory)
 ) {
@@ -90,13 +92,13 @@ fun MonsterArenaScreen(
     val listState = rememberLazyListState()
     val headerExpanded = rememberHeaderExpanded(listState)
 
-    // Applied once per arrival rather than on every composition, so clearing or editing the search
-    // sticks - including across a rotation, which is why the guard is saveable.
-    var appliedQuery by rememberSaveable { mutableStateOf<String?>(null) }
-    LaunchedEffect(initialQuery) {
-        if (initialQuery != null && initialQuery != appliedQuery) {
-            appliedQuery = initialQuery
-            viewModel.setQuery(initialQuery)
+    // Applied once per arrival rather than on every composition, so dismissing the filter sticks -
+    // including across a rotation, which is why the guard is saveable.
+    var appliedItemFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(initialItemFilter) {
+        if (initialItemFilter != null && initialItemFilter != appliedItemFilter) {
+            appliedItemFilter = initialItemFilter
+            viewModel.setItemFilter(initialItemFilter)
         }
     }
 
@@ -111,15 +113,12 @@ fun MonsterArenaScreen(
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
 
-    // Same as the other categories: back clears an active search before it leaves the screen.
-    //
-    // Except when the search is the one an item list row arrived with. That wasn't typed here, so
-    // stopping to clear it would strand the player on the full fiend list when what they asked for
-    // was to go back to the item they tapped. Edit it and it is theirs again, back and all.
-    val ownsSearch = state.isSearching && state.query != appliedQuery
-    DisposableEffect(ownsSearch) {
+    // Same as the other categories: back clears an active search before it leaves the screen. The
+    // item filter deliberately isn't part of this - it came from the screen you were on, so back
+    // belongs to that screen, and the chip carries its own way out.
+    DisposableEffect(state.isSearching) {
         onSearchDismissChange(
-            if (ownsSearch) {
+            if (state.isSearching) {
                 {
                     viewModel.setQuery("")
                     focusManager.clearFocus()
@@ -193,6 +192,12 @@ fun MonsterArenaScreen(
             )
         }
 
+        // Never collapsed on scroll, unlike the search field: the filter is the reason the list is
+        // this short, so it has to stay visible for as long as it is narrowing what you see.
+        state.itemFilter?.let { item ->
+            ItemFilterChip(item = item, onClear = { viewModel.setItemFilter(null) })
+        }
+
         AnimatedVisibility(
             // Hidden outright when help is switched off in Settings, not merely collapsed.
             visible = headerExpanded && state.showHelp,
@@ -209,7 +214,16 @@ fun MonsterArenaScreen(
 
         if (state.hasNoMatches) {
             Text(
-                text = "Nothing matches \"${state.query.trim()}\".",
+                text = when {
+                    // Both narrowing at once is the only way the item jump can land on nothing,
+                    // so the message has to name both rather than blame the search alone.
+                    state.itemFilter != null && state.isSearching ->
+                        "No fiend carrying ${state.itemFilter} matches \"${state.query.trim()}\"."
+
+                    state.itemFilter != null -> "No fiend carries ${state.itemFilter}."
+
+                    else -> "Nothing matches \"${state.query.trim()}\"."
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(16.dp)
@@ -292,6 +306,28 @@ fun MonsterArenaScreen(
             }
         )
     }
+}
+
+/**
+ * Says which item the list is narrowed to and takes it off again, for the jump in from the item
+ * list. A chip rather than a pre-filled search box because the two filter differently: this one
+ * matches whole items, so Potion means Potion and not Hi-Potion.
+ */
+@Composable
+private fun ItemFilterChip(item: String, onClear: () -> Unit, modifier: Modifier = Modifier) {
+    InputChip(
+        selected = true,
+        onClick = onClear,
+        label = { Text("Fiends carrying $item") },
+        trailingIcon = {
+            Icon(
+                imageVector = Icons.Filled.Close,
+                contentDescription = "Show every fiend again",
+                modifier = Modifier.size(18.dp)
+            )
+        },
+        modifier = modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
+    )
 }
 
 /**

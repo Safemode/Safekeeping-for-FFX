@@ -7,7 +7,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.safemode.safekeepingforffx.FfxApplication
 import com.safemode.safekeepingforffx.data.reference.ChecklistCategory
-import com.safemode.safekeepingforffx.data.reference.itemNamesFoundInArena
+import com.safemode.safekeepingforffx.data.reference.itemNamesCarriedByFiends
 import com.safemode.safekeepingforffx.data.repository.ItemListRepository
 import com.safemode.safekeepingforffx.data.repository.MonsterArenaRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,9 +18,9 @@ data class ItemListUiState(
     val isLoading: Boolean = true,
     val category: ChecklistCategory? = null,
     /**
-     * Titles of the items at least one fiend drops, steals, is bribed for or is beaten for. Only
-     * these rows offer the jump to the Monster Arena, so the search waiting there always has
-     * something to show.
+     * Titles of the items at least one fiend hands over - stolen, dropped, bribed for, or paid out
+     * by a creation. Only these rows offer the jump to the Monster Arena, so the filtered list
+     * waiting there always has something in it.
      */
     val arenaItemTitles: Set<String> = emptySet()
 )
@@ -43,7 +43,7 @@ class ItemListViewModel(
             _uiState.value = ItemListUiState(
                 isLoading = false,
                 category = category,
-                arenaItemTitles = itemNamesFoundInArena(
+                arenaItemTitles = itemNamesCarriedByFiends(
                     category?.items.orEmpty().map { it.title },
                     monsters
                 )

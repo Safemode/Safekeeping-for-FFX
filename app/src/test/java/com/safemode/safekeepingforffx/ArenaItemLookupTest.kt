@@ -3,7 +3,8 @@ package com.safemode.safekeepingforffx
 import com.safemode.safekeepingforffx.data.reference.ItemListCsvParser
 import com.safemode.safekeepingforffx.data.reference.Monster
 import com.safemode.safekeepingforffx.data.reference.MonsterArenaCsvParser
-import com.safemode.safekeepingforffx.data.reference.itemNamesFoundInArena
+import com.safemode.safekeepingforffx.data.reference.carriesItem
+import com.safemode.safekeepingforffx.data.reference.itemNamesCarriedByFiends
 import com.safemode.safekeepingforffx.data.reference.matchesSearch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,8 +13,8 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The item list's tap sends you to the arena's search, so the two have to agree: a row is only
- * offered when that search would find something.
+ * The item list's tap narrows the arena to one item, so the two have to agree: a row is only
+ * offered when at least one fiend really carries that item, matched whole rather than by substring.
  */
 class ArenaItemLookupTest {
 
@@ -36,79 +37,143 @@ class ArenaItemLookupTest {
         details = mapOf(
             "Common" to "Potion",
             "Rare" to "Sleeping Powder",
+            "Win" to "Power Sphere (x2)",
             "Bribe Item" to "Sleeping Powder (x4)",
             "Monster Type" to "Lupine"
         )
     )
 
     @Test
-    fun `a search reaches the name, the area and every detail column`() {
-        assertTrue(dingo.matchesSearch("Dingo"))
-        assertTrue(dingo.matchesSearch("Besaid"))
-        assertTrue(dingo.matchesSearch("Potion"))
-        assertTrue(dingo.matchesSearch("Lupine"))
-        assertFalse(dingo.matchesSearch("Elixir"))
+    fun `a fiend carries what it steals, drops and is bribed for`() {
+        assertTrue(dingo.carriesItem("Potion"))
+        assertTrue(dingo.carriesItem("Sleeping Powder"))
+        assertTrue(dingo.carriesItem("Power Sphere"))
+        assertTrue(dingo.carriesItem("potion"))
     }
 
     @Test
-    fun `searching ignores case`() {
-        assertTrue(dingo.matchesSearch("sleeping powder"))
-        assertTrue(dingo.matchesSearch("POTION"))
+    fun `carrying an item is a whole-item test, not a substring one`() {
+        // The bug this exists to stop: a Potion row listing every Hi-Potion fiend.
+        assertFalse(dingo.carriesItem("Hi-Potion"))
+        assertFalse(dingo.carriesItem("Tion"))
+        assertFalse(dingo.carriesItem("Sphere"))
+
+        // A fiend whose only potion is a Hi-Potion is not an answer for Potion, and vice versa.
+        val hiOnly = dingo.copy(details = mapOf("Common" to "Hi-Potion (x2)"))
+        assertFalse(hiOnly.carriesItem("Potion"))
+        assertTrue(hiOnly.carriesItem("Hi-Potion"))
     }
 
     @Test
-    fun `a name is only reported found when a fiend really carries it`() {
-        val found = itemNamesFoundInArena(listOf("Potion", "Lupine", "Elixir"), listOf(dingo))
-        assertEquals(setOf("Potion", "Lupine"), found)
+    fun `columns that are not items never match`() {
+        // Type, area and name are searchable but they are not things the fiend hands over.
+        assertFalse(dingo.carriesItem("Lupine"))
+        assertFalse(dingo.carriesItem("Besaid"))
+        assertFalse(dingo.carriesItem("Dingo"))
     }
 
     @Test
-    fun `blank names and an empty arena find nothing`() {
-        assertEquals(emptySet<String>(), itemNamesFoundInArena(listOf("", "   "), listOf(dingo)))
-        assertEquals(emptySet<String>(), itemNamesFoundInArena(listOf("Potion"), emptyList()))
-    }
-
-    @Test
-    fun `a name cannot match by spanning two fields`() {
-        // "Dingo" then "Besaid" are adjacent in the row but not one string, so a needle straddling
-        // them must not match - otherwise the item list would offer a jump that finds nothing.
-        assertFalse(dingo.matchesSearch("DingoBesaid"))
-        assertEquals(
-            emptySet<String>(),
-            itemNamesFoundInArena(listOf("DingoBesaid"), listOf(dingo))
+    fun `a creation's unlock reward counts as carried`() {
+        val jormungand = Monster(
+            id = "area_creations_jormungand",
+            name = "Jormungand",
+            area = "Area Creations",
+            details = mapOf(
+                "Unlock Condition" to "One of each fiend from Djose Highroad",
+                "Unlock Reward" to "Petrify Grenade (x99)"
+            )
         )
+
+        assertTrue(jormungand.carriesItem("Petrify Grenade"))
+        // The condition is a sentence about fiends, not a payout.
+        assertFalse(jormungand.carriesItem("Djose Highroad"))
     }
 
     @Test
-    fun `every offered item finds fiends, and every withheld one would not`() {
-        val found = itemNamesFoundInArena(itemNames, monsters)
+    fun `a cell naming two items counts for both`() {
+        // Three cells in the asset are written this way, the count being all that separates them.
+        val ghost = dingo.copy(details = mapOf("Win" to "Power Sphere (x2) Al Bhed Potion (x3)"))
 
-        val offeredButEmpty = found.filter { name ->
-            monsters.none { it.matchesSearch(name.trim()) }
-        }
+        assertTrue(ghost.carriesItem("Power Sphere"))
+        assertTrue(ghost.carriesItem("Al Bhed Potion"))
+        assertFalse(ghost.carriesItem("Potion"))
+    }
+
+    @Test
+    fun `a count written without its space still separates cleanly`() {
+        val kottos = dingo.copy(details = mapOf("Unlock Reward" to "Smoke Bomb(x99)"))
+        assertTrue(kottos.carriesItem("Smoke Bomb"))
+    }
+
+    @Test
+    fun `a name is only reported carried when a fiend really carries it`() {
+        val carried = itemNamesCarriedByFiends(
+            listOf("Potion", "Hi-Potion", "Lupine", "Elixir"),
+            listOf(dingo)
+        )
+        assertEquals(setOf("Potion"), carried)
+    }
+
+    @Test
+    fun `blank names and an empty arena carry nothing`() {
+        assertEquals(emptySet<String>(), itemNamesCarriedByFiends(listOf("", "   "), listOf(dingo)))
+        assertEquals(emptySet<String>(), itemNamesCarriedByFiends(listOf("Potion"), emptyList()))
+    }
+
+    @Test
+    fun `the free-text search stays broader than the item filter`() {
+        // Typing in the arena still reaches types and areas, which the item jump deliberately
+        // does not.
+        assertTrue(dingo.matchesSearch("Lupine"))
+        assertTrue(dingo.matchesSearch("Besaid"))
+        assertFalse(dingo.carriesItem("Lupine"))
+    }
+
+    @Test
+    fun `every offered item finds fiends, and every withheld one would find none`() {
+        val carried = itemNamesCarriedByFiends(itemNames, monsters)
+
+        val offeredButEmpty = carried.filter { name -> monsters.none { it.carriesItem(name) } }
         assertEquals(emptyList<String>(), offeredButEmpty)
 
-        val withheldButFindable = itemNames.filter { name ->
-            name !in found && monsters.any { it.matchesSearch(name.trim()) }
+        val withheldButCarried = itemNames.filter { name ->
+            name !in carried && monsters.any { it.carriesItem(name) }
         }
-        assertEquals(emptyList<String>(), withheldButFindable)
+        assertEquals(emptyList<String>(), withheldButCarried)
     }
 
     @Test
     fun `the bundled assets line up`() {
-        val found = itemNamesFoundInArena(itemNames, monsters)
+        val carried = itemNamesCarriedByFiends(itemNames, monsters)
 
-        // Most of the item list is reachable from some fiend, so the tap is the rule, not a rarity.
-        assertEquals(96, found.size)
+        // Stolen, dropped, bribed and rewarded items are all offered.
+        assertTrue("Potion" in carried)
+        assertTrue("Sleeping Powder" in carried)
+        assertTrue("Power Sphere" in carried)
+        assertTrue("Al Bhed Potion" in carried)
 
-        // Dropped, bribed and won items are all offered.
-        assertTrue("Potion" in found)
-        assertTrue("Sleeping Powder" in found)
-        assertTrue("Power Sphere" in found)
+        // Key items no fiend hands over are not, which is the point of checking first.
+        assertFalse("Flint" in carried)
+        assertFalse("Withered Bouquet" in carried)
+        assertFalse("Mark of Conquest" in carried)
+    }
 
-        // Key items no fiend carries are not, which is the whole point of checking first.
-        assertFalse("Flint" in found)
-        assertFalse("Withered Bouquet" in found)
-        assertFalse("Mark of Conquest" in found)
+    @Test
+    fun `tapping Potion lists the Potion fiends and no others`() {
+        // The case that named this rule. Dual Horn's common steal really is a Potion, so it stays;
+        // Garm carries only Hi-Potions and Xiphos only Mega-Potions, so they go.
+        assertEquals(
+            listOf("Dingo", "Mi'ihen Fang", "Raldo", "Voivre", "Dual Horn", "Lamashtu"),
+            monsters.filter { it.carriesItem("Potion") }.map { it.name }
+        )
+
+        val garm = monsters.first { it.name == "Garm" }
+        assertTrue(garm.carriesItem("Hi-Potion"))
+        assertFalse(garm.carriesItem("Potion"))
+
+        // Al Bhed Potion is its own item too, not a Potion and not a fallback for one.
+        val sandWolf = monsters.first { it.name == "Sand Wolf" }
+        assertTrue(sandWolf.carriesItem("Al Bhed Potion"))
+        assertFalse(sandWolf.carriesItem("Potion"))
     }
 }

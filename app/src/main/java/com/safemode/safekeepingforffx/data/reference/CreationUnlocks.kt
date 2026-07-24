@@ -6,6 +6,10 @@ package com.safemode.safekeepingforffx.data.reference
  * and the inline UI care about keeps those readers from scattering string literals around.
  */
 object MonsterColumns {
+    const val COMMON = "Common"
+    const val RARE = "Rare"
+    const val WIN = "Win"
+    const val BRIBE_ITEM = "Bribe Item"
     const val MONSTER_TYPE = "Monster Type"
     const val CREATION_UNLOCK = "Creation Unlock"
     const val CREATION_UNLOCK_AMOUNT = "Creation Unlock Amount Needed"

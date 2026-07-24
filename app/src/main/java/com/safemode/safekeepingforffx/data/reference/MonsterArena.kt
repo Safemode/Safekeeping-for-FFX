@@ -44,23 +44,77 @@ fun Monster.matchesSearch(needle: String): Boolean =
         area.contains(needle, ignoreCase = true) ||
         details.values.any { it.contains(needle, ignoreCase = true) }
 
+/** The columns that name something the fiend actually hands over, in the order the CSV lists them. */
+private val ITEM_COLUMNS = listOf(
+    MonsterColumns.COMMON,
+    MonsterColumns.RARE,
+    MonsterColumns.WIN,
+    MonsterColumns.BRIBE_ITEM,
+    MonsterColumns.UNLOCK_REWARD
+)
+
 /**
- * Which of [names] at least one fiend in [monsters] mentions, by exactly the test [matchesSearch]
- * uses. Answering all of them in one pass costs one lowercased haystack per fiend instead of one
- * scan per name per fiend, which matters when the item list asks about a hundred names at once.
+ * The count the CSV writes after an item, as in "Power Sphere (x2)". Matched wherever it appears
+ * rather than stripped off the end, because a single cell can name two items back to back -
+ * "Power Sphere (x2) Al Bhed Potion (x2)" - and the count is the only thing separating them. The
+ * optional space covers the one cell written "Smoke Bomb(x99)".
  */
-fun itemNamesFoundInArena(names: Collection<String>, monsters: List<Monster>): Set<String> {
+private val ITEM_COUNT = Regex("""\s*\(x\d+\)""")
+
+/**
+ * The items named in one cell, without their counts. A cell with no count at all is a single item,
+ * which is how most of them are written.
+ */
+private fun itemsInCell(cell: String): List<String> {
+    val text = cell.trim()
+    if (text.isEmpty()) return emptyList()
+
+    val counts = ITEM_COUNT.findAll(text).toList()
+    if (counts.isEmpty()) return listOf(text)
+
+    // Each count closes the item named in front of it; anything after the last one is an item that
+    // was written without a count.
+    val items = mutableListOf<String>()
+    var start = 0
+    counts.forEach { count ->
+        text.substring(start, count.range.first).trim().takeIf { it.isNotEmpty() }?.let { items += it }
+        start = count.range.last + 1
+    }
+    text.substring(start).trim().takeIf { it.isNotEmpty() }?.let { items += it }
+    return items
+}
+
+/**
+ * True if this fiend hands [item] over - stolen, dropped, bribed for, or paid out when a creation
+ * unlocks.
+ *
+ * Whole items only, unlike [matchesSearch]: a fiend that carries nothing but Hi-Potions is not an
+ * answer to "where do I get Potions?", though Dual Horn, whose common steal really is a Potion,
+ * still is.
+ */
+fun Monster.carriesItem(item: String): Boolean {
+    val wanted = item.trim()
+    if (wanted.isEmpty()) return false
+    return ITEM_COLUMNS.any { column ->
+        details[column]?.let { cell ->
+            itemsInCell(cell).any { it.equals(wanted, ignoreCase = true) }
+        } == true
+    }
+}
+
+/**
+ * Which of [names] some fiend in [monsters] carries, by the same whole-item test [carriesItem] uses.
+ * Answering all of them at once costs one pass over the fiend list rather than one per name, which
+ * matters when the item list asks about a hundred names before it can draw a row.
+ */
+fun itemNamesCarriedByFiends(names: Collection<String>, monsters: List<Monster>): Set<String> {
     if (names.isEmpty() || monsters.isEmpty()) return emptySet()
-    // Newline-joined so a needle can't match across two fields the way a bare concatenation would.
-    val haystacks = monsters.map { monster ->
-        (sequenceOf(monster.name, monster.area) + monster.details.values)
-            .joinToString("\n")
-            .lowercase()
+    val carried = monsters.flatMapTo(mutableSetOf()) { monster ->
+        ITEM_COLUMNS.mapNotNull { monster.details[it] }
+            .flatMap { itemsInCell(it) }
+            .map { it.lowercase() }
     }
-    return names.filterTo(mutableSetOf()) { name ->
-        val needle = name.trim().lowercase()
-        needle.isNotEmpty() && haystacks.any { it.contains(needle) }
-    }
+    return names.filterTo(mutableSetOf()) { it.trim().lowercase() in carried }
 }
 
 /** Area and Monster are fixed; everything after them is a detail column. */

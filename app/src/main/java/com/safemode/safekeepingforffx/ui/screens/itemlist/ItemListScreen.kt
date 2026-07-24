@@ -27,8 +27,8 @@ fun ItemListScreen(
     modifier: Modifier = Modifier,
     focusItemId: String? = null,
     /**
-     * Opens the Monster Arena searched for the given item, so a row can answer "what drops this?"
-     * without the player retyping the name.
+     * Opens the Monster Arena narrowed to the fiends that carry the given item, so a row can answer
+     * "what drops this?" without the player retyping the name.
      */
     onFindInArena: (String) -> Unit = {},
     onSearchDismissChange: ((() -> Unit)?) -> Unit = {},

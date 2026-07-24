@@ -21,8 +21,8 @@ private val checklistDestinations = allDestinations.filterIsInstance<FfxDestinat
 /** Optional nav argument naming the item a category should open scrolled to and highlighted. */
 const val FOCUS_ARG = "focusId"
 
-/** Optional nav argument carrying a search a screen should open with already applied. */
-const val SEARCH_ARG = "searchQuery"
+/** Optional nav argument naming the item the arena should open narrowed to. */
+const val ITEM_ARG = "itemName"
 
 /** The pattern NavHost registers: matches both `alBhed` and `alBhed?focusId=primer_3`. */
 private fun checklistRoutePattern(categoryId: String) = "$categoryId?$FOCUS_ARG={$FOCUS_ARG}"
@@ -31,9 +31,9 @@ private fun checklistRoutePattern(categoryId: String) = "$categoryId?$FOCUS_ARG=
 private fun routeFor(categoryId: String, focusId: String?) =
     if (focusId == null) categoryId else "$categoryId?$FOCUS_ARG=$focusId"
 
-/** As above for the arena's search. Encoded, because item names carry spaces and apostrophes. */
-private fun arenaRoute(query: String) =
-    "${FfxDestination.MonsterArena.route}?$SEARCH_ARG=${Uri.encode(query)}"
+/** As above for the arena's item filter. Encoded: item names carry spaces and apostrophes. */
+private fun arenaRoute(itemName: String) =
+    "${FfxDestination.MonsterArena.route}?$ITEM_ARG=${Uri.encode(itemName)}"
 
 /**
  * Single place that knows how to move between top-level destinations, so the drawer and the Home
@@ -61,15 +61,15 @@ fun NavHostController.navigateToDestination(route: String, focusId: String? = nu
 }
 
 /**
- * Opens the Monster Arena with [query] already searched, for the item list's "what carries this?"
- * tap.
+ * Opens the Monster Arena narrowed to the fiends that carry [itemName], for the item list's "what
+ * carries this?" tap.
  *
  * Deliberately not [navigateToDestination]: this is a lookup you come back from, so the screen you
  * left stays on the stack and back returns you to it, at the row you tapped. The arena has no such
  * tap of its own, so the stack can only ever grow by this one entry.
  */
-fun NavHostController.navigateToArenaSearch(query: String) {
-    navigate(arenaRoute(query)) { launchSingleTop = true }
+fun NavHostController.navigateToArenaItem(itemName: String) {
+    navigate(arenaRoute(itemName)) { launchSingleTop = true }
 }
 
 @Composable
@@ -109,12 +109,12 @@ fun FfxNavHost(
 
         composable(FfxDestination.SphereGrid.route) { SphereGridScreen() }
 
-        // The optional search argument is how an item list row hands over the item it wants the
+        // The optional item argument is how an item list row hands over the item it wants the
         // fiends for. Reached without it, the arena opens unfiltered as always.
         composable(
-            route = "${FfxDestination.MonsterArena.route}?$SEARCH_ARG={$SEARCH_ARG}",
+            route = "${FfxDestination.MonsterArena.route}?$ITEM_ARG={$ITEM_ARG}",
             arguments = listOf(
-                navArgument(SEARCH_ARG) {
+                navArgument(ITEM_ARG) {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
@@ -122,7 +122,7 @@ fun FfxNavHost(
             )
         ) { backStackEntry ->
             MonsterArenaScreen(
-                initialQuery = backStackEntry.arguments?.getString(SEARCH_ARG),
+                initialItemFilter = backStackEntry.arguments?.getString(ITEM_ARG),
                 onSearchDismissChange = { handler ->
                     onScreenBackHandlerChange(FfxDestination.MonsterArena.route, handler)
                 }
@@ -143,7 +143,7 @@ fun FfxNavHost(
         ) { backStackEntry ->
             ItemListScreen(
                 focusItemId = backStackEntry.arguments?.getString(FOCUS_ARG),
-                onFindInArena = { itemName -> navController.navigateToArenaSearch(itemName) },
+                onFindInArena = { itemName -> navController.navigateToArenaItem(itemName) },
                 onSearchDismissChange = { handler ->
                     onScreenBackHandlerChange(FfxDestination.ItemList.route, handler)
                 }
