@@ -128,10 +128,28 @@ private data class ConfirmAction(
 )
 
 /**
- * A saved pan/zoom transform for one grid. Kept per [GridType] so each grid remembers where the
- * player left it when they switch away and back. Transform is screen = world * [scale] + [offset].
+ * A saved pan/zoom transform. Kept per grid *and* character, so each character remembers where the
+ * player left their own grid and switching away and back returns there rather than leaving the view
+ * over whoever was on screen last. Transform is screen = world * [scale] + [offset].
  */
 private data class GridView(val scale: Float, val offset: Offset)
+
+/**
+ * The slot one character's view of one grid is remembered under.
+ *
+ * Keyed by grid *and* character deliberately: keyed by grid alone, switching to another character
+ * and back would leave the canvas wherever that other character had been, because the returning
+ * character's own view had already been overwritten.
+ */
+internal fun gridViewKey(gridType: GridType, character: GridCharacter): String =
+    "${gridType.name}/${character.name}"
+
+/**
+ * The slot a route replay's view of one grid is remembered under. Kept apart from every
+ * [gridViewKey] so stepping through a route never moves where the player left their own characters,
+ * and not keyed by the route's character, since the replay bar drives the camera by stepping.
+ */
+internal fun routeViewKey(gridType: GridType): String = "ROUTE/${gridType.name}"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -163,11 +181,7 @@ fun SphereGridScreen(
     // Per-grid pan/zoom memory: each grid keeps its own view when the player switches away and back.
     // resetSignal nudges the canvas to re-fit; canResetView drives the overlay reset button, which
     // only shows once the current grid's view has been moved off its default fit.
-    val savedGridViews = remember { mutableMapOf<GridType, GridView>() }
-    // Grid + character pairs whose opening view has already been placed, so a character is framed on
-    // their own corner of the grid the first time they are shown and left where the player puts it
-    // afterwards.
-    val framedViewKeys = remember { mutableSetOf<String>() }
+    val savedGridViews = remember { mutableMapOf<String, GridView>() }
     var resetSignal by remember { mutableIntStateOf(0) }
     var canResetView by remember { mutableStateOf(false) }
 
@@ -332,6 +346,7 @@ fun SphereGridScreen(
                     orderLabels = activeRoute.orderLabels,
                     focusNodeId = focusTarget,
                     focusSignal = focusSignal,
+                    viewKey = routeViewKey(state.gridType),
                     icons = sphereIcons,
                     textMeasurer = textMeasurer,
                     labelCache = labelCache,
@@ -354,8 +369,7 @@ fun SphereGridScreen(
                     focusNodeId = focusTarget,
                     focusSignal = focusSignal,
                     homeNodeId = state.homeNodeId,
-                    viewKey = "${state.gridType.name}/${state.character.name}",
-                    framedKeys = framedViewKeys,
+                    viewKey = gridViewKey(state.gridType, state.character),
                     icons = sphereIcons,
                     textMeasurer = textMeasurer,
                     labelCache = labelCache,
@@ -1635,7 +1649,7 @@ private fun routeUnlockedOriginal(
 private fun GridCanvas(
     grid: GridData,
     gridType: GridType,
-    savedViews: MutableMap<GridType, GridView>,
+    savedViews: MutableMap<String, GridView>,
     resetSignal: Int,
     onCanResetChange: (Boolean) -> Unit,
     overrides: Map<String, NodeContent>,
@@ -1659,14 +1673,12 @@ private fun GridCanvas(
     /** Bumped by the caller each time it wants the view to re-focus (one focus per request). */
     focusSignal: Int = 0,
     /**
-     * The node to open on the first time this grid is shown for [viewKey] - where the character left
-     * off, or where they start. Null falls back to framing the whole grid.
+     * The node to open on when [viewKey] has no remembered view yet - where the character left off,
+     * or where they start. Null falls back to framing the whole grid.
      */
     homeNodeId: String? = null,
-    /** What "first time" means for [homeNodeId]: one opening view per grid and character. */
-    viewKey: String = "",
-    /** Grid + character pairs already opened in this session, so the opening view happens once. */
-    framedKeys: MutableSet<String> = remember { mutableSetOf() }
+    /** Which slot of [savedViews] this canvas owns: one view per grid and character. */
+    viewKey: String
 ) {
     val bounds = grid.bounds
     val nodes = grid.nodes
@@ -1728,7 +1740,7 @@ private fun GridCanvas(
     fun applyView(view: GridView) {
         scale = view.scale
         offset = view.offset
-        savedViews[gridType] = view
+        savedViews[viewKey] = view
     }
 
     /** The neighbourhood view centred on [node]: the same framing a focus request eases to. */
@@ -1743,24 +1755,25 @@ private fun GridCanvas(
         )
     }
 
-    // The opening view. A character seen on this grid for the first time this session lands on their
-    // home node - where they left off, or where the game starts them - zoomed into its neighbourhood.
-    // After that the grid keeps its own pan/zoom, restored when the player switches away and back, or
-    // fit-and-centred if there is nowhere in particular to open on. Runs on first measure and whenever
-    // the grid, character or viewport changes.
-    LaunchedEffect(gridType, viewKey, canvasSize) {
+    // The view for whoever is on screen. Each grid and character keeps its own pan/zoom, so switching
+    // away and back returns to where the player left *that* character. The first time a character is
+    // shown there is nothing to restore, so they land on their home node - where they left off, or
+    // where the game starts them - zoomed into its neighbourhood, and the whole grid is framed only
+    // when there is nowhere in particular to open on. Runs on first measure and whenever the grid,
+    // character or viewport changes.
+    LaunchedEffect(viewKey, canvasSize) {
         val fit = fitView ?: return@LaunchedEffect
         val ceiling = fit.scale * 14f
         minScale = fit.scale * 0.7f
         maxScale = ceiling
+        val saved = savedViews[viewKey]
         val home = homeNodeId?.let { id -> nodes.firstOrNull { it.id == id } }
-        val saved = savedViews[gridType]
         when {
-            home != null && framedKeys.add(viewKey) -> applyView(viewOn(home, fit, ceiling))
             saved != null -> {
                 scale = saved.scale.coerceIn(minScale, maxScale)
                 offset = saved.offset
             }
+            home != null -> applyView(viewOn(home, fit, ceiling))
             else -> applyView(fit)
         }
     }
@@ -1796,7 +1809,7 @@ private fun GridCanvas(
                 y = startOffset.y + (endOffset.y - startOffset.y) * t
             )
         }
-        savedViews[gridType] = GridView(scale, offset)
+        savedViews[viewKey] = GridView(scale, offset)
     }
 
     Canvas(
