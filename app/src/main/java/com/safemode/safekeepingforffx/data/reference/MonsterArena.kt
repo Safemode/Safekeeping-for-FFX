@@ -57,7 +57,8 @@ private val ITEM_COLUMNS = listOf(
  * The count the CSV writes after an item, as in "Power Sphere (x2)". Matched wherever it appears
  * rather than stripped off the end, because a single cell can name two items back to back -
  * "Power Sphere (x2) Al Bhed Potion (x2)" - and the count is the only thing separating them. The
- * optional space covers the one cell written "Smoke Bomb(x99)".
+ * space before it is optional so that a cell typed "Smoke Bomb(x99)" still splits, rather than
+ * quietly costing that fiend its item.
  */
 private val ITEM_COUNT = Regex("""\s*\(x\d+\)""")
 

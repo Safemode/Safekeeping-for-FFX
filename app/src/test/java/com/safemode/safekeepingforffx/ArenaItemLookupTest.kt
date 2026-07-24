@@ -101,8 +101,10 @@ class ArenaItemLookupTest {
 
     @Test
     fun `a count written without its space still separates cleanly`() {
-        val kottos = dingo.copy(details = mapOf("Unlock Reward" to "Smoke Bomb(x99)"))
-        assertTrue(kottos.carriesItem("Smoke Bomb"))
+        // The asset is written with the space throughout, so this guards the next cell typed
+        // without one rather than anything in the data today.
+        val garuda = dingo.copy(details = mapOf("Bribe Item" to "Smoke Bomb(x99)"))
+        assertTrue(garuda.carriesItem("Smoke Bomb"))
     }
 
     @Test
