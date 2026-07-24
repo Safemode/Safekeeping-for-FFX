@@ -50,6 +50,9 @@ object ItemListCsvParser {
             id = CATEGORY_ID,
             label = LABEL,
             items = items,
+            note = "Tap an item marked with a paw to open the Monster Arena searched for it, " +
+                "which lists the fiends that drop, carry or pay it out. Items no fiend has stay " +
+                "untappable.",
             trackProgress = false
         )
     }

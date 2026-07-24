@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -80,12 +81,24 @@ private val ACTION_SLOT = 48.dp
 @Composable
 fun MonsterArenaScreen(
     modifier: Modifier = Modifier,
+    /** A search to arrive with, set when an item list row sent you here to find its sources. */
+    initialQuery: String? = null,
     onSearchDismissChange: ((() -> Unit)?) -> Unit = {},
     viewModel: MonsterArenaViewModel = viewModel(factory = MonsterArenaViewModel.Factory)
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     val headerExpanded = rememberHeaderExpanded(listState)
+
+    // Applied once per arrival rather than on every composition, so clearing or editing the search
+    // sticks - including across a rotation, which is why the guard is saveable.
+    var appliedQuery by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(initialQuery) {
+        if (initialQuery != null && initialQuery != appliedQuery) {
+            appliedQuery = initialQuery
+            viewModel.setQuery(initialQuery)
+        }
+    }
 
     // Store the id rather than the monster so the expansion survives rotation. One at a time: two
     // open rows would push everything else off screen.
@@ -99,9 +112,14 @@ fun MonsterArenaScreen(
     val focusManager = LocalFocusManager.current
 
     // Same as the other categories: back clears an active search before it leaves the screen.
-    DisposableEffect(state.isSearching) {
+    //
+    // Except when the search is the one an item list row arrived with. That wasn't typed here, so
+    // stopping to clear it would strand the player on the full fiend list when what they asked for
+    // was to go back to the item they tapped. Edit it and it is theirs again, back and all.
+    val ownsSearch = state.isSearching && state.query != appliedQuery
+    DisposableEffect(ownsSearch) {
         onSearchDismissChange(
-            if (state.isSearching) {
+            if (ownsSearch) {
                 {
                     viewModel.setQuery("")
                     focusManager.clearFocus()

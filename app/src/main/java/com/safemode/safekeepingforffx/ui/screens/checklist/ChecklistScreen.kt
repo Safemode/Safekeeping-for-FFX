@@ -66,6 +66,9 @@ private const val HIGHLIGHT_DURATION_MS = 2_500L
 /** Fits inside the progress row's 48dp action height, so the picker costs no vertical space. */
 private val COMPACT_PILL_HEIGHT = 40.dp
 
+/** Where a reference row leads, and how to say so to a screen reader. */
+data class ItemAction(val label: String, val onClick: () -> Unit)
+
 /** One rendered row: either a section header or an entry. */
 private sealed interface ChecklistRow {
     val key: String
@@ -94,6 +97,12 @@ fun ChecklistScreen(
     focusItemId: String? = null,
     /** Publishes a "dismiss the search" action while one is active, so back can clear it. */
     onSearchDismissChange: ((() -> Unit)?) -> Unit = {},
+    /**
+     * What tapping a row does, for reference lists that lead somewhere. Returning null for an item
+     * leaves that row inert, which is what keeps the item list from offering a dead-end tap on
+     * something no fiend carries. Ignored by tracked lists, where a tap already ticks the box.
+     */
+    itemAction: (ChecklistItem) -> ItemAction? = { null },
     viewModel: ChecklistViewModel = viewModel(
         // Keyed by category, otherwise navigating between two checklists would reuse the first
         // one's ViewModel and show the wrong list.
@@ -244,13 +253,16 @@ fun ChecklistScreen(
                                 }
                             )
                         ) {
+                            val action = itemAction(entry)
                             ChecklistItemRow(
                                 item = entry,
                                 onCheckedChange = { checked ->
                                     viewModel.setChecked(entry.id, checked)
                                 },
                                 onLongPress = { shownItemId = entry.id },
-                                trackProgress = category.trackProgress
+                                trackProgress = category.trackProgress,
+                                onClick = action?.onClick,
+                                onClickLabel = action?.label
                             )
                         }
                         HorizontalDivider()

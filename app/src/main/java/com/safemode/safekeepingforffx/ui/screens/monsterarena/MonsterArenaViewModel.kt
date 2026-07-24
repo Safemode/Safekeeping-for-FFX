@@ -12,6 +12,7 @@ import com.safemode.safekeepingforffx.data.reference.Monster
 import com.safemode.safekeepingforffx.data.reference.computeCreationProgress
 import com.safemode.safekeepingforffx.data.reference.creationCaptureTargets
 import com.safemode.safekeepingforffx.data.reference.creationKind
+import com.safemode.safekeepingforffx.data.reference.matchesSearch
 import com.safemode.safekeepingforffx.data.repository.MonsterArenaRepository
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,17 +46,6 @@ data class CreationAutoCapture(
 
     val targets: Map<String, Int> get() = fiends.associate { it.id to it.amount }
 }
-
-/**
- * True if [needle] appears anywhere the fiend carries text - its name, its area, or any detail
- * column, which is what lets a search reach a type, a stolen or bribed item, or a creation's
- * unlock and reward. Blank detail cells were dropped at parse time, so this only ever matches real
- * data.
- */
-private fun Monster.matches(needle: String): Boolean =
-    name.contains(needle, ignoreCase = true) ||
-        area.contains(needle, ignoreCase = true) ||
-        details.values.any { it.contains(needle, ignoreCase = true) }
 
 data class MonsterArenaUiState(
     val isLoading: Boolean = true,
@@ -113,7 +103,7 @@ class MonsterArenaViewModel(
         val visible = if (needle.isEmpty()) {
             captures
         } else {
-            captures.filter { it.monster.matches(needle) }
+            captures.filter { it.monster.matchesSearch(needle) }
         }
 
         val byId = all.associateBy { it.id }

@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.safemode.safekeepingforffx.ui.screens.checklist.ChecklistScreen
+import com.safemode.safekeepingforffx.ui.screens.checklist.ItemAction
 
 /**
  * The item list is an ordinary reference category that happens to come from a CSV rather than from
@@ -25,6 +26,11 @@ import com.safemode.safekeepingforffx.ui.screens.checklist.ChecklistScreen
 fun ItemListScreen(
     modifier: Modifier = Modifier,
     focusItemId: String? = null,
+    /**
+     * Opens the Monster Arena searched for the given item, so a row can answer "what drops this?"
+     * without the player retyping the name.
+     */
+    onFindInArena: (String) -> Unit = {},
     onSearchDismissChange: ((() -> Unit)?) -> Unit = {},
     viewModel: ItemListViewModel = viewModel(factory = ItemListViewModel.Factory)
 ) {
@@ -50,7 +56,18 @@ fun ItemListScreen(
             category = category,
             modifier = modifier,
             focusItemId = focusItemId,
-            onSearchDismissChange = onSearchDismissChange
+            onSearchDismissChange = onSearchDismissChange,
+            // Only the items some fiend actually carries are tappable; the rest - key items, the
+            // spheres nothing drops - stay inert rather than opening an empty search.
+            itemAction = { item ->
+                if (item.title in state.arenaItemTitles) {
+                    ItemAction("Find the fiends that carry ${item.title}") {
+                        onFindInArena(item.title)
+                    }
+                } else {
+                    null
+                }
+            }
         )
     }
 }

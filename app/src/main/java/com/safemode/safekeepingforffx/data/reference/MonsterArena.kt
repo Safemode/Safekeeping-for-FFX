@@ -30,6 +30,39 @@ data class Monster(
 
 private const val CREATIONS_SUFFIX = "Creations"
 
+/**
+ * True if [needle] appears anywhere the fiend carries text - its name, its area, or any detail
+ * column, which is what lets a search reach a type, a dropped, stolen or bribed item, or a
+ * creation's unlock and reward. Blank detail cells were dropped at parse time, so this only ever
+ * matches real data.
+ *
+ * Lives here rather than in the arena screen because the item list asks the same question before
+ * offering its jump: a row only becomes tappable when this would find something.
+ */
+fun Monster.matchesSearch(needle: String): Boolean =
+    name.contains(needle, ignoreCase = true) ||
+        area.contains(needle, ignoreCase = true) ||
+        details.values.any { it.contains(needle, ignoreCase = true) }
+
+/**
+ * Which of [names] at least one fiend in [monsters] mentions, by exactly the test [matchesSearch]
+ * uses. Answering all of them in one pass costs one lowercased haystack per fiend instead of one
+ * scan per name per fiend, which matters when the item list asks about a hundred names at once.
+ */
+fun itemNamesFoundInArena(names: Collection<String>, monsters: List<Monster>): Set<String> {
+    if (names.isEmpty() || monsters.isEmpty()) return emptySet()
+    // Newline-joined so a needle can't match across two fields the way a bare concatenation would.
+    val haystacks = monsters.map { monster ->
+        (sequenceOf(monster.name, monster.area) + monster.details.values)
+            .joinToString("\n")
+            .lowercase()
+    }
+    return names.filterTo(mutableSetOf()) { name ->
+        val needle = name.trim().lowercase()
+        needle.isNotEmpty() && haystacks.any { it.contains(needle) }
+    }
+}
+
 /** Area and Monster are fixed; everything after them is a detail column. */
 private const val FIXED_COLUMNS = 2
 

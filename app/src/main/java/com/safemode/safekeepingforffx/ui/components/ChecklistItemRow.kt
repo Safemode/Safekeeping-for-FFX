@@ -1,6 +1,7 @@
 package com.safemode.safekeepingforffx.ui.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Checkbox
@@ -32,21 +34,34 @@ fun ChecklistItemRow(
     onCheckedChange: (Boolean) -> Unit,
     onLongPress: () -> Unit,
     modifier: Modifier = Modifier,
-    trackProgress: Boolean = true
+    trackProgress: Boolean = true,
+    /**
+     * Where a reference row leads, for the lists that have somewhere to send you. Null leaves the
+     * row inert, which is still the normal case.
+     */
+    onClick: (() -> Unit)? = null,
+    /** Spoken after the title when [onClick] is set, so the destination isn't a surprise. */
+    onClickLabel: String? = null
 ) {
-    // Reference-only lists have nothing to tick, so the row takes no clicks at all rather than
-    // looking interactive and doing nothing.
-    val interaction = if (trackProgress) {
+    val interaction = when {
         // The whole row toggles, not just the checkbox - a wall of tiny tap targets is the
         // main usability failure mode for lists this long. Long-press opens the screenshot.
-        Modifier.combinedClickable(
+        trackProgress -> Modifier.combinedClickable(
             role = Role.Checkbox,
             onClick = { onCheckedChange(!item.isChecked) },
             onLongClick = if (item.imageRes != null) onLongPress else null,
             onLongClickLabel = "Show location screenshot"
         )
-    } else {
-        Modifier
+
+        onClick != null -> Modifier.clickable(
+            role = Role.Button,
+            onClickLabel = onClickLabel,
+            onClick = onClick
+        )
+
+        // Reference-only lists with nowhere to go take no clicks at all rather than looking
+        // interactive and doing nothing.
+        else -> Modifier
     }
 
     Row(
@@ -83,6 +98,19 @@ fun ChecklistItemRow(
                     // the hint at the top of the list.
                     Icon(
                         imageVector = Icons.Outlined.Image,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .size(16.dp)
+                    )
+                }
+                if (onClick != null) {
+                    // Same idea as the screenshot hint, and the same icon the drawer uses for the
+                    // Monster Arena, so the mark says where the tap goes rather than only that one
+                    // exists.
+                    Icon(
+                        imageVector = Icons.Filled.Pets,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier

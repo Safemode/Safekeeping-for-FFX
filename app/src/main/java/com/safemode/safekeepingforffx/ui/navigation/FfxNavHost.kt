@@ -1,5 +1,6 @@
 package com.safemode.safekeepingforffx.ui.navigation
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -20,12 +21,19 @@ private val checklistDestinations = allDestinations.filterIsInstance<FfxDestinat
 /** Optional nav argument naming the item a category should open scrolled to and highlighted. */
 const val FOCUS_ARG = "focusId"
 
+/** Optional nav argument carrying a search a screen should open with already applied. */
+const val SEARCH_ARG = "searchQuery"
+
 /** The pattern NavHost registers: matches both `alBhed` and `alBhed?focusId=primer_3`. */
 private fun checklistRoutePattern(categoryId: String) = "$categoryId?$FOCUS_ARG={$FOCUS_ARG}"
 
 /** The concrete route to navigate to. Without a focus it stays the bare id. */
 private fun routeFor(categoryId: String, focusId: String?) =
     if (focusId == null) categoryId else "$categoryId?$FOCUS_ARG=$focusId"
+
+/** As above for the arena's search. Encoded, because item names carry spaces and apostrophes. */
+private fun arenaRoute(query: String) =
+    "${FfxDestination.MonsterArena.route}?$SEARCH_ARG=${Uri.encode(query)}"
 
 /**
  * Single place that knows how to move between top-level destinations, so the drawer and the Home
@@ -50,6 +58,18 @@ fun NavHostController.navigateToDestination(route: String, focusId: String? = nu
         popUpTo(graph.startDestinationId)
         launchSingleTop = true
     }
+}
+
+/**
+ * Opens the Monster Arena with [query] already searched, for the item list's "what carries this?"
+ * tap.
+ *
+ * Deliberately not [navigateToDestination]: this is a lookup you come back from, so the screen you
+ * left stays on the stack and back returns you to it, at the row you tapped. The arena has no such
+ * tap of its own, so the stack can only ever grow by this one entry.
+ */
+fun NavHostController.navigateToArenaSearch(query: String) {
+    navigate(arenaRoute(query)) { launchSingleTop = true }
 }
 
 @Composable
@@ -89,8 +109,20 @@ fun FfxNavHost(
 
         composable(FfxDestination.SphereGrid.route) { SphereGridScreen() }
 
-        composable(FfxDestination.MonsterArena.route) {
+        // The optional search argument is how an item list row hands over the item it wants the
+        // fiends for. Reached without it, the arena opens unfiltered as always.
+        composable(
+            route = "${FfxDestination.MonsterArena.route}?$SEARCH_ARG={$SEARCH_ARG}",
+            arguments = listOf(
+                navArgument(SEARCH_ARG) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
             MonsterArenaScreen(
+                initialQuery = backStackEntry.arguments?.getString(SEARCH_ARG),
                 onSearchDismissChange = { handler ->
                     onScreenBackHandlerChange(FfxDestination.MonsterArena.route, handler)
                 }
@@ -111,6 +143,7 @@ fun FfxNavHost(
         ) { backStackEntry ->
             ItemListScreen(
                 focusItemId = backStackEntry.arguments?.getString(FOCUS_ARG),
+                onFindInArena = { itemName -> navController.navigateToArenaSearch(itemName) },
                 onSearchDismissChange = { handler ->
                     onScreenBackHandlerChange(FfxDestination.ItemList.route, handler)
                 }
