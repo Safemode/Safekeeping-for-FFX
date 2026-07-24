@@ -8,9 +8,11 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -60,6 +62,9 @@ import com.safemode.safekeepingforffx.ui.util.rememberHeaderExpanded
 
 /** Long enough to catch the eye after the scroll settles, short enough not to look like state. */
 private const val HIGHLIGHT_DURATION_MS = 2_500L
+
+/** Fits inside the progress row's 48dp action height, so the picker costs no vertical space. */
+private val COMPACT_PILL_HEIGHT = 40.dp
 
 /** One rendered row: either a section header or an entry. */
 private sealed interface ChecklistRow {
@@ -164,13 +169,24 @@ fun ChecklistScreen(
             ChecklistProgressHeader(
                 foundCount = state.foundCount,
                 totalCount = state.totalCount,
-                onReset = { showResetDialog = true }
+                onReset = { showResetDialog = true },
+                // Rides in the progress row's spare width rather than claiming a row of its own.
+                // Re-ordering is a way of reading the list, so it has to stay reachable while you
+                // scroll - but not at the price of another 60dp of permanent chrome.
+                action = if (state.canSort) {
+                    { SortSelector(sort = state.sort, onSortChange = viewModel::setSort) }
+                } else {
+                    null
+                }
             )
-        }
-        // Deliberately outside the collapsing header. Re-ordering the list is a way of reading it,
-        // not a one-off setup step, so it stays reachable without scrolling back to the top.
-        if (state.canSort) {
-            SortSelector(sort = state.sort, onSortChange = viewModel::setSort)
+        } else if (state.canSort) {
+            // Reference-only lists have no progress row to ride in. None carry story stages today,
+            // but the control shouldn't quietly vanish if one ever does.
+            SortSelector(
+                sort = state.sort,
+                onSortChange = viewModel::setSort,
+                modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 8.dp)
+            )
         }
         AnimatedVisibility(
             // An active search stays put even when scrolling down: hiding the field while it is
@@ -281,7 +297,11 @@ fun ChecklistScreen(
  * The order picker, built like the Sphere Grid's grid picker so the two read as the same control:
  * a pill showing what you are looking at, tapped to swap it.
  *
- * Each choice carries a line of explanation - unlike the grid picker, the labels alone don't say
+ * Sized to sit inside the progress row's 48dp without stretching it, which is why the button says
+ * only "Chronological" where the grid picker says "Standard Grid". The list underneath removes any
+ * doubt anyway - stage headers or weapon headers tell you which order you are in at a glance.
+ *
+ * Each choice carries a line of explanation. Unlike the grid picker, the labels alone don't say
  * what changes.
  */
 @Composable
@@ -292,17 +312,21 @@ private fun SortSelector(
 ) {
     var menu by remember { mutableStateOf(false) }
 
-    Box(modifier = modifier.padding(start = 16.dp, top = 4.dp, bottom = 8.dp)) {
-        OutlinedButton(onClick = { menu = true }) {
-            Text("${sort.label} Order")
-            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+    Box(modifier = modifier) {
+        OutlinedButton(
+            onClick = { menu = true },
+            contentPadding = PaddingValues(start = 12.dp, end = 4.dp),
+            modifier = Modifier.heightIn(max = COMPACT_PILL_HEIGHT)
+        ) {
+            Text(sort.label, maxLines = 1, style = MaterialTheme.typography.labelLarge)
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = "Change the order of this list")
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             ChecklistSort.entries.forEach { option ->
                 DropdownMenuItem(
                     text = {
                         Column {
-                            Text("${option.label} Order")
+                            Text("${option.label} order")
                             Text(
                                 text = option.description,
                                 style = MaterialTheme.typography.bodySmall,

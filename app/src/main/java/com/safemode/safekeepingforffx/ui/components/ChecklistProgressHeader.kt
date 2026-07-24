@@ -26,7 +26,13 @@ fun ChecklistProgressHeader(
     foundCount: Int,
     totalCount: Int,
     modifier: Modifier = Modifier,
-    onReset: (() -> Unit)? = null
+    onReset: (() -> Unit)? = null,
+    /**
+     * Optional control shown between the count and the reset button. The row is already 48dp tall
+     * for the reset slot and the count leaves most of it empty, so anything that fits inside that
+     * height rides along for free rather than costing the list another row.
+     */
+    action: (@Composable () -> Unit)? = null
 ) {
     Column(
         modifier = modifier
@@ -37,8 +43,12 @@ fun ChecklistProgressHeader(
             Text(
                 text = "$foundCount / $totalCount found",
                 style = MaterialTheme.typography.titleMedium,
+                // Gives up its space to the action rather than wrapping onto a second line, which
+                // would grow the one part of this screen that never scrolls away.
+                maxLines = 1,
                 modifier = Modifier.weight(1f)
             )
+            action?.invoke()
             // The slot is always laid out, so the button appearing on the first check doesn't
             // shove the count and progress bar down. Hidden at zero: a destructive control
             // shouldn't sit there offering to undo nothing.
