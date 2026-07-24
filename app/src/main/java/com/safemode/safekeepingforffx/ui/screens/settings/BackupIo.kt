@@ -2,6 +2,7 @@ package com.safemode.safekeepingforffx.ui.screens.settings
 
 import android.content.ContentResolver
 import android.net.Uri
+import android.provider.OpenableColumns
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -42,3 +43,18 @@ fun contentSource(resolver: ContentResolver, uri: Uri): BackupSource = BackupSou
         stream.use { it.bufferedReader().readText() }
     }
 }
+
+/**
+ * The picked file's name as the player would recognise it, so the overwrite warning can say which
+ * file is about to replace their progress. A content URI's own path is provider gibberish
+ * (`msf:1000000031`), so the name has to be queried for.
+ *
+ * Null when the provider doesn't offer one - the warning simply drops the line rather than showing
+ * something meaningless. This is a tiny metadata query on a URI the picker just handed back, so it
+ * runs inline; nothing is read from the file itself until the player confirms.
+ */
+fun displayName(resolver: ContentResolver, uri: Uri): String? = runCatching {
+    resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+        if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getString(0) else null
+    }
+}.getOrNull()

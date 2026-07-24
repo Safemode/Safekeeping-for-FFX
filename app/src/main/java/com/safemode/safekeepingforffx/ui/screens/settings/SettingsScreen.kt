@@ -1,5 +1,6 @@
 package com.safemode.safekeepingforffx.ui.screens.settings
 
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -75,8 +76,10 @@ fun SettingsScreen(
 
     val context = LocalContext.current
     val busy by viewModel.busy.collectAsStateWithLifecycle()
-    var showRestoreConfirm by remember { mutableStateOf(false) }
     var backupResult by remember { mutableStateOf<BackupEvent?>(null) }
+
+    /** The file the player picked to restore from, held while they confirm the overwrite. */
+    var pendingRestore by remember { mutableStateOf<Uri?>(null) }
 
     // The system file picker owns where the file goes and what it's called, so the app needs no
     // storage permission and the backup lands somewhere the player can actually find it - their
@@ -86,13 +89,16 @@ fun SettingsScreen(
     ) { uri ->
         if (uri != null) viewModel.backUp(contentSink(context.contentResolver, uri))
     }
+    // Picking comes first and the overwrite warning comes after, so the warning can name the file
+    // that is about to replace everything - and backing out of the picker costs nothing.
+    //
     // Deliberately not filtered to application/json: providers label a .json file inconsistently -
     // some report octet-stream, some nothing at all - and a filter that hides the player's own
     // backup is worse than one that shows too much. The file's contents are validated on read.
     val restoreLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
-        if (uri != null) viewModel.restore(contentSource(context.contentResolver, uri))
+        pendingRestore = uri
     }
 
     LaunchedEffect(Unit) {
@@ -195,7 +201,8 @@ fun SettingsScreen(
                 // date is already in the suggestion so most won't need to.
                 backupLauncher.launch(backupFileName())
             },
-            onRestore = { showRestoreConfirm = true }
+            // "*/*" for the reason given where the launcher is declared.
+            onRestore = { restoreLauncher.launch(arrayOf("*/*")) }
         )
 
         HorizontalDivider()
@@ -264,30 +271,38 @@ fun SettingsScreen(
         )
     }
 
-    if (showRestoreConfirm) {
+    pendingRestore?.let { uri ->
+        // Looked up once per picked file rather than on every recomposition, and only for the
+        // name - nothing is read from the file itself until the player confirms.
+        val fileName = remember(uri) { displayName(context.contentResolver, uri) }
         AlertDialog(
-            onDismissRequest = { showRestoreConfirm = false },
-            title = { Text("Restore from a backup?") },
+            onDismissRequest = { pendingRestore = null },
+            title = { Text("Restore from this backup?") },
             text = {
                 Text(
-                    "Everything you have now - checklists, capture counts, the Sphere Grid and " +
-                        "your saved routes - is replaced by what's in the backup file. This can't " +
-                        "be undone, so back up first if you might want your current progress."
+                    buildString {
+                        if (fileName != null) append("$fileName\n\n")
+                        append(
+                            "Everything you have now - checklists, capture counts, the Sphere " +
+                                "Grid, your saved routes and these settings - is replaced by " +
+                                "what's in this file. This can't be undone, so back up first if " +
+                                "you might want your current progress."
+                        )
+                    }
                 )
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        showRestoreConfirm = false
-                        // "*/*" for the reason given where the launcher is declared.
-                        restoreLauncher.launch(arrayOf("*/*"))
+                        pendingRestore = null
+                        viewModel.restore(contentSource(context.contentResolver, uri))
                     }
                 ) {
-                    Text("Choose file", color = MaterialTheme.colorScheme.error)
+                    Text("Restore", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showRestoreConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { pendingRestore = null }) { Text("Cancel") }
             }
         )
     }
