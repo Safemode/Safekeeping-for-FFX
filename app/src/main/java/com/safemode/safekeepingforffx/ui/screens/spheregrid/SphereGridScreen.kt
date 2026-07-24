@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FirstPage
 import androidx.compose.material.icons.filled.LastPage
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -379,18 +380,46 @@ fun SphereGridScreen(
                     modifier = Modifier.fillMaxSize()
                 )
             }
-            // Reset-view button: only while a grid is shown and its view has been moved off default.
-            if (canResetView && state.gridAvailable && !state.isLoading) {
-                FilledTonalIconButton(
-                    onClick = { resetSignal++ },
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.CenterFocusStrong,
-                        contentDescription = "Reset view to fit the whole grid"
-                    )
+            // View controls, stacked bottom-right: go back to this character, and zoom out to the
+            // whole grid. Each appears only when it has somewhere to take you, so the stack is
+            // usually one button and never both when there is nothing to do.
+            val gridShown = state.gridAvailable && !state.isLoading
+            val homeNodeId = state.homeNodeId
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Back to where this character is: the node they last activated on this grid, or - with
+                // no path here yet - where the game starts them. Hidden during a route replay, where
+                // the live path is not what is on screen and the replay bar drives the view instead.
+                if (activeRoute == null && gridShown && homeNodeId != null) {
+                    FilledTonalIconButton(
+                        onClick = {
+                            focusTarget = homeNodeId
+                            focusSignal++
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.MyLocation,
+                            contentDescription = if (state.lastActivatedNodeId != null) {
+                                "Go to ${state.character.displayName}'s last activated node"
+                            } else {
+                                "Go to ${state.character.displayName}'s starting position"
+                            }
+                        )
+                    }
+                }
+                // Reset view: only once the view has been moved off the default fit.
+                if (canResetView && gridShown) {
+                    FilledTonalIconButton(onClick = { resetSignal++ }) {
+                        Icon(
+                            imageVector = Icons.Filled.CenterFocusStrong,
+                            contentDescription = "Reset view to fit the whole grid"
+                        )
+                    }
                 }
             }
         }
