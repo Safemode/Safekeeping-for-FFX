@@ -78,10 +78,10 @@ Skill Sphere,Sphere,Activates Skill nodes used by allies on Sphere Grid.
 Wht Magic Sphere,Sphere,Activates White Magic nodes used by allies on Sphere Grid.
 Blk Magic Sphere,Sphere,Activates Black Magic nodes used by allies on Sphere Grid.
 Master Sphere,Sphere,Activates any Ability or Attribute nodes on Sphere Grid.
-Level 1 Key Sphere,Sphere,Opens Lv. 1 Locks on Sphere Grid
-Level 2 Key Sphere,Sphere,Opens Lv. 2 Locks on Sphere Grid
-Level 3 Key Sphere,Sphere,Opens Lv. 3 Locks on Sphere Grid.
-Level 4 Key Sphere,Sphere,Opens Lv. 4 Locks on Sphere Grid.
+Lv. 1 Key Sphere,Sphere,Opens Lv. 1 Locks on Sphere Grid
+Lv. 2 Key Sphere,Sphere,Opens Lv. 2 Locks on Sphere Grid
+Lv. 3 Key Sphere,Sphere,Opens Lv. 3 Locks on Sphere Grid.
+Lv. 4 Key Sphere,Sphere,Opens Lv. 4 Locks on Sphere Grid.
 HP Sphere,Sphere,Fills empty nodes on Sphere Grid with an HP node.
 MP Sphere,Sphere,Fills empty nodes on Sphere Grid with an MP node.
 Strength Sphere,Sphere,Fills empty nodes on Sphere Grid with a Strength node.
