@@ -161,6 +161,13 @@ data class GridData(
 ) {
     val totalNodes: Int get() = nodes.size
 
+    /**
+     * Every node id on this grid, for checking whether a stored id belongs here. Activations for both
+     * grids share one table, so a character's saved path mixes "n..." and "x..." ids. Computed once
+     * per parsed grid, which the repository caches.
+     */
+    val nodeIds: Set<String> by lazy { nodes.mapTo(HashSet()) { it.id } }
+
     companion object {
         val EMPTY = GridData(emptyList(), emptyList(), GridBounds(0f, 0f, 0f, 0f))
     }

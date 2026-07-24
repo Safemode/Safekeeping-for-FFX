@@ -104,8 +104,13 @@ class SphereGridRepository(
 
     // --- Per-character activation (each character's path) ---
 
-    fun observeActivations(character: GridCharacter): Flow<Set<String>> =
-        activationDao.observeForCharacter(character.name).map { it.toSet() }
+    /**
+     * The character's path across both grids, most recently activated node first. The order carries
+     * the "where did they leave off" answer the planner opens on; callers that only need membership
+     * turn it into a set.
+     */
+    fun observeActivations(character: GridCharacter): Flow<List<String>> =
+        activationDao.observeForCharacter(character.name)
 
     suspend fun setActivation(character: GridCharacter, nodeId: String, activated: Boolean) {
         if (activated) {

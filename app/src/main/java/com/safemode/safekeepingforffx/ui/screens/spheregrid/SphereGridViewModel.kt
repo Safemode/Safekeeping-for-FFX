@@ -11,6 +11,7 @@ import com.safemode.safekeepingforffx.data.reference.CharacterStatus
 import com.safemode.safekeepingforffx.data.reference.CharacterStatusCalculator
 import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.GridData
+import com.safemode.safekeepingforffx.data.reference.GridStartNodes
 import com.safemode.safekeepingforffx.data.reference.GridType
 import com.safemode.safekeepingforffx.data.reference.NodeContent
 import com.safemode.safekeepingforffx.data.reference.NodeType
@@ -41,6 +42,11 @@ data class SphereGridUiState(
     val overrides: Map<String, NodeContent> = emptyMap(),
     /** Node ids the selected character has activated. */
     val activated: Set<String> = emptySet(),
+    /**
+     * The node on *this* grid the selected character activated most recently, or null if they have
+     * no path here yet. Where the planner reopens them.
+     */
+    val lastActivatedNodeId: String? = null,
     val showHelp: Boolean = true,
     /** When true a tap activates a node and a long-press opens its details; otherwise tap opens. */
     val tapActivates: Boolean = false,
@@ -76,6 +82,15 @@ data class SphereGridUiState(
 
     /** [canEditContent] for the node as it currently stands. */
     fun canEdit(node: SphereGridNode): Boolean = canEditContent(current(node))
+
+    /**
+     * The node the canvas should open on for this character: where they left off, or - with no path
+     * on this grid yet - where the game starts them. Null when neither is known, which leaves the
+     * opening view fitted to the whole grid.
+     */
+    val homeNodeId: String?
+        get() = lastActivatedNodeId ?: GridStartNodes.forCharacter(gridType, character)
+            ?.takeIf { it in grid.nodeIds }
 
     val gridAvailable: Boolean get() = grid.totalNodes > 0
     val hasEdits: Boolean get() = overrides.isNotEmpty()
@@ -221,14 +236,16 @@ class SphereGridViewModel(
         repository.observeOverrides(),
         activations,
         settings
-    ) { load, character, overrides, activated, settings ->
+    ) { load, character, overrides, path, settings ->
         SphereGridUiState(
             isLoading = load.isLoading,
             gridType = load.type,
             grid = load.grid,
             character = character,
             overrides = overrides,
-            activated = activated,
+            activated = path.toSet(),
+            // The path spans both grids, so the most recent node that belongs to the one on screen.
+            lastActivatedNodeId = path.firstOrNull { it in load.grid.nodeIds },
             showHelp = settings.showHelp,
             tapActivates = settings.tapActivates,
             fullNodeEditor = settings.fullNodeEditor

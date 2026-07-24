@@ -8,7 +8,15 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface SphereGridActivationDao {
 
-    @Query("SELECT nodeId FROM sphere_grid_activation WHERE character = :character")
+    /**
+     * The character's activated nodes, most recently taken first, so the caller can both hold the
+     * whole path and know where they last worked. Rows from before the routes feature all carry
+     * seq 0 ("order unknown") and fall to the back in a stable id order.
+     */
+    @Query(
+        "SELECT nodeId FROM sphere_grid_activation WHERE character = :character " +
+            "ORDER BY seq DESC, nodeId DESC"
+    )
     fun observeForCharacter(character: String): Flow<List<String>>
 
     /** Every character's activations in the order they happened, for exporting an ordered route. */
