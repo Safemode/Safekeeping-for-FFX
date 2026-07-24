@@ -52,4 +52,42 @@ class SphereGridLockTest {
         val statNode = SphereGridNode("n2", 0f, 0f, NodeContent.Attribute(NodeType.HP, 200))
         assertFalse(SphereGridUiState().isLockedGate(statNode))
     }
+
+    // --- What the player may rewrite, which the full-node-editor setting governs ---
+
+    private fun abilityNode(id: String = "a1") =
+        SphereGridNode(id, 0f, 0f, NodeContent.Ability("Cure", NodeType.WHITE_MAGIC))
+
+    private fun statNode(id: String = "s1") =
+        SphereGridNode(id, 0f, 0f, NodeContent.Attribute(NodeType.STRENGTH, 4))
+
+    @Test
+    fun abilityNodesAreActivateOnlyByDefault() {
+        val state = SphereGridUiState()
+        assertFalse("An ability node is not editable by default", state.canEdit(abilityNode()))
+        assertTrue("A stat node stays editable", state.canEdit(statNode()))
+    }
+
+    @Test
+    fun theFullEditorSettingUnlocksAbilityNodes() {
+        val state = SphereGridUiState(fullNodeEditor = true)
+        assertTrue("The setting makes ability nodes editable", state.canEdit(abilityNode()))
+    }
+
+    /** The setting governs abilities only - it must never make a gated lock editable. */
+    @Test
+    fun theFullEditorSettingDoesNotUnlockGates() {
+        val state = SphereGridUiState(fullNodeEditor = true)
+        assertFalse("A gated lock is still not editable", state.canEdit(lockNode()))
+    }
+
+    /** An edit that put an ability on a node also makes that node activate-only once shut off. */
+    @Test
+    fun anAbilityWrittenByAnEditIsAlsoProtected() {
+        val node = statNode("s2")
+        val state = SphereGridUiState(
+            overrides = mapOf("s2" to NodeContent.Ability("Holy", NodeType.WHITE_MAGIC))
+        )
+        assertFalse("The current content decides, not the original", state.canEdit(node))
+    }
 }

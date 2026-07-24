@@ -94,9 +94,11 @@ fun SettingsScreen(
 
         SwitchRow(
             label = FULL_EDITOR_LABEL,
-            description = "What the node editor offers when you edit a node's content. Off shows " +
-                "only the spheres a max-stats plan places - HP +300, MP +40 and the +4 attributes. " +
-                "On adds every other attribute value and all 85 abilities.",
+            description = "What you can rewrite a node into. Off offers only the spheres a max-stats " +
+                "plan places - HP +300, MP +40 and the +4 attributes - and leaves ability nodes " +
+                "activate-only, so Skill, Special, White Magic and Black Magic keep the abilities " +
+                "the game put there. On adds every other attribute value, all 85 abilities, and " +
+                "lets ability nodes be overwritten.",
             checked = fullNodeEditor,
             onCheckedChange = viewModel::setSphereGridFullNodeEditor
         )

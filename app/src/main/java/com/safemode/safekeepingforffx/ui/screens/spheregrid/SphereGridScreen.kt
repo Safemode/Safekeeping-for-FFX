@@ -407,6 +407,7 @@ fun SphereGridScreen(
                     current = state.current(selected),
                     characterName = state.character.displayName,
                     isActivated = state.isActivated(selected.id),
+                    canEdit = state.canEdit(selected),
                     onToggleActivation = { viewModel.toggleActivation(selected) },
                     onEdit = {
                         editingNodeId = selected.id
@@ -844,6 +845,8 @@ private fun NodeDetail(
     current: NodeContent,
     characterName: String,
     isActivated: Boolean,
+    /** False for a node the player may not rewrite - an ability node with the full editor off. */
+    canEdit: Boolean,
     onToggleActivation: () -> Unit,
     onEdit: () -> Unit,
     onRevert: () -> Unit
@@ -920,16 +923,31 @@ private fun NodeDetail(
         )
 
         if (current.isEditable) {
-            Spacer(Modifier.size(20.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onEdit, modifier = Modifier.weight(1f)) {
-                    Text("Edit content")
-                }
-                if (edited) {
-                    TextButton(onClick = onRevert, modifier = Modifier.weight(1f)) {
-                        Text("Revert to original")
+            if (canEdit || edited) {
+                Spacer(Modifier.size(20.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (canEdit) {
+                        OutlinedButton(onClick = onEdit, modifier = Modifier.weight(1f)) {
+                            Text("Edit content")
+                        }
+                    }
+                    // Revert survives the setting being turned off, so a node written while the full
+                    // editor was on is never stranded with content and no way back.
+                    if (edited) {
+                        TextButton(onClick = onRevert, modifier = Modifier.weight(1f)) {
+                            Text("Revert to original")
+                        }
                     }
                 }
+            }
+            if (!canEdit) {
+                Spacer(Modifier.size(12.dp))
+                Text(
+                    text = "Ability nodes can only be activated. Turn on \"$FULL_EDITOR_LABEL\" in " +
+                        "Settings to rewrite them.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

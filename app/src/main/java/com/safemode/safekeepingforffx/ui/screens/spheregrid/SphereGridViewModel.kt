@@ -60,6 +60,23 @@ data class SphereGridUiState(
     fun isLockedGate(node: SphereGridNode): Boolean =
         node.original is NodeContent.Lock && !isEdited(node)
 
+    /**
+     * Whether the player may rewrite what sits on this node.
+     *
+     * A lock is never editable until it has been opened. An ability node - Skill, Special, White
+     * Magic or Black Magic - is editable only with the full node editor turned on; by default it can
+     * be activated and deactivated but not overwritten, which keeps the grid's abilities where the
+     * game put them unless the player has deliberately asked to move them.
+     */
+    fun canEditContent(content: NodeContent): Boolean = when {
+        !content.isEditable -> false
+        content is NodeContent.Ability -> fullNodeEditor
+        else -> true
+    }
+
+    /** [canEditContent] for the node as it currently stands. */
+    fun canEdit(node: SphereGridNode): Boolean = canEditContent(current(node))
+
     val gridAvailable: Boolean get() = grid.totalNodes > 0
     val hasEdits: Boolean get() = overrides.isNotEmpty()
     val characterHasPath: Boolean get() = activated.isNotEmpty()
@@ -282,9 +299,15 @@ class SphereGridViewModel(
     /**
      * Writes a shared content edit to [node], or reverts it. A lock can't be edited until it has been
      * opened (a blank override exists); reverting an opened gate's edit re-locks it.
+     *
+     * Ability nodes are refused while the full node editor is off, so the rule holds wherever the
+     * write comes from and not only where the UI hides the button. Reverting is always allowed: a
+     * node written while the setting was on would otherwise be stranded once it is turned back off.
      */
     fun setContent(node: SphereGridNode, content: NodeContent?) {
-        if (uiState.value.isLockedGate(node)) return
+        val state = uiState.value
+        if (state.isLockedGate(node)) return
+        if (content != null && !state.canEdit(node)) return
         viewModelScope.launch { repository.setContent(node.id, content, node.original) }
     }
 
