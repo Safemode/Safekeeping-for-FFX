@@ -73,6 +73,21 @@ fun NavHostController.navigateToArenaItem(itemName: String) {
     navigate(arenaRoute(itemName)) { launchSingleTop = true }
 }
 
+/**
+ * Opens a favorite in the list that owns it, scrolled to it.
+ *
+ * Deliberately not [navigateToDestination], for the same reason as [navigateToArenaItem]: Favorites
+ * is a shortlist you work through, so leaving it to look at one entry is a trip you come back from,
+ * not a move to a different part of the app. Flattening the stack here would send back to Home and
+ * make you re-open Favorites for every item on it.
+ *
+ * The stack this grows is still bounded: reaching Favorites is itself a drawer destination, so
+ * opening it again from the menu pops back to Home first and starts over.
+ */
+fun NavHostController.navigateToFavorite(categoryId: String, itemId: String) {
+    navigate(routeFor(categoryId, focusId = itemId)) { launchSingleTop = true }
+}
+
 @Composable
 fun FfxNavHost(
     navController: NavHostController,
@@ -107,9 +122,10 @@ fun FfxNavHost(
         composable(FfxDestination.Favorites.route) {
             FavoritesScreen(
                 // Straight to the item in the list that owns it, using the same focus argument a
-                // Home search result travels on.
+                // Home search result travels on - but keeping Favorites on the stack, so back
+                // returns to the shortlist you were working through.
                 onOpen = { categoryId, itemId ->
-                    navController.navigateToDestination(categoryId, focusId = itemId)
+                    navController.navigateToFavorite(categoryId, itemId)
                 }
             )
         }
