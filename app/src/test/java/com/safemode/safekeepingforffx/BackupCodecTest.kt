@@ -4,6 +4,7 @@ import com.safemode.safekeepingforffx.data.backup.BACKUP_FORMAT
 import com.safemode.safekeepingforffx.data.backup.BACKUP_VERSION
 import com.safemode.safekeepingforffx.data.backup.BackupChecklistEntry
 import com.safemode.safekeepingforffx.data.backup.BackupCodec
+import com.safemode.safekeepingforffx.data.backup.BackupFavorite
 import com.safemode.safekeepingforffx.data.backup.BackupFile
 import com.safemode.safekeepingforffx.data.backup.BackupMonsterCapture
 import com.safemode.safekeepingforffx.data.backup.BackupSettings
@@ -42,6 +43,10 @@ class BackupCodecTest {
         checklists = listOf(
             BackupChecklistEntry("al_bhed_primers", "primer_01", true, 1_700_000_000_000),
             BackupChecklistEntry("al_bhed_primers", "primer_02", false, 1_700_000_000_001)
+        ),
+        favorites = listOf(
+            BackupFavorite("celestial_weapons", "celestial_tidus_crest", 1_700_000_000_004),
+            BackupFavorite("monsterArena", "dingo", 1_700_000_000_005)
         ),
         monsterCaptures = listOf(BackupMonsterCapture("dingo", 7, 1_700_000_000_002)),
         sphereGridEdits = listOf(BackupSphereGridEdit("s_n12", "A:STRENGTH:4", 3)),
@@ -88,6 +93,7 @@ class BackupCodecTest {
         // Unchecked rows are carried in the file but are not "progress" to report back.
         val counts = sample().counts
         assertEquals(1, counts.checkedItems)
+        assertEquals(2, counts.favorites)
         assertEquals(1, counts.capturedFiends)
         assertEquals(1, counts.gridEdits)
         assertEquals(2, counts.gridActivations)
@@ -120,6 +126,9 @@ class BackupCodecTest {
             """{"format":"$BACKUP_FORMAT","version":$BACKUP_VERSION}"""
         ).getOrThrow()
         assertTrue(decoded.checklists.isEmpty())
+        // A file written before Favorites existed has no section for them, which has to read as
+        // "nothing was ever starred" rather than failing the restore.
+        assertTrue(decoded.favorites.isEmpty())
         assertTrue(decoded.monsterCaptures.isEmpty())
         assertTrue(decoded.sphereGridEdits.isEmpty())
         assertTrue(decoded.sphereGridActivations.isEmpty())

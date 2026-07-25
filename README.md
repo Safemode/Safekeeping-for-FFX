@@ -33,6 +33,7 @@ There can be a little bit of a delay between joining the Group/Program and showi
 
 ### App Functionality
 
+- Favorites - tap the star on any entry in any list to keep it here, gathered in one place and grouped by the list it came from. Tapping a favorite opens it where it lives. The Sphere Grid Planner and Mix Calculator are lookup tools rather than lists, so they have nothing to star.
 - Al Bhed Primers and their locations
 - Jecht Spheres and their locations
 - Celestial Weapons and their locations, grouped by weapon or in story order

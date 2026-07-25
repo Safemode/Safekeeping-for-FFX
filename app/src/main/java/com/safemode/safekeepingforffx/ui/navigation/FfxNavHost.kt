@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.safemode.safekeepingforffx.ui.screens.checklist.ChecklistScreen
+import com.safemode.safekeepingforffx.ui.screens.favorites.FavoritesScreen
 import com.safemode.safekeepingforffx.ui.screens.home.HomeScreen
 import com.safemode.safekeepingforffx.ui.screens.itemlist.ItemListScreen
 import com.safemode.safekeepingforffx.ui.screens.mix.MixCalculatorScreen
@@ -103,18 +104,34 @@ fun FfxNavHost(
             )
         }
 
+        composable(FfxDestination.Favorites.route) {
+            FavoritesScreen(
+                // Straight to the item in the list that owns it, using the same focus argument a
+                // Home search result travels on.
+                onOpen = { categoryId, itemId ->
+                    navController.navigateToDestination(categoryId, focusId = itemId)
+                }
+            )
+        }
+
         composable(FfxDestination.Settings.route) { SettingsScreen() }
 
         composable(FfxDestination.MixCalculator.route) { MixCalculatorScreen() }
 
         composable(FfxDestination.SphereGrid.route) { SphereGridScreen() }
 
-        // The optional item argument is how an item list row hands over the item it wants the
-        // fiends for. Reached without it, the arena opens unfiltered as always.
+        // Two optional arguments, and they arrive from different places: the item is how an item
+        // list row hands over the item it wants the fiends for, the focus is how a favorite asks for
+        // one named fiend. Reached with neither, the arena opens unfiltered as always.
         composable(
-            route = "${FfxDestination.MonsterArena.route}?$ITEM_ARG={$ITEM_ARG}",
+            route = "${FfxDestination.MonsterArena.route}?$ITEM_ARG={$ITEM_ARG}&$FOCUS_ARG={$FOCUS_ARG}",
             arguments = listOf(
                 navArgument(ITEM_ARG) {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument(FOCUS_ARG) {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
@@ -123,6 +140,7 @@ fun FfxNavHost(
         ) { backStackEntry ->
             MonsterArenaScreen(
                 initialItemFilter = backStackEntry.arguments?.getString(ITEM_ARG),
+                focusMonsterId = backStackEntry.arguments?.getString(FOCUS_ARG),
                 onSearchDismissChange = { handler ->
                     onScreenBackHandlerChange(FfxDestination.MonsterArena.route, handler)
                 }

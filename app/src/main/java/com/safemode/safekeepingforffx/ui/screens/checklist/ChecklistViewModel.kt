@@ -6,12 +6,13 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.safemode.safekeepingforffx.FfxApplication
-import com.safemode.safekeepingforffx.data.reference.Caution
 import com.safemode.safekeepingforffx.data.reference.ChecklistCategory
 import com.safemode.safekeepingforffx.data.reference.GameVersion
 import com.safemode.safekeepingforffx.data.repository.ChecklistRepository
+import com.safemode.safekeepingforffx.data.repository.FavoritesRepository
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
 import com.safemode.safekeepingforffx.domain.ChecklistItem
+import com.safemode.safekeepingforffx.domain.forVersion
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -50,10 +51,24 @@ data class ChecklistUiState(
 class ChecklistViewModel(
     private val repository: ChecklistRepository,
     private val settingsRepository: SettingsRepository,
+    private val favoritesRepository: FavoritesRepository,
     private val category: ChecklistCategory
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
+
+    /**
+     * Progress and stars are stored apart - one is "have I got this", the other is "keep this where
+     * I can find it" - and are merged here rather than in [ChecklistRepository], which would other-
+     * wise have to know about a feature that has nothing to do with reference data. Folded together
+     * before the main combine because that one is already at the five flows it has overloads for.
+     */
+    private val listing = combine(
+        repository.observeCategory(category.id, category.items),
+        favoritesRepository.observeCategory(category.id)
+    ) { items, favorites ->
+        items.map { it.copy(isFavorite = it.id in favorites) }
+    }
 
     /**
      * Remembered per category, so coming back to a list finds it the way you left it. Read straight
@@ -76,7 +91,7 @@ class ChecklistViewModel(
         }
 
     val uiState = combine(
-        repository.observeCategory(category.id, category.items),
+        listing,
         settingsRepository.gameVersion,
         _query,
         settingsRepository.showHelp,
@@ -130,13 +145,6 @@ class ChecklistViewModel(
         _query.update { query }
     }
 
-    /**
-     * Dark Aeons don't exist on the original PS2 release, so a "guarded" warning there would be
-     * wrong. Missable stays - Home is destroyed in every version.
-     */
-    private fun ChecklistItem.forVersion(version: GameVersion): ChecklistItem =
-        if (!version.hasDarkAeons && caution is Caution.Guarded) copy(caution = null) else this
-
     private fun noteFor(version: GameVersion): String? =
         listOfNotNull(
             category.note,
@@ -150,6 +158,13 @@ class ChecklistViewModel(
     fun setChecked(itemId: String, checked: Boolean) {
         viewModelScope.launch {
             repository.setChecked(category.id, itemId, checked)
+        }
+    }
+
+    /** Same one-source-of-truth path as [setChecked]: write it, let the Flow bring it back. */
+    fun setFavorite(itemId: String, favorite: Boolean) {
+        viewModelScope.launch {
+            favoritesRepository.setFavorite(category.id, itemId, favorite)
         }
     }
 
@@ -168,6 +183,7 @@ class ChecklistViewModel(
                 ChecklistViewModel(
                     app.container.checklistRepository,
                     app.container.settingsRepository,
+                    app.container.favoritesRepository,
                     category
                 )
             }

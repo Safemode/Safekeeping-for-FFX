@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import com.safemode.safekeepingforffx.data.backup.BackupChecklistEntry
 import com.safemode.safekeepingforffx.data.backup.BackupCodec
 import com.safemode.safekeepingforffx.data.backup.BackupCounts
+import com.safemode.safekeepingforffx.data.backup.BackupFavorite
 import com.safemode.safekeepingforffx.data.backup.BackupFile
 import com.safemode.safekeepingforffx.data.backup.BackupMonsterCapture
 import com.safemode.safekeepingforffx.data.backup.BackupSettings
@@ -13,6 +14,8 @@ import com.safemode.safekeepingforffx.data.backup.BackupSphereGridRoute
 import com.safemode.safekeepingforffx.data.backup.backupTimestamp
 import com.safemode.safekeepingforffx.data.local.ChecklistProgressDao
 import com.safemode.safekeepingforffx.data.local.ChecklistProgressEntity
+import com.safemode.safekeepingforffx.data.local.FavoriteDao
+import com.safemode.safekeepingforffx.data.local.FavoriteEntity
 import com.safemode.safekeepingforffx.data.local.FfxDatabase
 import com.safemode.safekeepingforffx.data.local.MonsterCaptureDao
 import com.safemode.safekeepingforffx.data.local.MonsterCaptureEntity
@@ -44,6 +47,7 @@ class BackupRepository(
     private val nodeDao: SphereGridNodeDao,
     private val activationDao: SphereGridActivationDao,
     private val routeDao: SphereGridRouteDao,
+    private val favoriteDao: FavoriteDao,
     private val settingsRepository: SettingsRepository,
     private val appVersion: String,
     private val appVersionCode: Int
@@ -69,6 +73,9 @@ class BackupRepository(
             ),
             checklists = checklistDao.snapshot().map {
                 BackupChecklistEntry(it.categoryId, it.itemId, it.isChecked, it.updatedAt)
+            },
+            favorites = favoriteDao.snapshot().map {
+                BackupFavorite(it.categoryId, it.itemId, it.createdAt)
             },
             monsterCaptures = monsterCaptureDao.getAll().map {
                 BackupMonsterCapture(it.monsterId, it.count, it.updatedAt)
@@ -110,6 +117,12 @@ class BackupRepository(
         val checklists = backup.checklists
             .filter { it.categoryId.isNotBlank() && it.itemId.isNotBlank() }
             .map { ChecklistProgressEntity(it.categoryId, it.itemId, it.isChecked, it.updatedAt) }
+        val favorites = backup.favorites
+            .filter { it.categoryId.isNotBlank() && it.itemId.isNotBlank() }
+            // Two stars on the same item would collide on the primary key and fail the whole
+            // restore, so a file that somehow carries both keeps the first.
+            .distinctBy { it.categoryId to it.itemId }
+            .map { FavoriteEntity(it.categoryId, it.itemId, it.createdAt) }
         val captures = backup.monsterCaptures
             .filter { it.monsterId.isNotBlank() && it.count > 0 }
             .map {
@@ -129,12 +142,14 @@ class BackupRepository(
         runCatching {
             database.withTransaction {
                 checklistDao.clearAll()
+                favoriteDao.clearAll()
                 monsterCaptureDao.clearAll()
                 nodeDao.clearAll()
                 activationDao.clearAll()
                 routeDao.clearAll()
 
                 if (checklists.isNotEmpty()) checklistDao.upsertAll(checklists)
+                if (favorites.isNotEmpty()) favoriteDao.upsertAll(favorites)
                 if (captures.isNotEmpty()) monsterCaptureDao.upsertAll(captures)
                 if (edits.isNotEmpty()) nodeDao.upsertAll(edits)
                 if (activations.isNotEmpty()) activationDao.upsertAll(activations)
@@ -158,6 +173,7 @@ class BackupRepository(
         return Result.success(
             BackupCounts(
                 checkedItems = checklists.count { it.isChecked },
+                favorites = favorites.size,
                 capturedFiends = captures.size,
                 gridEdits = edits.size,
                 gridActivations = activations.size,

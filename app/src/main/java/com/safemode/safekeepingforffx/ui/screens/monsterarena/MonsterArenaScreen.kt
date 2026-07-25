@@ -64,6 +64,7 @@ import com.safemode.safekeepingforffx.data.reference.Monster
 import com.safemode.safekeepingforffx.data.reference.MonsterColumns
 import com.safemode.safekeepingforffx.data.reference.monsterType
 import com.safemode.safekeepingforffx.ui.components.Banner
+import com.safemode.safekeepingforffx.ui.components.FavoriteStar
 import com.safemode.safekeepingforffx.ui.components.SearchField
 import com.safemode.safekeepingforffx.ui.components.SectionHeader
 import com.safemode.safekeepingforffx.ui.util.rememberHeaderExpanded
@@ -85,6 +86,8 @@ fun MonsterArenaScreen(
     modifier: Modifier = Modifier,
     /** An item to open narrowed to, set when an item list row sent you here to find its sources. */
     initialItemFilter: String? = null,
+    /** A fiend to open scrolled to and expanded, set when a favorite sent you here. */
+    focusMonsterId: String? = null,
     onSearchDismissChange: ((() -> Unit)?) -> Unit = {},
     viewModel: MonsterArenaViewModel = viewModel(factory = MonsterArenaViewModel.Factory)
 ) {
@@ -105,6 +108,21 @@ fun MonsterArenaScreen(
     // Store the id rather than the monster so the expansion survives rotation. One at a time: two
     // open rows would push everything else off screen.
     var expandedId by rememberSaveable { mutableStateOf<String?>(null) }
+
+    // Applied once per arrival, like the item filter above, so collapsing the fiend you were sent to
+    // sticks instead of springing back open on the next recomposition.
+    var appliedFocus by rememberSaveable { mutableStateOf<String?>(null) }
+    LaunchedEffect(focusMonsterId, state.isLoading) {
+        if (state.isLoading) return@LaunchedEffect
+        val target = focusMonsterId ?: return@LaunchedEffect
+        if (target == appliedFocus) return@LaunchedEffect
+        appliedFocus = target
+        // Walking the same shape the LazyColumn lays out - one item per area header, then one per
+        // fiend - is the only way to know how many headers sit above the row.
+        val index = state.byArea.indexOfCapture(target) ?: return@LaunchedEffect
+        expandedId = target
+        listState.scrollToItem(index)
+    }
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
     // The creation whose auto-capture confirmation is open. Stored by id, not by object, so it
     // survives rotation and always reflects the latest computed targets.
@@ -252,7 +270,11 @@ fun MonsterArenaScreen(
                             null
                         },
                         onDecrement = { viewModel.adjust(capture, -1) },
-                        onIncrement = { viewModel.adjust(capture, 1) }
+                        onIncrement = { viewModel.adjust(capture, 1) },
+                        isFavorite = capture.monster.id in state.favorites,
+                        onFavoriteChange = { favorite ->
+                            viewModel.setFavorite(capture.monster.id, favorite)
+                        }
                     )
 
                     AnimatedVisibility(
@@ -306,6 +328,23 @@ fun MonsterArenaScreen(
             }
         )
     }
+}
+
+/**
+ * Where a fiend sits in the flattened list the arena renders: each area contributes its header row
+ * and then one row per fiend. Null when the fiend isn't on screen, which a search or an item filter
+ * can easily arrange.
+ */
+private fun Map<String, List<MonsterCapture>>.indexOfCapture(monsterId: String): Int? {
+    var index = 0
+    forEach { (_, captures) ->
+        index++
+        captures.forEach { capture ->
+            if (capture.monster.id == monsterId) return index
+            index++
+        }
+    }
+    return null
 }
 
 /**
@@ -384,6 +423,8 @@ private fun MonsterRow(
     onLongClick: (() -> Unit)?,
     onDecrement: () -> Unit,
     onIncrement: () -> Unit,
+    isFavorite: Boolean,
+    onFavoriteChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -495,6 +536,14 @@ private fun MonsterRow(
                     .size(22.dp)
             )
         }
+
+        // Last in the row, past the stepper, so the star sits in the same place on every row -
+        // including the creations, which have a lock where the buttons would be.
+        FavoriteStar(
+            isFavorite = isFavorite,
+            onFavoriteChange = onFavoriteChange,
+            itemName = capture.monster.name
+        )
     }
 }
 

@@ -13,14 +13,17 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         MonsterCaptureEntity::class,
         SphereGridNodeEntity::class,
         SphereGridActivationEntity::class,
-        SphereGridRouteEntity::class
+        SphereGridRouteEntity::class,
+        FavoriteEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 abstract class FfxDatabase : RoomDatabase() {
 
     abstract fun checklistProgressDao(): ChecklistProgressDao
+
+    abstract fun favoriteDao(): FavoriteDao
 
     abstract fun monsterCaptureDao(): MonsterCaptureDao
 
@@ -138,6 +141,26 @@ abstract class FfxDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds the favorites table. Additive, like most of the migrations above: every existing
+         * table is untouched, so starring items costs nobody their progress on update.
+         */
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `favorite` (" +
+                        "`categoryId` TEXT NOT NULL, " +
+                        "`itemId` TEXT NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`categoryId`, `itemId`))"
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_favorite_categoryId` ON `favorite` " +
+                        "(`categoryId`)"
+                )
+            }
+        }
+
         @Volatile
         private var instance: FfxDatabase? = null
 
@@ -149,7 +172,7 @@ abstract class FfxDatabase : RoomDatabase() {
                     "ffx_tracker.db"
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
-                    MIGRATION_6_7
+                    MIGRATION_6_7, MIGRATION_7_8
                 ).build().also { instance = it }
             }
     }

@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Checkbox
@@ -21,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
@@ -41,7 +41,18 @@ fun ChecklistItemRow(
      */
     onClick: (() -> Unit)? = null,
     /** Spoken after the title when [onClick] is set, so the destination isn't a surprise. */
-    onClickLabel: String? = null
+    onClickLabel: String? = null,
+    /**
+     * A mark on the title saying where [onClick] leads. Only worth showing where some rows lead
+     * somewhere and others don't - on a list where every row behaves the same it would repeat itself
+     * down the screen without telling you anything.
+     */
+    onClickIcon: ImageVector? = null,
+    /**
+     * Toggles the star. Null leaves the row without one - the reserved width goes away with it, so a
+     * list that doesn't favorite reads exactly as it did before.
+     */
+    onFavoriteChange: ((Boolean) -> Unit)? = null
 ) {
     val interaction = when {
         // The whole row toggles, not just the checkbox - a wall of tiny tap targets is the
@@ -68,13 +79,24 @@ fun ChecklistItemRow(
         modifier = modifier
             .fillMaxWidth()
             .then(interaction)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            // The star brings its own 48dp of padding, so the row gives back its end inset rather
+            // than pushing the icon a thumb's width in from the edge.
+            .padding(
+                start = 16.dp,
+                end = if (onFavoriteChange != null) 4.dp else 16.dp,
+                top = 12.dp,
+                bottom = 12.dp
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (trackProgress) {
             Checkbox(checked = item.isChecked, onCheckedChange = null)
         }
-        Column(modifier = Modifier.padding(start = if (trackProgress) 16.dp else 0.dp)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = if (trackProgress) 16.dp else 0.dp)
+        ) {
             // Flows rather than a plain Row: a title can carry a group badge, a screenshot hint and
             // a Dark Aeon name at once, and "Dark Magus Sisters" alone is wider than most phones
             // have left over. Wrapping beats silently clipping the warning.
@@ -105,12 +127,12 @@ fun ChecklistItemRow(
                             .size(16.dp)
                     )
                 }
-                if (onClick != null) {
-                    // Same idea as the screenshot hint, and the same icon the drawer uses for the
-                    // Monster Arena, so the mark says where the tap goes rather than only that one
-                    // exists.
+                if (onClick != null && onClickIcon != null) {
+                    // Same idea as the screenshot hint. The caller picks the glyph so it can match
+                    // the drawer icon of wherever the tap actually goes, rather than only saying
+                    // that a tap exists.
                     Icon(
-                        imageVector = Icons.Filled.Pets,
+                        imageVector = onClickIcon,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
@@ -157,6 +179,15 @@ fun ChecklistItemRow(
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
+        }
+        // Outside the text column so it pins to the row's end and lines up all the way down the
+        // list, whatever height the row above it happened to be.
+        if (onFavoriteChange != null) {
+            FavoriteStar(
+                isFavorite = item.isFavorite,
+                onFavoriteChange = onFavoriteChange,
+                itemName = item.title
+            )
         }
     }
 }

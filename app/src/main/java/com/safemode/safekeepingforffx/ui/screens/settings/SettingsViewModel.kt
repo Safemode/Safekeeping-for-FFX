@@ -11,6 +11,7 @@ import com.safemode.safekeepingforffx.data.reference.GameVersion
 import com.safemode.safekeepingforffx.data.reference.ThemePreference
 import com.safemode.safekeepingforffx.data.repository.BackupRepository
 import com.safemode.safekeepingforffx.data.repository.ChecklistRepository
+import com.safemode.safekeepingforffx.data.repository.FavoritesRepository
 import com.safemode.safekeepingforffx.data.repository.MonsterArenaRepository
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
 import com.safemode.safekeepingforffx.data.repository.SphereGridRepository
@@ -27,6 +28,7 @@ class SettingsViewModel(
     private val checklistRepository: ChecklistRepository,
     private val monsterArenaRepository: MonsterArenaRepository,
     private val sphereGridRepository: SphereGridRepository,
+    private val favoritesRepository: FavoritesRepository,
     private val backupRepository: BackupRepository
 ) : ViewModel() {
 
@@ -144,6 +146,9 @@ class SettingsViewModel(
             // checklists alone would leave them behind and "reset everything" would be a lie.
             monsterArenaRepository.clearAll()
             sphereGridRepository.clearAll()
+            // Favorites point at items in the lists being cleared, so leaving them starred would
+            // hand back a shortlist of things the app no longer thinks you have touched.
+            favoritesRepository.clearAll()
             _resetConfirmed.value = true
         }
     }
@@ -162,6 +167,7 @@ class SettingsViewModel(
                     app.container.checklistRepository,
                     app.container.monsterArenaRepository,
                     app.container.sphereGridRepository,
+                    app.container.favoritesRepository,
                     app.container.backupRepository
                 )
             }

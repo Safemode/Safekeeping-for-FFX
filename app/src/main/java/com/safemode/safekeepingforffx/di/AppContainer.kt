@@ -6,6 +6,7 @@ import com.safemode.safekeepingforffx.BuildConfig
 import com.safemode.safekeepingforffx.data.local.FfxDatabase
 import com.safemode.safekeepingforffx.data.repository.BackupRepository
 import com.safemode.safekeepingforffx.data.repository.ChecklistRepository
+import com.safemode.safekeepingforffx.data.repository.FavoritesRepository
 import com.safemode.safekeepingforffx.data.repository.ItemListRepository
 import com.safemode.safekeepingforffx.data.repository.MixRepository
 import com.safemode.safekeepingforffx.data.repository.MonsterArenaRepository
@@ -22,6 +23,8 @@ class AppContainer(context: Context) {
     private val database by lazy { FfxDatabase.getInstance(appContext) }
 
     val checklistRepository by lazy { ChecklistRepository(database.checklistProgressDao()) }
+
+    val favoritesRepository by lazy { FavoritesRepository(database.favoriteDao()) }
 
     val settingsRepository by lazy { SettingsRepository(appContext.settingsDataStore) }
 
@@ -56,6 +59,7 @@ class AppContainer(context: Context) {
             nodeDao = database.sphereGridNodeDao(),
             activationDao = database.sphereGridActivationDao(),
             routeDao = database.sphereGridRouteDao(),
+            favoriteDao = database.favoriteDao(),
             settingsRepository = settingsRepository,
             appVersion = BuildConfig.VERSION_NAME,
             appVersionCode = BuildConfig.VERSION_CODE

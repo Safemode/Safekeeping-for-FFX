@@ -336,6 +336,7 @@ private fun BackupCounts.summary(): String {
     if (isEmpty) return "That backup was empty, so everything is now cleared."
     return buildList {
         if (checkedItems > 0) add("$checkedItems checked ${"item".plural(checkedItems)}")
+        if (favorites > 0) add("$favorites ${"favorite".plural(favorites)}")
         if (capturedFiends > 0) add("$capturedFiends captured ${"fiend".plural(capturedFiends)}")
         if (gridEdits > 0) add("$gridEdits grid ${"edit".plural(gridEdits)}")
         if (gridActivations > 0) add("$gridActivations activated ${"node".plural(gridActivations)}")

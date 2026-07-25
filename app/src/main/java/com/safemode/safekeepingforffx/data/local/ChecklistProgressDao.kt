@@ -11,6 +11,13 @@ interface ChecklistProgressDao {
     @Query("SELECT * FROM checklist_progress WHERE categoryId = :categoryId")
     fun observeCategory(categoryId: String): Flow<List<ChecklistProgressEntity>>
 
+    /**
+     * The ticked rows across every category at once, for Favorites - which shows items from several
+     * lists side by side and would otherwise need one observer per list.
+     */
+    @Query("SELECT * FROM checklist_progress WHERE isChecked = 1")
+    fun observeChecked(): Flow<List<ChecklistProgressEntity>>
+
     /** Every category's progress in one read, for writing a backup file. */
     @Query("SELECT * FROM checklist_progress ORDER BY categoryId, itemId")
     suspend fun snapshot(): List<ChecklistProgressEntity>

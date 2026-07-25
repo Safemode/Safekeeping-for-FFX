@@ -36,6 +36,16 @@ class ChecklistRepository(private val dao: ChecklistProgressDao) {
             }
         }
 
+    /**
+     * Which items are ticked, in every category at once, as category id to item ids. Unticking
+     * deletes nothing - a row can exist with `isChecked = false` - so absence from this map means
+     * "not ticked" whether or not the item was ever touched.
+     */
+    fun observeCheckedByCategory(): Flow<Map<String, Set<String>>> =
+        dao.observeChecked().map { rows ->
+            rows.groupBy({ it.categoryId }, { it.itemId }).mapValues { (_, ids) -> ids.toSet() }
+        }
+
     suspend fun setChecked(categoryId: String, itemId: String, checked: Boolean) {
         dao.upsert(
             ChecklistProgressEntity(

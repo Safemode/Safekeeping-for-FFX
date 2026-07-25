@@ -3,6 +3,8 @@ package com.safemode.safekeepingforffx.ui.screens.itemlist
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -61,7 +63,11 @@ fun ItemListScreen(
             // spheres nothing drops - stay inert rather than opening an empty search.
             itemAction = { item ->
                 if (item.title in state.arenaItemTitles) {
-                    ItemAction("Find the fiends that carry ${item.title}") {
+                    // The drawer's Monster Arena icon, so the mark says where the tap goes.
+                    ItemAction(
+                        label = "Find the fiends that carry ${item.title}",
+                        icon = Icons.Filled.Pets
+                    ) {
                         onFindInArena(item.title)
                     }
                 } else {

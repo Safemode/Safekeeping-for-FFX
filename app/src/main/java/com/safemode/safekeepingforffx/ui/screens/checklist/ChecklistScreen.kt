@@ -66,8 +66,16 @@ private const val HIGHLIGHT_DURATION_MS = 2_500L
 /** Fits inside the progress row's 48dp action height, so the picker costs no vertical space. */
 private val COMPACT_PILL_HEIGHT = 40.dp
 
-/** Where a reference row leads, and how to say so to a screen reader. */
-data class ItemAction(val label: String, val onClick: () -> Unit)
+/**
+ * Where a reference row leads, and how to say so - to a screen reader through [label], and on screen
+ * through [icon]. A null icon leaves the row unmarked, which is right when every row in the list
+ * leads to the same kind of place and the mark would say nothing.
+ */
+data class ItemAction(
+    val label: String,
+    val icon: ImageVector? = null,
+    val onClick: () -> Unit
+)
 
 /** One rendered row: either a section header or an entry. */
 private sealed interface ChecklistRow {
@@ -266,7 +274,11 @@ fun ChecklistScreen(
                                 onLongPress = { shownItemId = entry.id },
                                 trackProgress = category.trackProgress,
                                 onClick = action?.onClick,
-                                onClickLabel = action?.label
+                                onClickLabel = action?.label,
+                                onClickIcon = action?.icon,
+                                onFavoriteChange = { favorite ->
+                                    viewModel.setFavorite(entry.id, favorite)
+                                }
                             )
                         }
                         HorizontalDivider()

@@ -46,6 +46,7 @@ data class BackupFile(
     val createdAt: String? = null,
     val settings: BackupSettings? = null,
     val checklists: List<BackupChecklistEntry> = emptyList(),
+    val favorites: List<BackupFavorite> = emptyList(),
     val monsterCaptures: List<BackupMonsterCapture> = emptyList(),
     val sphereGridEdits: List<BackupSphereGridEdit> = emptyList(),
     val sphereGridActivations: List<BackupSphereGridActivation> = emptyList(),
@@ -55,6 +56,7 @@ data class BackupFile(
     val counts: BackupCounts
         get() = BackupCounts(
             checkedItems = checklists.count { it.isChecked },
+            favorites = favorites.size,
             capturedFiends = monsterCaptures.count { it.count > 0 },
             gridEdits = sphereGridEdits.size,
             gridActivations = sphereGridActivations.size,
@@ -80,6 +82,19 @@ data class BackupSettings(
      * category this build doesn't have simply isn't applied.
      */
     val checklistSorts: Map<String, String> = emptyMap()
+)
+
+/**
+ * A starred item, as the pair that identifies it. Nothing about the item itself is carried: a
+ * restore looks it back up in whichever list owns it, so a favorite always shows current text, and
+ * one naming an item this build doesn't have is simply not applied.
+ */
+@JsonClass(generateAdapter = true)
+data class BackupFavorite(
+    val categoryId: String,
+    val itemId: String,
+    /** When it was starred. Orders favorites within a list. */
+    val createdAt: Long = 0
 )
 
 @JsonClass(generateAdapter = true)
@@ -126,13 +141,14 @@ data class BackupSphereGridRoute(
 /** Row counts for a summary message. */
 data class BackupCounts(
     val checkedItems: Int,
+    val favorites: Int,
     val capturedFiends: Int,
     val gridEdits: Int,
     val gridActivations: Int,
     val savedRoutes: Int
 ) {
     val isEmpty: Boolean
-        get() = checkedItems == 0 && capturedFiends == 0 && gridEdits == 0 &&
+        get() = checkedItems == 0 && favorites == 0 && capturedFiends == 0 && gridEdits == 0 &&
             gridActivations == 0 && savedRoutes == 0
 }
 
