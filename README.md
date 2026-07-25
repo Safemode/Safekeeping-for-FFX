@@ -64,6 +64,7 @@ There can be a little bit of a delay between joining the Group/Program and showi
   <img src="screenshots/sphere-grid-routes.png" alt="Sphere Grid Routes" width="200">
   <img src="screenshots/mix-calculator-combine.png" alt="Mix Overdrive Lookup" width="200">
   <img src="screenshots/mix-calculator-lookup.png" alt="Mix Overdrive Lookup" width="200">
+  <img src="screenshots/favorites.png" alt="Favorites" width="200">
   <img src="screenshots/settings.png" alt="Settings" width="200">
 </details>
 
