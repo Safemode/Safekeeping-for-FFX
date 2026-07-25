@@ -57,11 +57,14 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     }
 
     /**
-     * How one checklist is ordered, as a stored enum name, or null if the player never chose. Kept
-     * per category under its own key rather than as one shared setting: the orders mean different
-     * things list by list, so putting Celestial Weapons in story order should not disturb anything
-     * else. Resolving the name is left to the caller - the orders are a UI concern, and an
-     * unrecognised name here is the same "never chose" case as null.
+     * How one list is ordered, as a stored enum name, or null if the player never chose. Kept per
+     * list under its own key rather than as one shared setting: the orders mean different things
+     * list by list, so putting Celestial Weapons in story order should not disturb anything else.
+     * Resolving the name is left to the caller - the orders are a UI concern, each screen has its
+     * own set of them, and an unrecognised name here is the same "never chose" case as null.
+     *
+     * [categoryId] is any stable key. It is a category id for the checklists and a fixed constant
+     * for Favorites, which orders itself the same way without being a category.
      */
     fun checklistSort(categoryId: String): Flow<String?> = dataStore.data.map { preferences ->
         preferences[checklistSortKey(categoryId)]

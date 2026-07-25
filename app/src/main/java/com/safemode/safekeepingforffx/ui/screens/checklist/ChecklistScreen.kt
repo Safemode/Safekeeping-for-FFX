@@ -8,27 +8,21 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -57,14 +51,12 @@ import com.safemode.safekeepingforffx.ui.components.ChecklistProgressHeader
 import com.safemode.safekeepingforffx.ui.components.ScreenshotDialog
 import com.safemode.safekeepingforffx.ui.components.SearchField
 import com.safemode.safekeepingforffx.ui.components.SectionHeader
+import com.safemode.safekeepingforffx.ui.components.SortSelector
 import com.safemode.safekeepingforffx.domain.ChecklistItem
 import com.safemode.safekeepingforffx.ui.util.rememberHeaderExpanded
 
 /** Long enough to catch the eye after the scroll settles, short enough not to look like state. */
 private const val HIGHLIGHT_DURATION_MS = 2_500L
-
-/** Fits inside the progress row's 48dp action height, so the picker costs no vertical space. */
-private val COMPACT_PILL_HEIGHT = 40.dp
 
 /**
  * Where a reference row leads, and how to say so - to a screen reader through [label], and on screen
@@ -195,7 +187,13 @@ fun ChecklistScreen(
                 // Re-ordering is a way of reading the list, so it has to stay reachable while you
                 // scroll - but not at the price of another 60dp of permanent chrome.
                 action = if (state.canSort) {
-                    { SortSelector(sort = state.sort, onSortChange = viewModel::setSort) }
+                    {
+                        SortSelector(
+                            selected = state.sort,
+                            options = ChecklistSort.entries,
+                            onSelect = viewModel::setSort
+                        )
+                    }
                 } else {
                     null
                 }
@@ -204,8 +202,9 @@ fun ChecklistScreen(
             // Reference-only lists have no progress row to ride in. None carry story stages today,
             // but the control shouldn't quietly vanish if one ever does.
             SortSelector(
-                sort = state.sort,
-                onSortChange = viewModel::setSort,
+                selected = state.sort,
+                options = ChecklistSort.entries,
+                onSelect = viewModel::setSort,
                 modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 8.dp)
             )
         }
@@ -318,57 +317,6 @@ fun ChecklistScreen(
                 TextButton(onClick = { showResetDialog = false }) { Text("Cancel") }
             }
         )
-    }
-}
-
-/**
- * The order picker, built like the Sphere Grid's grid picker so the two read as the same control:
- * a pill showing what you are looking at, tapped to swap it.
- *
- * Sized to sit inside the progress row's 48dp without stretching it, which is why the button says
- * only "Chronological" where the grid picker says "Standard Grid". The list underneath removes any
- * doubt anyway - stage headers or weapon headers tell you which order you are in at a glance.
- *
- * Each choice carries a line of explanation. Unlike the grid picker, the labels alone don't say
- * what changes.
- */
-@Composable
-private fun SortSelector(
-    sort: ChecklistSort,
-    onSortChange: (ChecklistSort) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var menu by remember { mutableStateOf(false) }
-
-    Box(modifier = modifier) {
-        OutlinedButton(
-            onClick = { menu = true },
-            contentPadding = PaddingValues(start = 12.dp, end = 4.dp),
-            modifier = Modifier.heightIn(max = COMPACT_PILL_HEIGHT)
-        ) {
-            Text(sort.label, maxLines = 1, style = MaterialTheme.typography.labelLarge)
-            Icon(Icons.Filled.ArrowDropDown, contentDescription = "Change the order of this list")
-        }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            ChecklistSort.entries.forEach { option ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text("${option.label} order")
-                            Text(
-                                text = option.description,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    },
-                    onClick = {
-                        onSortChange(option)
-                        menu = false
-                    }
-                )
-            }
-        }
     }
 }
 

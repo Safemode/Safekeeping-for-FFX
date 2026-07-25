@@ -52,7 +52,13 @@ fun ChecklistItemRow(
      * Toggles the star. Null leaves the row without one - the reserved width goes away with it, so a
      * list that doesn't favorite reads exactly as it did before.
      */
-    onFavoriteChange: ((Boolean) -> Unit)? = null
+    onFavoriteChange: ((Boolean) -> Unit)? = null,
+    /**
+     * Which list this row came from, for the screens that mix several. Styled apart from the item's
+     * own [ChecklistItem.tag] so "Item List" and "Restorative" don't read as the same kind of fact.
+     * Null wherever a header already says it.
+     */
+    sourceLabel: String? = null
 ) {
     val interaction = when {
         // The whole row toggles, not just the checkbox - a wall of tiny tap targets is the
@@ -106,6 +112,17 @@ fun ChecklistItemRow(
                     style = MaterialTheme.typography.titleSmall,
                     textDecoration = if (item.isChecked) TextDecoration.LineThrough else null
                 )
+                sourceLabel?.let {
+                    // Quieter than the item's own tag on purpose: it says where the row is filed,
+                    // not what it is, and every row on the screen carries one.
+                    Badge(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Text(it)
+                    }
+                }
                 item.tag?.let {
                     Badge(
                         containerColor = MaterialTheme.colorScheme.secondaryContainer,

@@ -7,13 +7,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,9 +26,44 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.safemode.safekeepingforffx.ui.components.ChecklistItemRow
 import com.safemode.safekeepingforffx.ui.components.SectionHeader
+import com.safemode.safekeepingforffx.ui.components.SortSelector
+
+/** One rendered row: either a list's name or a starred item. */
+private sealed interface FavoriteRow {
+    val key: String
+
+    data class Header(val label: String) : FavoriteRow {
+        override val key get() = "header_$label"
+    }
+
+    data class Entry(val entry: FavoriteEntry) : FavoriteRow {
+        // Item ids are only unique within a category, so the list has to be part of the key or two
+        // of them sharing an id would collide.
+        override val key get() = "${entry.categoryId}/${entry.item.id}"
+    }
+}
 
 /**
- * Everything starred anywhere in the app, grouped under the list it came from.
+ * Headers belong to grouping, so they only exist in one order. In the other the rows carry their
+ * list on a badge instead, since "recently added" deliberately mixes the lists together and there
+ * is no run of rows for a header to sit above.
+ *
+ * groupBy keeps insertion order, and the entries already arrive in drawer order.
+ */
+private fun favoriteRows(
+    entries: List<FavoriteEntry>,
+    sort: FavoritesSort
+): List<FavoriteRow> = when (sort) {
+    FavoritesSort.GROUPED -> entries.groupBy { it.categoryId }.flatMap { (_, group) ->
+        listOf(FavoriteRow.Header(group.first().categoryLabel)) + group.map { FavoriteRow.Entry(it) }
+    }
+
+    FavoritesSort.RECENT -> entries.map { FavoriteRow.Entry(it) }
+}
+
+/**
+ * Everything starred anywhere in the app, either grouped under the list it came from or in the order
+ * it was starred.
  *
  * A shortlist rather than a sixth tracker: a row here says what it is and takes you to it, but the
  * ticking and the counting stay in the list that owns them. That is why a row leads somewhere
@@ -39,6 +79,21 @@ fun FavoritesScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+
+    val rows = remember(state.entries, state.sort) { favoriteRows(state.entries, state.sort) }
+
+    // Re-ordering shuffles every row, so the old scroll offset means nothing afterwards. The stored
+    // order lands after the screen is composed, so the first loaded value is recorded as the
+    // starting point rather than mistaken for the player changing the order.
+    var lastSort by remember { mutableStateOf<FavoritesSort?>(null) }
+    LaunchedEffect(state.sort, state.isLoading) {
+        if (state.isLoading) return@LaunchedEffect
+        val previous = lastSort
+        lastSort = state.sort
+        if (previous != null && previous != state.sort) {
+            listState.scrollToItem(0)
+        }
+    }
 
     if (state.isLoading) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -60,8 +115,19 @@ fun FavoritesScreen(
                     1 -> "1 favorite"
                     else -> "${state.totalCount} favorites"
                 },
-                style = MaterialTheme.typography.titleMedium
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                modifier = Modifier.weight(1f)
             )
+            // Rides in the count row's spare width rather than claiming a row of its own, the same
+            // way the checklists carry theirs. Hidden while there is nothing to order.
+            if (state.totalCount > 0) {
+                SortSelector(
+                    selected = state.sort,
+                    options = FavoritesSort.entries,
+                    onSelect = viewModel::setSort
+                )
+            }
         }
         HorizontalDivider()
 
@@ -80,30 +146,30 @@ fun FavoritesScreen(
         }
 
         LazyColumn(state = listState) {
-            state.groups.forEach { group ->
-                item(key = "group_${group.categoryId}") { SectionHeader(group.label) }
-
-                items(
-                    count = group.items.size,
-                    // Ids are only unique within a category, so the group has to be part of the key
-                    // or two lists sharing an id would collide.
-                    key = { index -> "${group.categoryId}/${group.items[index].id}" }
-                ) { index ->
-                    val item = group.items[index]
-                    ChecklistItemRow(
-                        item = item,
-                        onCheckedChange = {},
-                        onLongPress = {},
-                        // No checkbox: ticking belongs to the list that owns the item. The title is
-                        // still struck through when it is done, so the state is not lost here.
-                        trackProgress = false,
-                        onClick = { onOpen(group.categoryId, item.id) },
-                        onClickLabel = "Open ${item.title} in ${group.label}",
-                        onFavoriteChange = { favorite ->
-                            viewModel.setFavorite(group.categoryId, item.id, favorite)
-                        }
-                    )
-                    HorizontalDivider()
+            items(rows, key = { it.key }) { row ->
+                when (row) {
+                    is FavoriteRow.Header -> SectionHeader(row.label)
+                    is FavoriteRow.Entry -> {
+                        val entry = row.entry
+                        ChecklistItemRow(
+                            item = entry.item,
+                            onCheckedChange = {},
+                            onLongPress = {},
+                            // No checkbox: ticking belongs to the list that owns the item. The title
+                            // is still struck through when it is done, so nothing is lost here.
+                            trackProgress = false,
+                            onClick = { onOpen(entry.categoryId, entry.item.id) },
+                            onClickLabel = "Open ${entry.item.title} in ${entry.categoryLabel}",
+                            onFavoriteChange = { favorite ->
+                                viewModel.setFavorite(entry.categoryId, entry.item.id, favorite)
+                            },
+                            // Only where no header above the row already says it.
+                            sourceLabel = entry.categoryLabel.takeIf {
+                                state.sort == FavoritesSort.RECENT
+                            }
+                        )
+                        HorizontalDivider()
+                    }
                 }
             }
         }

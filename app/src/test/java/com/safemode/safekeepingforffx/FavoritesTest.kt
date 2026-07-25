@@ -13,6 +13,10 @@ import com.safemode.safekeepingforffx.domain.forVersion
 import com.safemode.safekeepingforffx.ui.navigation.FfxDestination
 import com.safemode.safekeepingforffx.ui.navigation.drawerDestinations
 import com.safemode.safekeepingforffx.ui.navigation.favoriteSources
+import com.safemode.safekeepingforffx.ui.screens.favorites.FAVORITES_SORT_KEY
+import com.safemode.safekeepingforffx.ui.screens.favorites.FavoriteEntry
+import com.safemode.safekeepingforffx.ui.screens.favorites.FavoritesSort
+import com.safemode.safekeepingforffx.ui.screens.favorites.inOrder
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -236,6 +240,80 @@ class FavoritesTest {
                 missable.forVersion(version).caution
             )
         }
+    }
+
+    private fun entry(category: String, id: String, addedAt: Long) = FavoriteEntry(
+        categoryId = category,
+        categoryLabel = category,
+        item = ChecklistItem(
+            id = id,
+            title = id,
+            location = "",
+            detail = "",
+            caution = null,
+            isChecked = false,
+            isFavorite = true
+        ),
+        addedAt = addedAt
+    )
+
+    /** As the ViewModel builds it: drawer order, oldest first inside each list. */
+    private val grouped = listOf(
+        entry("celestial_weapons", "crest", 300),
+        entry("celestial_weapons", "sigil", 100),
+        entry(MONSTER_ARENA_ID, "dingo", 200)
+    )
+
+    @Test
+    fun `grouped order leaves the lists as they were built`() {
+        // The input already arrives grouped in drawer order, so this case has nothing to do - and
+        // must not quietly re-sort by time and split the groups apart.
+        assertEquals(grouped, grouped.inOrder(FavoritesSort.GROUPED))
+    }
+
+    @Test
+    fun `recently added puts the newest star on top`() {
+        val ordered = grouped.inOrder(FavoritesSort.RECENT)
+
+        assertEquals(listOf("crest", "dingo", "sigil"), ordered.map { it.item.id })
+    }
+
+    @Test
+    fun `recently added mixes the lists together`() {
+        // The whole point of it: an arena fiend starred after a weapon sorts above that weapon.
+        val ordered = grouped.inOrder(FavoritesSort.RECENT)
+
+        assertEquals(MONSTER_ARENA_ID, ordered[1].categoryId)
+    }
+
+    @Test
+    fun `no favorite is lost or duplicated by either order`() {
+        FavoritesSort.entries.forEach { sort ->
+            val ordered = grouped.inOrder(sort)
+            assertEquals("$sort changed the count", grouped.size, ordered.size)
+            assertEquals("$sort lost an entry", grouped.toSet(), ordered.toSet())
+        }
+    }
+
+    @Test
+    fun `a saved Favorites order is read back by name`() {
+        FavoritesSort.entries.forEach { sort ->
+            assertEquals(sort, FavoritesSort.fromStored(sort.name))
+        }
+    }
+
+    @Test
+    fun `an unreadable Favorites order falls back to grouping`() {
+        assertEquals(FavoritesSort.DEFAULT, FavoritesSort.fromStored(null))
+        assertEquals(FavoritesSort.DEFAULT, FavoritesSort.fromStored("BY_NAME"))
+        assertEquals(FavoritesSort.GROUPED, FavoritesSort.DEFAULT)
+    }
+
+    @Test
+    fun `the Favorites order is stored under a key of its own`() = runTest {
+        // Deliberately not a category id: Favorites is not a category, and reusing a real one would
+        // mean the two lists fought over the same stored value.
+        assertFalse(FAVORITES_SORT_KEY in favoriteSources.ordered.map { it.first })
     }
 
     @Test

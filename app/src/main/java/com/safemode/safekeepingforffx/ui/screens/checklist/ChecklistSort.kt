@@ -1,6 +1,7 @@
 package com.safemode.safekeepingforffx.ui.screens.checklist
 
 import com.safemode.safekeepingforffx.domain.ChecklistItem
+import com.safemode.safekeepingforffx.ui.components.SortOption
 
 /**
  * How a checklist orders itself. Only offered for categories that carry story stages - see
@@ -11,7 +12,10 @@ import com.safemode.safekeepingforffx.domain.ChecklistItem
  * list rather than an app-wide preference - but it is remembered per list, because which question
  * you are asking of a given list doesn't change just because you left the screen.
  */
-enum class ChecklistSort(val label: String, val description: String) {
+enum class ChecklistSort(
+    override val label: String,
+    override val description: String
+) : SortOption {
     GROUPED("Grouped", "In the list's own groups"),
     CHRONOLOGICAL("Chronological", "Soonest available in the story first");
 

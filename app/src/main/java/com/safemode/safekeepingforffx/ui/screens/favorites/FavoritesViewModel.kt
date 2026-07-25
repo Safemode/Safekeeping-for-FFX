@@ -20,25 +20,36 @@ import com.safemode.safekeepingforffx.domain.ChecklistItem
 import com.safemode.safekeepingforffx.domain.Favorite
 import com.safemode.safekeepingforffx.domain.forVersion
 import com.safemode.safekeepingforffx.ui.navigation.favoriteSources
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** The favorites from one list, under that list's name. */
-data class FavoriteGroup(
+/** One starred item, resolved: what to draw, and which list it belongs to. */
+data class FavoriteEntry(
     val categoryId: String,
-    val label: String,
-    val items: List<ChecklistItem>
+    val categoryLabel: String,
+    val item: ChecklistItem,
+    /** When it was starred. The whole basis of [FavoritesSort.RECENT]. */
+    val addedAt: Long
 )
 
 data class FavoritesUiState(
-    val groups: List<FavoriteGroup> = emptyList(),
-    val totalCount: Int = 0,
+    /**
+     * Already in the order [sort] asks for, so the screen only has to decide where headers go. One
+     * list rather than one shape per order: the rows are the same either way, and holding both would
+     * mean keeping them in step.
+     */
+    val entries: List<FavoriteEntry> = emptyList(),
+    val sort: FavoritesSort = FavoritesSort.DEFAULT,
     val isLoading: Boolean = true
 ) {
-    val isEmpty: Boolean get() = !isLoading && totalCount == 0
+    val totalCount: Int get() = entries.size
+    val isEmpty: Boolean get() = !isLoading && entries.isEmpty()
 }
 
 /**
@@ -67,7 +78,7 @@ class FavoritesViewModel(
     checklistRepository: ChecklistRepository,
     private val itemListRepository: ItemListRepository,
     private val monsterArenaRepository: MonsterArenaRepository,
-    settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     private val sources = MutableStateFlow<LoadedSources?>(null)
@@ -82,14 +93,28 @@ class FavoritesViewModel(
         }
     }
 
+    /**
+     * Remembered the same way a checklist's order is, and through the same store: this is one more
+     * list with more than one sensible order, so it would be strange for it to be the one that
+     * forgets. See [FAVORITES_SORT_KEY].
+     */
+    private val sort: Flow<FavoritesSort> = settingsRepository.checklistSort(FAVORITES_SORT_KEY)
+        .map { FavoritesSort.fromStored(it) }
+        .distinctUntilChanged()
+
+    /** Folded together so the main combine stays at the five flows it has overloads for. */
+    private val view = combine(settingsRepository.gameVersion, sort) { version, sort ->
+        version to sort
+    }
+
     val uiState = combine(
         favoritesRepository.observeAll(),
         checklistRepository.observeCheckedByCategory(),
         monsterArenaRepository.observeCaptures(),
         sources,
-        settingsRepository.gameVersion
-    ) { favorites, checked, counts, loaded, version ->
-        if (loaded == null) return@combine FavoritesUiState(isLoading = true)
+        view
+    ) { favorites, checked, counts, loaded, (version, sort) ->
+        if (loaded == null) return@combine FavoritesUiState(isLoading = true, sort = sort)
 
         val categories = buildMap {
             favoriteSources.categories.forEach { put(it.id, it) }
@@ -97,24 +122,24 @@ class FavoritesViewModel(
         }
         val byCategory = favorites.groupBy { it.categoryId }
 
-        // Driven by the drawer's order rather than by the favorites themselves, so the groups always
-        // read down the screen in the same order the lists do in the menu.
-        val groups = favoriteSources.ordered.mapNotNull { (categoryId, label) ->
-            val starred = byCategory[categoryId] ?: return@mapNotNull null
-            val items = starred.mapNotNull { favorite ->
-                when (categoryId) {
+        // Built in drawer order rather than in the favorites' own order, so the groups always read
+        // down the screen in the same order the lists do in the menu.
+        val entries = favoriteSources.ordered.flatMap { (categoryId, label) ->
+            val starred = byCategory[categoryId] ?: return@flatMap emptyList()
+            starred.mapNotNull { favorite ->
+                val item = when (categoryId) {
                     MONSTER_ARENA_ID -> loaded.monsters[favorite.itemId]?.asItem(counts)
                     else -> categories[categoryId]
                         ?.asItem(favorite, checked[categoryId].orEmpty())
                         ?.forVersion(version)
                 }
+                item?.let { FavoriteEntry(categoryId, label, it, favorite.createdAt) }
             }
-            if (items.isEmpty()) null else FavoriteGroup(categoryId, label, items)
         }
 
         FavoritesUiState(
-            groups = groups,
-            totalCount = groups.sumOf { it.items.size },
+            entries = entries.inOrder(sort),
+            sort = sort,
             isLoading = false
         )
     }.stateIn(
@@ -130,6 +155,12 @@ class FavoritesViewModel(
     fun setFavorite(categoryId: String, itemId: String, favorite: Boolean) {
         viewModelScope.launch {
             favoritesRepository.setFavorite(categoryId, itemId, favorite)
+        }
+    }
+
+    fun setSort(sort: FavoritesSort) {
+        viewModelScope.launch {
+            settingsRepository.setChecklistSort(FAVORITES_SORT_KEY, sort.name)
         }
     }
 
