@@ -56,6 +56,21 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         preferences[SPHERE_GRID_FULL_NODE_EDITOR] ?: false
     }
 
+    /**
+     * How one checklist is ordered, as a stored enum name, or null if the player never chose. Kept
+     * per category under its own key rather than as one shared setting: the orders mean different
+     * things list by list, so putting Celestial Weapons in story order should not disturb anything
+     * else. Resolving the name is left to the caller - the orders are a UI concern, and an
+     * unrecognised name here is the same "never chose" case as null.
+     */
+    fun checklistSort(categoryId: String): Flow<String?> = dataStore.data.map { preferences ->
+        preferences[checklistSortKey(categoryId)]
+    }
+
+    suspend fun setChecklistSort(categoryId: String, sort: String) {
+        dataStore.edit { it[checklistSortKey(categoryId)] = sort }
+    }
+
     suspend fun setGameVersion(version: GameVersion) {
         dataStore.edit { it[GAME_VERSION] = version.name }
     }
@@ -88,7 +103,16 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             theme = preferences[THEME],
             showHelp = preferences[SHOW_HELP],
             sphereGridTapActivates = preferences[SPHERE_GRID_TAP_ACTIVATES],
-            sphereGridFullNodeEditor = preferences[SPHERE_GRID_FULL_NODE_EDITOR]
+            sphereGridFullNodeEditor = preferences[SPHERE_GRID_FULL_NODE_EDITOR],
+            // Collected by prefix rather than listed one by one, since there is a key per category
+            // and the set of categories is not this class's business.
+            checklistSorts = preferences.asMap()
+                .mapNotNull { (key, value) ->
+                    val categoryId = key.name.removePrefix(CHECKLIST_SORT_PREFIX)
+                        .takeIf { it != key.name && it.isNotEmpty() } ?: return@mapNotNull null
+                    (value as? String)?.let { categoryId to it }
+                }
+                .toMap()
         )
     }
 
@@ -108,6 +132,13 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             snapshot.showHelp?.let { preferences[SHOW_HELP] = it }
             snapshot.sphereGridTapActivates?.let { preferences[SPHERE_GRID_TAP_ACTIVATES] = it }
             snapshot.sphereGridFullNodeEditor?.let { preferences[SPHERE_GRID_FULL_NODE_EDITOR] = it }
+            // Same rule as the fields above: a category the file doesn't mention keeps whatever
+            // order it already had, rather than being reset by an unrelated restore.
+            snapshot.checklistSorts.forEach { (categoryId, sort) ->
+                if (categoryId.isNotBlank() && sort.isNotBlank()) {
+                    preferences[checklistSortKey(categoryId)] = sort
+                }
+            }
         }
     }
 
@@ -117,7 +148,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val theme: String?,
         val showHelp: Boolean?,
         val sphereGridTapActivates: Boolean?,
-        val sphereGridFullNodeEditor: Boolean?
+        val sphereGridFullNodeEditor: Boolean?,
+        /** Category id to stored order name. Absent categories are at their default. */
+        val checklistSorts: Map<String, String> = emptyMap()
     )
 
     private companion object {
@@ -126,5 +159,11 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val SHOW_HELP = booleanPreferencesKey("show_help")
         val SPHERE_GRID_TAP_ACTIVATES = booleanPreferencesKey("sphere_grid_tap_activates")
         val SPHERE_GRID_FULL_NODE_EDITOR = booleanPreferencesKey("sphere_grid_full_node_editor")
+
+        /** One key per category, e.g. `checklist_sort_celestial_weapons`. */
+        const val CHECKLIST_SORT_PREFIX = "checklist_sort_"
+
+        fun checklistSortKey(categoryId: String) =
+            stringPreferencesKey("$CHECKLIST_SORT_PREFIX$categoryId")
     }
 }

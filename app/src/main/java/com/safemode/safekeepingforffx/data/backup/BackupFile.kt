@@ -73,7 +73,13 @@ data class BackupSettings(
     val theme: String? = null,
     val showHelp: Boolean? = null,
     val sphereGridTapActivates: Boolean? = null,
-    val sphereGridFullNodeEditor: Boolean? = null
+    val sphereGridFullNodeEditor: Boolean? = null,
+    /**
+     * Which order each checklist was last read in, keyed by category id. A map rather than a field
+     * per list, because the set of categories is reference data that changes between releases - a
+     * category this build doesn't have simply isn't applied.
+     */
+    val checklistSorts: Map<String, String> = emptyMap()
 )
 
 @JsonClass(generateAdapter = true)

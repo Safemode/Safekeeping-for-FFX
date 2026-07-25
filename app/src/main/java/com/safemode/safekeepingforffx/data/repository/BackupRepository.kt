@@ -64,7 +64,8 @@ class BackupRepository(
                 theme = settings.theme,
                 showHelp = settings.showHelp,
                 sphereGridTapActivates = settings.sphereGridTapActivates,
-                sphereGridFullNodeEditor = settings.sphereGridFullNodeEditor
+                sphereGridFullNodeEditor = settings.sphereGridFullNodeEditor,
+                checklistSorts = settings.checklistSorts
             ),
             checklists = checklistDao.snapshot().map {
                 BackupChecklistEntry(it.categoryId, it.itemId, it.isChecked, it.updatedAt)
@@ -148,7 +149,8 @@ class BackupRepository(
                     theme = stored.theme,
                     showHelp = stored.showHelp,
                     sphereGridTapActivates = stored.sphereGridTapActivates,
-                    sphereGridFullNodeEditor = stored.sphereGridFullNodeEditor
+                    sphereGridFullNodeEditor = stored.sphereGridFullNodeEditor,
+                    checklistSorts = stored.checklistSorts
                 )
             )
         }

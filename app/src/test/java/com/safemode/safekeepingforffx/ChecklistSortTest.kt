@@ -163,4 +163,27 @@ class ChecklistSortTest {
             StoryStage.entries.toList()
         )
     }
+
+    @Test
+    fun `a saved order is read back by name`() {
+        // Names, not ordinals: this is what makes reordering the enum safe for existing installs.
+        ChecklistSort.entries.forEach { sort ->
+            assertEquals(sort, ChecklistSort.fromStored(sort.name))
+        }
+    }
+
+    @Test
+    fun `an order that was never chosen falls back to the default`() {
+        assertEquals(ChecklistSort.DEFAULT, ChecklistSort.fromStored(null))
+    }
+
+    @Test
+    fun `an unreadable saved order falls back rather than breaking the list`() {
+        // A value from a newer build, or a hand-edited backup. Neither should leave a list that
+        // cannot be shown at all.
+        assertEquals(ChecklistSort.DEFAULT, ChecklistSort.fromStored("BY_PRICE"))
+        assertEquals(ChecklistSort.DEFAULT, ChecklistSort.fromStored(""))
+        // Case matters, since the name is written by the enum itself and read back verbatim.
+        assertEquals(ChecklistSort.DEFAULT, ChecklistSort.fromStored("chronological"))
+    }
 }

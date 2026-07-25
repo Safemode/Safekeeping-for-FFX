@@ -148,11 +148,15 @@ fun ChecklistScreen(
 
     // Re-ordering shuffles every row, so the old scroll offset means nothing afterwards. Tracked
     // against the last sort actually rendered rather than keyed on state.sort alone, so this can't
-    // fire on first composition and fight the focus scroll below.
-    var lastSort by remember { mutableStateOf(state.sort) }
-    LaunchedEffect(state.sort) {
-        if (state.sort != lastSort) {
-            lastSort = state.sort
+    // fire on arrival and fight the focus scroll below. The stored sort is read asynchronously and
+    // lands after the screen is already composed, so the first loaded value is recorded as the
+    // starting point rather than mistaken for the player changing the order.
+    var lastSort by remember { mutableStateOf<ChecklistSort?>(null) }
+    LaunchedEffect(state.sort, state.isLoading) {
+        if (state.isLoading) return@LaunchedEffect
+        val previous = lastSort
+        lastSort = state.sort
+        if (previous != null && previous != state.sort) {
             listState.scrollToItem(0)
         }
     }

@@ -12,9 +12,13 @@ import com.safemode.safekeepingforffx.data.reference.GameVersion
 import com.safemode.safekeepingforffx.data.repository.ChecklistRepository
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
 import com.safemode.safekeepingforffx.domain.ChecklistItem
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -45,24 +49,38 @@ data class ChecklistUiState(
  */
 class ChecklistViewModel(
     private val repository: ChecklistRepository,
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
     private val category: ChecklistCategory
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
 
     /**
-     * Deliberately not persisted, and reset every time the screen is left: story order is something
-     * you reach for while standing in an area, not a preference about the list.
+     * Remembered per category, so coming back to a list finds it the way you left it. Read straight
+     * from storage rather than mirrored into a local flow, which keeps one source of truth and means
+     * a restored backup shows up without the screen being reopened.
+     *
+     * Categories without a story order are pinned to the default instead of reading anything: they
+     * have nothing to offer a stored value, and one left behind by an earlier build shouldn't be
+     * able to reorder a list the picker can no longer reach.
      */
-    private val _sort = MutableStateFlow(ChecklistSort.DEFAULT)
+    private val sort: Flow<ChecklistSort> =
+        if (category.hasStoryOrder) {
+            settingsRepository.checklistSort(category.id)
+                .map { ChecklistSort.fromStored(it) }
+                // DataStore republishes on every write, so without this an unrelated setting
+                // changing would rebuild the whole list.
+                .distinctUntilChanged()
+        } else {
+            flowOf(ChecklistSort.DEFAULT)
+        }
 
     val uiState = combine(
         repository.observeCategory(category.id, category.items),
         settingsRepository.gameVersion,
         _query,
         settingsRepository.showHelp,
-        _sort
+        sort
     ) { items, version, query, showHelp, sort ->
         val adjusted = items.map { it.forVersion(version) }.inOrder(sort)
         ChecklistUiState(
@@ -92,7 +110,8 @@ class ChecklistViewModel(
 
     /** No-op for categories without story stages, so the screen can call it unconditionally. */
     fun setSort(sort: ChecklistSort) {
-        if (category.hasStoryOrder) _sort.update { sort }
+        if (!category.hasStoryOrder) return
+        viewModelScope.launch { settingsRepository.setChecklistSort(category.id, sort.name) }
     }
 
     /**

@@ -7,8 +7,9 @@ import com.safemode.safekeepingforffx.domain.ChecklistItem
  * [com.safemode.safekeepingforffx.data.reference.ChecklistCategory.hasStoryOrder].
  *
  * [GROUPED] answers "what do I still need for Auron?", [CHRONOLOGICAL] answers "what can I pick up
- * where I am now?". Both are useful at different points in a playthrough, so neither is a setting -
- * it's a switch on the list itself.
+ * where I am now?". Both are useful at different points in a playthrough, so this is a switch on the
+ * list rather than an app-wide preference - but it is remembered per list, because which question
+ * you are asking of a given list doesn't change just because you left the screen.
  */
 enum class ChecklistSort(val label: String, val description: String) {
     GROUPED("Grouped", "In the list's own groups"),
@@ -16,6 +17,14 @@ enum class ChecklistSort(val label: String, val description: String) {
 
     companion object {
         val DEFAULT = GROUPED
+
+        /**
+         * Resolves what was saved. Stored by name so reordering this enum can't change what an
+         * existing install reads, and an unknown name falls back to [DEFAULT] rather than failing -
+         * a value written by a newer build should leave the list readable, not empty.
+         */
+        fun fromStored(name: String?): ChecklistSort =
+            entries.firstOrNull { it.name == name } ?: DEFAULT
     }
 }
 

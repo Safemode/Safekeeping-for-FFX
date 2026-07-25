@@ -36,7 +36,8 @@ class BackupCodecTest {
             theme = "MIDNIGHT",
             showHelp = false,
             sphereGridTapActivates = true,
-            sphereGridFullNodeEditor = null
+            sphereGridFullNodeEditor = null,
+            checklistSorts = mapOf("celestial_weapons" to "CHRONOLOGICAL")
         ),
         checklists = listOf(
             BackupChecklistEntry("al_bhed_primers", "primer_01", true, 1_700_000_000_000),
@@ -123,6 +124,20 @@ class BackupCodecTest {
         assertTrue(decoded.sphereGridEdits.isEmpty())
         assertTrue(decoded.sphereGridActivations.isEmpty())
         assertTrue(decoded.sphereGridRoutes.isEmpty())
+    }
+
+    @Test
+    fun settingsFromAnOlderBuildStillDecode() {
+        // Files written before list orders were remembered have no `checklistSorts` at all. That
+        // has to read as "no list was ever reordered" rather than failing the whole restore.
+        val decoded = BackupCodec.decode(
+            """
+            {"format":"$BACKUP_FORMAT","version":$BACKUP_VERSION,
+             "settings":{"gameVersion":"ORIGINAL_PS2","showHelp":false}}
+            """.trimIndent()
+        ).getOrThrow()
+        assertEquals("ORIGINAL_PS2", decoded.settings?.gameVersion)
+        assertEquals(emptyMap<String, String>(), decoded.settings?.checklistSorts)
     }
 
     @Test
