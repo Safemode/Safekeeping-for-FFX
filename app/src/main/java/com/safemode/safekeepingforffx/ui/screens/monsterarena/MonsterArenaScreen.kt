@@ -33,7 +33,6 @@ import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.RestartAlt
-import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -224,7 +223,7 @@ fun MonsterArenaScreen(
         ) {
             Banner(
                 Icons.Outlined.Info,
-                "Tap a fiend to see its details. Long-press a creation to capture the fiends " +
+                "Tap a fiend to see its details. Tap a creation's lock to capture the fiends " +
                     "it needs."
             )
         }
@@ -254,17 +253,21 @@ fun MonsterArenaScreen(
 
                 items(captures, key = { it.monster.id }) { capture ->
                     val isExpanded = capture.monster.id == expandedId
+                    val progress = state.creationProgress[capture.monster.id]
+                    // Only capture-based creations carry a target set, and only while one is still
+                    // locked is there anything for the tap to do - once it is open every fiend it
+                    // wants is already at its count. Everything else gets a plain, inert lock.
+                    val canAutoCapture = state.autoCaptures.containsKey(capture.monster.id) &&
+                        progress?.unlocked != true
 
                     MonsterRow(
                         capture = capture,
-                        progress = state.creationProgress[capture.monster.id],
+                        progress = progress,
                         expanded = isExpanded,
                         onClick = {
                             expandedId = if (isExpanded) null else capture.monster.id
                         },
-                        // Only capture-based creations carry a target set, so only they take a
-                        // long-press; everything else leaves it null and behaves as before.
-                        onLongClick = if (state.autoCaptures.containsKey(capture.monster.id)) {
+                        onLockClick = if (canAutoCapture) {
                             { autoCaptureId = capture.monster.id }
                         } else {
                             null
@@ -420,23 +423,29 @@ private fun MonsterRow(
     progress: CreationProgress?,
     expanded: Boolean,
     onClick: () -> Unit,
-    onLongClick: (() -> Unit)?,
+    /** Opens a locked creation's auto-capture confirmation. Null leaves the lock a plain mark. */
+    onLockClick: (() -> Unit)?,
     onDecrement: () -> Unit,
     onIncrement: () -> Unit,
     isFavorite: Boolean,
     onFavoriteChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /**
+     * Reserved. The row is wired for a long-press but nothing supplies one yet, so passing null
+     * leaves the gesture inert while keeping the wiring here for whatever claims it next.
+     */
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            // The stepper buttons consume their own taps, so a row-level click can safely open the
-            // details without stealing them. A long-press, where offered, auto-captures a creation's
-            // fiends.
+            // The stepper buttons and the lock consume their own taps, so a row-level click can
+            // safely open the details without stealing them.
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,
-                onLongClickLabel = "Capture the fiends this creation needs"
+                onLongClickLabel = onLongClickLabel
             )
             // Matches the height a stepper gives a row, so creations - which have no stepper - sit
             // at the same rhythm as everything else rather than reading as a denser list.
@@ -456,24 +465,10 @@ private fun MonsterRow(
         // Name plus its subtext - the fiend's type, or a creation's unlock note and reward - kept
         // in one column so every second line starts at the same place all the way down the list.
         Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = capture.monster.name,
-                    style = MaterialTheme.typography.titleSmall
-                )
-                // A quiet mark so the long-press is discoverable per row, not just from the hint at
-                // the top of the list. Only shown where the long-press actually does something.
-                if (onLongClick != null) {
-                    Icon(
-                        imageVector = Icons.Outlined.TouchApp,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .padding(start = 8.dp)
-                            .size(16.dp)
-                    )
-                }
-            }
+            Text(
+                text = capture.monster.name,
+                style = MaterialTheme.typography.titleSmall
+            )
             if (capture.monster.isCapturable) {
                 capture.monster.monsterType?.let { type ->
                     Text(
@@ -523,18 +518,33 @@ private fun MonsterRow(
             }
         } else {
             val unlocked = progress?.unlocked == true
-            Icon(
-                imageVector = if (unlocked) Icons.Filled.LockOpen else Icons.Filled.Lock,
-                contentDescription = if (unlocked) "Unlocked" else "Locked",
-                tint = if (unlocked) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                modifier = Modifier
-                    .padding(end = 12.dp)
-                    .size(22.dp)
-            )
+            val lock = @Composable {
+                Icon(
+                    imageVector = if (unlocked) Icons.Filled.LockOpen else Icons.Filled.Lock,
+                    contentDescription = if (onLockClick != null) {
+                        "Locked. Capture the fiends ${capture.monster.name} needs"
+                    } else if (unlocked) {
+                        "Unlocked"
+                    } else {
+                        "Locked"
+                    },
+                    tint = if (unlocked) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            // Same slot either way, so the lock lands in one place down the list whether or not it
+            // is the tappable kind - and next to the star, which is the control it now behaves like.
+            if (onLockClick != null) {
+                IconButton(onClick = onLockClick, modifier = Modifier.size(ACTION_SLOT)) { lock() }
+            } else {
+                Box(modifier = Modifier.size(ACTION_SLOT), contentAlignment = Alignment.Center) {
+                    lock()
+                }
+            }
         }
 
         // Last in the row, past the stepper, so the star sits in the same place on every row -
@@ -554,7 +564,7 @@ private fun MonsterRow(
 private const val MAX_LISTED_FIENDS = 12
 
 /**
- * Confirms a creation's long-press auto-capture before it writes anything: it says how many fiends
+ * Confirms a creation's auto-capture before it writes anything: it says how many fiends
  * it will set and to what, lists them when the list is short enough to be useful, and is clear that
  * higher counts are left untouched.
  */

@@ -35,9 +35,9 @@ data class MonsterCapture(val monster: Monster, val count: Int) {
 data class AutoCaptureFiend(val id: String, val name: String, val amount: Int)
 
 /**
- * Everything the long-press auto-capture on a creation needs: which fiends it would set and to
- * what. Only ever built for creations won by capturing, so a non-null entry is also the signal that
- * the long-press should be offered at all.
+ * Everything a creation's auto-capture needs: which fiends it would set and to what. Only ever
+ * built for creations won by capturing, so a non-null entry is also the signal that the lock is
+ * worth making tappable at all.
  */
 data class CreationAutoCapture(
     val creationId: String,
@@ -70,8 +70,8 @@ data class MonsterArenaUiState(
      */
     val creationProgress: Map<String, CreationProgress> = emptyMap(),
     /**
-     * Long-press auto-capture data for each capture-based creation, keyed by its id. A creation
-     * missing from this map (the conquest-gated originals) simply offers no long-press.
+     * Auto-capture data for each capture-based creation, keyed by its id. A creation missing from
+     * this map (the conquest-gated originals) simply keeps an inert lock.
      */
     val autoCaptures: Map<String, CreationAutoCapture> = emptyMap(),
     val capturedCount: Int = 0,
