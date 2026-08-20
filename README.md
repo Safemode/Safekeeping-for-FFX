@@ -59,6 +59,7 @@ There can be a little bit of a delay between joining the Group/Program and showi
   <img src="screenshots/celestial-weapons.png" alt="Celestial Weapons" width="200">
   <img src="screenshots/ronso-rage.png" alt="Ronso Rage" width="200">
   <img src="screenshots/monster-arena.png" alt="Monster Arena" width="200">
+  <img src="screenshots/monster-arena-details.png" alt="Monster Arena Details" width="200">
   <img src="screenshots/sphere-grid.png" alt="Sphere Grid" width="200">
   <img src="screenshots/sphere-grid-character-status.png" alt="Sphere Grid Character Status" width="200">
   <img src="screenshots/sphere-grid-routes.png" alt="Sphere Grid Routes" width="200">
