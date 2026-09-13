@@ -185,6 +185,16 @@ fun ChecklistItemRow(
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
+            // Only set on a per-character list, where it follows the character picker. Primary
+            // colour so it reads as the one line on the row that belongs to the selected character.
+            item.characterNote?.let { note ->
+                Text(
+                    text = note,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
             (item.caution as? Caution.Guarded)?.let { guarded ->
                 Text(
                     // Phrased to sidestep verb agreement - "Dark Magus Sisters" is plural,

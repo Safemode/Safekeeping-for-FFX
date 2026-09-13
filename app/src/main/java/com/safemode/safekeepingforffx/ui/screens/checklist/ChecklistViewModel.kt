@@ -27,6 +27,14 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Locale
+
+/**
+ * The line a per-character row shows for [character], e.g. "Tidus: 150 to learn". Grouped with a
+ * fixed locale so the thousands separator matches the rest of the app's English text.
+ */
+internal fun characterNote(character: GridCharacter, count: Int): String =
+    "${character.displayName}: ${"%,d".format(Locale.US, count)} to learn"
 
 data class ChecklistUiState(
     /** Every item in the category, regardless of the search. Progress is counted from this. */
@@ -66,6 +74,15 @@ class ChecklistViewModel(
     /** Whose progress is on screen. Only ever read for a [ChecklistCategory.perCharacter] list. */
     private val character = MutableStateFlow(GridCharacter.DEFAULT)
 
+    /** Looked up once: the per-character figures never change, only which one is showing. */
+    private val countsById = category.items.associate { it.id to it.characterCounts }
+
+    /** Stamps each row with [selected]'s figure. Rows with no figure for them are left as they are. */
+    private fun List<ChecklistItem>.withCharacterNotes(selected: GridCharacter) = map { item ->
+        val count = countsById[item.id]?.get(selected) ?: return@map item
+        item.copy(characterNote = characterNote(selected, count))
+    }
+
     /**
      * The stored ticks for this list, paired with the character they belong to. Switching character
      * swaps the query underneath rather than filtering one combined list, and pairing the two means
@@ -76,7 +93,7 @@ class ChecklistViewModel(
         if (category.perCharacter) {
             character.flatMapLatest { selected ->
                 repository.observeCategory(category.progressKey(selected), category.items)
-                    .map { it to selected }
+                    .map { items -> items.withCharacterNotes(selected) to selected }
             }
         } else {
             repository.observeCategory(category.id, category.items).map { it to null }

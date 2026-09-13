@@ -23,7 +23,12 @@ data class ChecklistItem(
     /** Earliest point in the story this is reachable, when the category tracks that. */
     val storyStage: StoryStage? = null,
     /** What collecting it there involves. Only carried while the list is in story order. */
-    val stageNote: String? = null
+    val stageNote: String? = null,
+    /**
+     * The selected character's figure for this entry, on a per-character list. Rebuilt on every
+     * character switch, so it always names whoever the picker shows.
+     */
+    val characterNote: String? = null
 )
 
 /**
