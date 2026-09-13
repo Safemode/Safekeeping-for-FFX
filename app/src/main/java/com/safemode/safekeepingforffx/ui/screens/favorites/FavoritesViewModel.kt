@@ -129,8 +129,10 @@ class FavoritesViewModel(
             starred.mapNotNull { favorite ->
                 val item = when (categoryId) {
                     MONSTER_ARENA_ID -> loaded.monsters[favorite.itemId]?.asItem(counts)
+                    // A per-character list only strikes a favorite through once every character has
+                    // it. For any other list this is just the list's own ticks.
                     else -> categories[categoryId]
-                        ?.asItem(favorite, checked[categoryId].orEmpty())
+                        ?.let { it.asItem(favorite, it.checkedEverywhere(checked)) }
                         ?.forVersion(version)
                 }
                 item?.let { FavoriteEntry(categoryId, label, it, favorite.createdAt) }

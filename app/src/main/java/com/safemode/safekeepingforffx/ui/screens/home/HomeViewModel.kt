@@ -14,6 +14,7 @@ import com.safemode.safekeepingforffx.data.reference.ReferenceItem
 import com.safemode.safekeepingforffx.data.repository.ChecklistRepository
 import com.safemode.safekeepingforffx.data.repository.ItemListRepository
 import com.safemode.safekeepingforffx.data.repository.MonsterArenaRepository
+import com.safemode.safekeepingforffx.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -55,7 +56,8 @@ class HomeViewModel(
     categories: List<ChecklistCategory>,
     private val searchCategories: List<ChecklistCategory>,
     itemListRepository: ItemListRepository,
-    private val monsterArenaRepository: MonsterArenaRepository
+    private val monsterArenaRepository: MonsterArenaRepository,
+    settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
@@ -128,22 +130,36 @@ class HomeViewModel(
 
     val uiState = combine(
         categories.map { category ->
-            repository.observeCategory(category.id, category.items).map { items ->
+            // A per-character list counts every character's ticks against every character's copy
+            // of it, so Overdrive Modes reads out of 7 x 17 rather than one character's 17.
+            combine(
+                category.progressKeys.map { key -> repository.observeCategory(key, category.items) }
+            ) { perKey ->
                 CategoryProgress(
                     route = category.id,
                     label = category.label,
-                    foundCount = items.count { it.isChecked },
-                    totalCount = items.size
+                    foundCount = perKey.sumOf { items -> items.count { it.isChecked } },
+                    totalCount = perKey.sumOf { it.size }
                 )
             }
         } + monsterArenaProgress
-    ) { progress -> HomeUiState(progress.toList()) }
+    ) { progress -> progress.toList() }
+        .combine(settingsRepository.gameVersion) { progress, version ->
+            // A list the chosen release doesn't have drops off Home entirely - card, found count and
+            // total - rather than sitting at zero forever. Its screen stays in the drawer regardless.
+            val unavailable = categories
+                .filterNot { it.isAvailableOn(version) }
+                .mapTo(HashSet()) { it.id }
+            HomeUiState(progress.filterNot { it.route in unavailable })
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = HomeUiState(
                 // Seed with the real totals so the counts don't flash "0 / 0" on first frame.
-                categories.map { CategoryProgress(it.id, it.label, 0, it.items.size) }
+                categories.map {
+                    CategoryProgress(it.id, it.label, 0, it.items.size * it.progressKeys.size)
+                }
             )
         )
 
@@ -160,7 +176,8 @@ class HomeViewModel(
                     categories,
                     searchCategories,
                     app.container.itemListRepository,
-                    app.container.monsterArenaRepository
+                    app.container.monsterArenaRepository,
+                    app.container.settingsRepository
                 )
             }
         }

@@ -1,8 +1,13 @@
 package com.safemode.safekeepingforffx.ui.navigation
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Flare
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Movie
@@ -13,22 +18,28 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.safemode.safekeepingforffx.data.reference.Aeons
 import com.safemode.safekeepingforffx.data.reference.AlBhedPrimers
 import com.safemode.safekeepingforffx.data.reference.BlitzballKeyTechs
 import com.safemode.safekeepingforffx.data.reference.BlitzballRecruits
 import com.safemode.safekeepingforffx.data.reference.CelestialWeapons
 import com.safemode.safekeepingforffx.data.reference.ChecklistCategory
+import com.safemode.safekeepingforffx.data.reference.DarkAeonsAndPenance
+import com.safemode.safekeepingforffx.data.reference.DestructionSpheres
 import com.safemode.safekeepingforffx.data.reference.EquipmentAbilities
 import com.safemode.safekeepingforffx.data.reference.ItemListCsvParser
 import com.safemode.safekeepingforffx.data.reference.MONSTER_ARENA_ID
 import com.safemode.safekeepingforffx.data.reference.MONSTER_ARENA_LABEL
 import com.safemode.safekeepingforffx.data.reference.JechtSpheres
+import com.safemode.safekeepingforffx.data.reference.OverdriveModes
 import com.safemode.safekeepingforffx.data.reference.RonsoRages
 import com.safemode.safekeepingforffx.data.reference.SPHERE_GRID_ID
 import com.safemode.safekeepingforffx.data.reference.SPHERE_GRID_LABEL
+import com.safemode.safekeepingforffx.data.reference.Trophies
 
 /**
  * Everything the drawer needs to know about a screen.
@@ -50,6 +61,14 @@ sealed class FfxDestination(
     data object Favorites : FfxDestination("favorites", "Favorites", Icons.Filled.Star)
 
     data object Settings : FfxDestination("settings", "Settings", Icons.Filled.Settings)
+
+    /**
+     * A cross-cutting read-only view rather than a list of its own: it gathers every item the other
+     * lists have flagged missable or Dark-Aeon-guarded, in story order, and links back to each one
+     * where it lives. Like [Favorites] it owns no reference data.
+     */
+    data object MissablesTimeline :
+        FfxDestination("missables_timeline", "Missables Timeline", Icons.Filled.Timeline)
 
     /**
      * Informational only - a lookup tool rather than a list, so it is deliberately not a
@@ -89,13 +108,19 @@ sealed class FfxDestination(
 val drawerDestinations: List<FfxDestination> = listOf(
     FfxDestination.Home,
     FfxDestination.Favorites,
+    FfxDestination.MissablesTimeline,
     FfxDestination.Checklist(AlBhedPrimers.category, Icons.Filled.Translate),
     FfxDestination.Checklist(JechtSpheres.category, Icons.Filled.Movie),
     FfxDestination.Checklist(CelestialWeapons.category, Icons.Filled.AutoAwesome),
+    FfxDestination.Checklist(Aeons.category, Icons.Filled.Flare),
+    FfxDestination.Checklist(DestructionSpheres.category, Icons.Filled.Adjust),
     FfxDestination.Checklist(RonsoRages.category, Icons.Filled.Whatshot),
+    FfxDestination.Checklist(OverdriveModes.category, Icons.Filled.Bolt),
     FfxDestination.Checklist(BlitzballKeyTechs.category, Icons.Filled.SportsSoccer),
     FfxDestination.Checklist(BlitzballRecruits.category, Icons.Filled.Groups),
     FfxDestination.Checklist(EquipmentAbilities.category, Icons.Filled.Build),
+    FfxDestination.Checklist(DarkAeonsAndPenance.category, Icons.Filled.DarkMode),
+    FfxDestination.Checklist(Trophies.category, Icons.Filled.EmojiEvents),
     FfxDestination.ItemList,
     FfxDestination.MonsterArena,
     FfxDestination.SphereGrid,
@@ -121,6 +146,7 @@ object favoriteSources {
     private val excluded = setOf(
         FfxDestination.Home,
         FfxDestination.Favorites,
+        FfxDestination.MissablesTimeline,
         FfxDestination.Settings,
         FfxDestination.SphereGrid,
         FfxDestination.MixCalculator

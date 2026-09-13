@@ -1,16 +1,13 @@
 package com.safemode.safekeepingforffx.ui.screens.checklist
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -53,7 +50,8 @@ import com.safemode.safekeepingforffx.ui.components.SearchField
 import com.safemode.safekeepingforffx.ui.components.SectionHeader
 import com.safemode.safekeepingforffx.ui.components.SortSelector
 import com.safemode.safekeepingforffx.domain.ChecklistItem
-import com.safemode.safekeepingforffx.ui.util.rememberHeaderExpanded
+import com.safemode.safekeepingforffx.ui.screens.spheregrid.CharacterRow
+import com.safemode.safekeepingforffx.ui.util.rememberLeadingItemsScrollRoom
 
 /** Long enough to catch the eye after the scroll settles, short enough not to look like state. */
 private const val HIGHLIGHT_DURATION_MS = 2_500L
@@ -118,11 +116,29 @@ fun ChecklistScreen(
     val hasScreenshots = state.items.any { it.imageRes != null }
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
     val listState = rememberLazyListState()
-    val headerExpanded = rememberHeaderExpanded(listState)
 
     // Flattened once so section headers and rows share one index space - the only way to scroll to
     // a given item without guessing how many headers sit above it.
     val rows = remember(state.visibleItems) { checklistRows(state.visibleItems) }
+
+    // The search field and the advice banners are the first items *inside* the list, so they scroll
+    // away with the content instead of being pinned chrome. That is deliberate: a pinned header sits
+    // in its own box above the list, and collapsing it hands its height back to the list, which on a
+    // short list is enough to refit the content and bounce it back to the top - a loop that could
+    // leave a barely-overflowing list frozen, unable to scroll at all. As list items they just
+    // scroll off. The trade is that scroll-to-item has to count them, hence [leadingItemCount].
+    // Counts the search field and the divider (both always present) plus whichever banners show.
+    // The no-matches row is excluded on purpose: it only exists while searching, and the focus
+    // scroll that reads this never runs then.
+    val leadingItemCount = 2 +
+        (if (state.showHelp && state.note != null) 1 else 0) +
+        (if (state.showHelp && hasScreenshots) 1 else 0)
+
+    // The other trade: a list only a little taller than the screen, like Destruction Spheres, runs
+    // out of scroll before its leading items have cleared, leaving the bottom of the note stuck
+    // under the progress bar. A spacer after the last row makes up that shortfall, and is zero on
+    // any list long enough or short enough not to need it.
+    val scrollRoom = rememberLeadingItemsScrollRoom(listState, leadingItemCount)
 
     var highlightedId by remember { mutableStateOf<String?>(null) }
 
@@ -169,23 +185,33 @@ fun ChecklistScreen(
         val index = rows.indexOfFirst { it is ChecklistRow.Entry && it.item.id == target }
         if (index < 0) return@LaunchedEffect
 
-        listState.scrollToItem(index)
+        // Offset past the search field and banners that now lead the list.
+        listState.scrollToItem(leadingItemCount + index)
         highlightedId = target
         delay(HIGHLIGHT_DURATION_MS)
         highlightedId = null
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // Progress stays pinned - it's the reason to look at the top of the screen at all. The
-        // guidance below it collapses away once you're reading the list.
+        // Above the progress it drives, and pinned with it: the count below is only ever this
+        // character's, so the switch belongs where you can see whose count you are reading. The same
+        // row the Sphere Grid Planner uses, so a character looks the same in both places.
+        state.character?.let { selected ->
+            CharacterRow(
+                selected = selected,
+                onSelect = viewModel::setCharacter,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+
+        // Progress stays pinned - it's the reason to look at the top of the screen at all, and it
+        // carries the reset and the sort control. Everything below it lives in the list and scrolls.
         if (category.trackProgress) {
             ChecklistProgressHeader(
                 foundCount = state.foundCount,
                 totalCount = state.totalCount,
                 onReset = { showResetDialog = true },
                 // Rides in the progress row's spare width rather than claiming a row of its own.
-                // Re-ordering is a way of reading the list, so it has to stay reachable while you
-                // scroll - but not at the price of another 60dp of permanent chrome.
                 action = if (state.canSort) {
                     {
                         SortSelector(
@@ -208,48 +234,45 @@ fun ChecklistScreen(
                 modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 8.dp)
             )
         }
-        AnimatedVisibility(
-            // An active search stays put even when scrolling down: hiding the field while it is
-            // filtering the list would leave no way to see or undo what was typed.
-            visible = headerExpanded || state.isSearching,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            SearchField(
-                query = state.query,
-                onQueryChange = viewModel::setQuery,
-                placeholder = "Search ${category.label}"
-            )
-        }
-        AnimatedVisibility(
-            // Hidden outright when help is switched off in Settings, not merely collapsed.
-            visible = headerExpanded && state.showHelp,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            Column {
-                state.note?.let { Banner(Icons.Outlined.Info, it) }
+        HorizontalDivider()
+
+        LazyColumn(state = listState) {
+            // Leading items - kept in sync with [leadingItemCount] above, which the focus scroll
+            // relies on to land on the right row.
+            item(key = "search") {
+                SearchField(
+                    query = state.query,
+                    onQueryChange = viewModel::setQuery,
+                    placeholder = "Search ${category.label}"
+                )
+            }
+            if (state.showHelp) {
+                state.note?.let { note ->
+                    item(key = "banner_note") { Banner(Icons.Outlined.Info, note) }
+                }
                 // Only advertise the long-press where there is actually something to show.
                 if (hasScreenshots) {
-                    Banner(
-                        Icons.Outlined.Image,
-                        "Long-press an entry to see a screenshot of its location."
+                    item(key = "banner_screenshot") {
+                        Banner(
+                            Icons.Outlined.Image,
+                            "Long-press an entry to see a screenshot of its location."
+                        )
+                    }
+                }
+            }
+            item(key = "leading_divider") { HorizontalDivider() }
+
+            if (state.hasNoMatches) {
+                item(key = "no_matches") {
+                    Text(
+                        text = "No entries in ${category.label} match \"${state.query.trim()}\".",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp)
                     )
                 }
             }
-        }
-        HorizontalDivider()
 
-        if (state.hasNoMatches) {
-            Text(
-                text = "No entries in ${category.label} match \"${state.query.trim()}\".",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-
-        LazyColumn(state = listState) {
             items(rows, key = { it.key }) { row ->
                 when (row) {
                     is ChecklistRow.Section -> SectionHeader(row.title)
@@ -284,6 +307,9 @@ fun ChecklistScreen(
                     }
                 }
             }
+
+            // Must stay the last item - the room is measured on the assumption that it is.
+            item(key = "scroll_room") { Spacer(Modifier.height(scrollRoom)) }
         }
     }
 
@@ -294,13 +320,24 @@ fun ChecklistScreen(
     if (showResetDialog) {
         AlertDialog(
             onDismissRequest = { showResetDialog = false },
-            title = { Text("Reset ${category.label}?") },
+            // On a per-character list only the selected character is cleared, so the dialog names
+            // them rather than letting "this list" sound like everyone's progress.
+            title = {
+                Text(
+                    state.character
+                        ?.let { "Reset ${category.label} for ${it.displayName}?" }
+                        ?: "Reset ${category.label}?"
+                )
+            },
             text = {
                 Text(
                     "The ${state.foundCount} checked ${
                         if (state.foundCount == 1) "item" else "items"
-                    } in this list will be unchecked. Your other lists are untouched. " +
-                        "This can't be undone."
+                    } ${
+                        state.character?.let { "for ${it.displayName} will be unchecked. Other " +
+                            "characters and your other lists are untouched. " }
+                            ?: "in this list will be unchecked. Your other lists are untouched. "
+                    }This can't be undone."
                 )
             },
             confirmButton = {
