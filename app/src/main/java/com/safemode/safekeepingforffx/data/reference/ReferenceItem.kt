@@ -38,5 +38,11 @@ data class ReferenceItem(
      * [detail] says where the thing is and is true whenever you read it. This says what standing
      * here and going to get it involves, which is only meaningful once "here" is on screen.
      */
-    val stageNote: String? = null
+    val stageNote: String? = null,
+    /**
+     * A number that differs by character, for a [ChecklistCategory.perCharacter] list - how many
+     * times each character has to do the thing, say. Shown for whoever the picker has selected, and
+     * absent for a character with no entry.
+     */
+    val characterCounts: Map<GridCharacter, Int> = emptyMap()
 )

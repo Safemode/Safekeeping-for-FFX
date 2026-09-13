@@ -12,6 +12,7 @@ import com.safemode.safekeepingforffx.ui.screens.checklist.ChecklistScreen
 import com.safemode.safekeepingforffx.ui.screens.favorites.FavoritesScreen
 import com.safemode.safekeepingforffx.ui.screens.home.HomeScreen
 import com.safemode.safekeepingforffx.ui.screens.itemlist.ItemListScreen
+import com.safemode.safekeepingforffx.ui.screens.missables.MissablesTimelineScreen
 import com.safemode.safekeepingforffx.ui.screens.mix.MixCalculatorScreen
 import com.safemode.safekeepingforffx.ui.screens.monsterarena.MonsterArenaScreen
 import com.safemode.safekeepingforffx.ui.screens.settings.SettingsScreen
@@ -124,6 +125,17 @@ fun FfxNavHost(
                 // Straight to the item in the list that owns it, using the same focus argument a
                 // Home search result travels on - but keeping Favorites on the stack, so back
                 // returns to the shortlist you were working through.
+                onOpen = { categoryId, itemId ->
+                    navController.navigateToFavorite(categoryId, itemId)
+                }
+            )
+        }
+
+        composable(FfxDestination.MissablesTimeline.route) {
+            MissablesTimelineScreen(
+                categories = favoriteSources.categories,
+                // Keeps the timeline on the stack, the same as Favorites: it is a worklist you open
+                // an item from and come back to, not a jump that flattens the app.
                 onOpen = { categoryId, itemId ->
                     navController.navigateToFavorite(categoryId, itemId)
                 }

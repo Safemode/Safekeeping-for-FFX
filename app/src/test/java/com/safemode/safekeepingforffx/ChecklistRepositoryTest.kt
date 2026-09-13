@@ -400,6 +400,22 @@ class ChecklistRepositoryTest {
     }
 
     @Test
+    fun `Jecht Spheres are named for whose they are`() {
+        // Auron's and Braska's are not counted, so the Jecht Spheres run 1 to 8 with no gaps.
+        assertEquals(
+            listOf(
+                "Jecht's Sphere 1", "Jecht's Sphere 2", "Jecht's Sphere 3", "Jecht's Sphere 4",
+                "Jecht's Sphere 5", "Auron's Sphere", "Jecht's Sphere 6", "Jecht's Sphere 7",
+                "Jecht's Sphere 8", "Braska's Sphere"
+            ),
+            JechtSpheres.items.map { it.title }
+        )
+        // Renaming is display only - ids still follow list position, so saved progress is untouched.
+        assertEquals("jecht_06", JechtSpheres.items.single { it.title == "Auron's Sphere" }.id)
+        assertEquals("jecht_10", JechtSpheres.items.single { it.title == "Braska's Sphere" }.id)
+    }
+
+    @Test
     fun `primer ids are unique and stable`() {
         val ids = AlBhedPrimers.items.map { it.id }
 

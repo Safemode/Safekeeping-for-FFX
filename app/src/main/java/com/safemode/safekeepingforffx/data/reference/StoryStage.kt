@@ -15,10 +15,19 @@ enum class StoryStage(val label: String) {
     BESAID("Besaid"),
     LUCA("Luca"),
     MIIHEN_HIGHROAD("Mi'ihen Highroad"),
+    MUSHROOM_ROCK_ROAD("Mushroom Rock Road"),
     GUADOSALAM("Guadosalam"),
     THUNDER_PLAINS("Thunder Plains"),
     MACALANIA_WOODS("Macalania Woods"),
+    // The lake and its temple, after the woods. Kept apart from the woods because the temple's
+    // Cloister is here, and so is Rin's agency.
+    LAKE_MACALANIA("Lake Macalania"),
     BIKANEL_ISLAND("Bikanel Island"),
+    // Reached across the Sanubia Desert and destroyed before you leave, so it gets its own stage
+    // rather than folding into Bikanel Island - what is here is gone once the airship lifts off.
+    HOME("Home"),
+    // The wedding and the Priest's Passage. There is no coming back once the trial is over.
+    BEVELLE("Bevelle"),
     CALM_LANDS("Calm Lands"),
     MT_GAGAZET("Mt. Gagazet"),
     ZANARKAND_RUINS("Zanarkand Ruins"),
