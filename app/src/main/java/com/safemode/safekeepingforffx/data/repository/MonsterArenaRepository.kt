@@ -6,8 +6,11 @@ import com.safemode.safekeepingforffx.data.local.MonsterCaptureEntity
 import com.safemode.safekeepingforffx.data.reference.MAX_CAPTURES
 import com.safemode.safekeepingforffx.data.reference.Monster
 import com.safemode.safekeepingforffx.data.reference.MonsterArenaCsvParser
+import com.safemode.safekeepingforffx.domain.ProgressCount
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 
@@ -35,6 +38,25 @@ class MonsterArenaRepository(
     /** Capture counts by monster id. A fiend with no row has been captured zero times. */
     fun observeCaptures(): Flow<Map<String, Int>> =
         dao.observeAll().map { rows -> rows.associate { it.monsterId to it.count } }
+
+    /**
+     * Fully captured fiends out of every capturable one - creations are unlocked rather than
+     * captured, so they have no count to complete. Emits only once the fiend list has parsed, so a
+     * count never flashes "0 / 0". Shared by Home and the drawer.
+     */
+    fun observeCaptureProgress(): Flow<ProgressCount> = flow {
+        val capturable = runCatching { monsters() }
+            .getOrDefault(emptyList())
+            .filter { it.isCapturable }
+        emitAll(
+            observeCaptures().map { counts ->
+                ProgressCount(
+                    found = capturable.count { (counts[it.id] ?: 0) >= MAX_CAPTURES },
+                    total = capturable.size
+                )
+            }
+        )
+    }
 
     /**
      * Clamped to 0..[MAX_CAPTURES] here rather than at the UI, so no caller can write a count the

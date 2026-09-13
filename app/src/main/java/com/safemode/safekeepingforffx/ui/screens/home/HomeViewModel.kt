@@ -7,7 +7,6 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.safemode.safekeepingforffx.FfxApplication
 import com.safemode.safekeepingforffx.data.reference.ChecklistCategory
-import com.safemode.safekeepingforffx.data.reference.MAX_CAPTURES
 import com.safemode.safekeepingforffx.data.reference.MONSTER_ARENA_ID
 import com.safemode.safekeepingforffx.data.reference.MONSTER_ARENA_LABEL
 import com.safemode.safekeepingforffx.data.reference.ReferenceItem
@@ -20,8 +19,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -112,35 +109,15 @@ class HomeViewModel(
      * nothing to the bar. Emits only after the fiend list has parsed, which is why the card appears
      * a moment after the others rather than flashing "0 / 0".
      */
-    private val monsterArenaProgress: Flow<CategoryProgress> = flow {
-        val monsters = runCatching { monsterArenaRepository.monsters() }
-            .getOrDefault(emptyList())
-            .filter { it.isCapturable }
-        emitAll(
-            monsterArenaRepository.observeCaptures().map { counts ->
-                CategoryProgress(
-                    route = MONSTER_ARENA_ID,
-                    label = MONSTER_ARENA_LABEL,
-                    foundCount = monsters.count { (counts[it.id] ?: 0) >= MAX_CAPTURES },
-                    totalCount = monsters.size
-                )
-            }
-        )
-    }
+    private val monsterArenaProgress: Flow<CategoryProgress> =
+        monsterArenaRepository.observeCaptureProgress().map { progress ->
+            CategoryProgress(MONSTER_ARENA_ID, MONSTER_ARENA_LABEL, progress.found, progress.total)
+        }
 
     val uiState = combine(
         categories.map { category ->
-            // A per-character list counts every character's ticks against every character's copy
-            // of it, so Overdrive Modes reads out of 7 x 17 rather than one character's 17.
-            combine(
-                category.progressKeys.map { key -> repository.observeCategory(key, category.items) }
-            ) { perKey ->
-                CategoryProgress(
-                    route = category.id,
-                    label = category.label,
-                    foundCount = perKey.sumOf { items -> items.count { it.isChecked } },
-                    totalCount = perKey.sumOf { it.size }
-                )
+            repository.observeProgress(category).map { progress ->
+                CategoryProgress(category.id, category.label, progress.found, progress.total)
             }
         } + monsterArenaProgress
     ) { progress -> progress.toList() }
