@@ -20,14 +20,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.safemode.safekeepingforffx.ui.navigation.AppDrawerContent
+import com.safemode.safekeepingforffx.ui.navigation.DrawerViewModel
 import com.safemode.safekeepingforffx.ui.navigation.FfxNavHost
 import com.safemode.safekeepingforffx.ui.navigation.destinationForRoute
 import com.safemode.safekeepingforffx.ui.navigation.navigateToDestination
@@ -54,6 +59,13 @@ fun AppScaffold() {
     val activity = LocalActivity.current
     var lastBackPress by remember { mutableLongStateOf(0L) }
 
+    val drawerViewModel: DrawerViewModel = viewModel(factory = DrawerViewModel.Factory)
+    val groupProgress by drawerViewModel.groupProgress.collectAsStateWithLifecycle()
+
+    // Every drawer group starts collapsed. One the player opens stays open for the session - through
+    // rotation and every trip in and out of the drawer - and is forgotten on the next launch.
+    var expandedGroups by rememberSaveable { mutableStateOf(listOf<String>()) }
+
     // A screen can claim the back press while it has transient state worth dismissing first - an
     // active search, on Home or on any category. This lives here rather than in a BackHandler
     // inside the screen because our handler is registered after the NavHost's and so would swallow
@@ -73,6 +85,12 @@ fun AppScaffold() {
                 onDestinationClick = { destination ->
                     scope.launch { drawerState.close() }
                     navController.navigateToDestination(destination.route)
+                },
+                groupProgress = groupProgress,
+                expandedGroups = expandedGroups.toSet(),
+                onToggleGroup = { groupId ->
+                    expandedGroups =
+                        if (groupId in expandedGroups) expandedGroups - groupId else expandedGroups + groupId
                 }
             )
         }

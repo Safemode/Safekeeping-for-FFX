@@ -2,9 +2,12 @@ package com.safemode.safekeepingforffx.data.repository
 
 import com.safemode.safekeepingforffx.data.local.ChecklistProgressDao
 import com.safemode.safekeepingforffx.data.local.ChecklistProgressEntity
+import com.safemode.safekeepingforffx.data.reference.ChecklistCategory
 import com.safemode.safekeepingforffx.data.reference.ReferenceItem
 import com.safemode.safekeepingforffx.domain.ChecklistItem
+import com.safemode.safekeepingforffx.domain.ProgressCount
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 /**
@@ -34,6 +37,19 @@ class ChecklistRepository(private val dao: ChecklistProgressDao) {
                     stageNote = item.stageNote
                 )
             }
+        }
+
+    /**
+     * Found and total for a whole list, across every key its progress is spread over - so a
+     * per-character list counts each character's ticks against each character's copy of it, and
+     * Overdrive Modes reads out of 7 x 17. Shared by Home and the drawer so the two can't drift.
+     */
+    fun observeProgress(category: ChecklistCategory): Flow<ProgressCount> =
+        combine(category.progressKeys.map { key -> observeCategory(key, category.items) }) { perKey ->
+            ProgressCount(
+                found = perKey.sumOf { items -> items.count { it.isChecked } },
+                total = perKey.sumOf { it.size }
+            )
         }
 
     /**

@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.CollectionsBookmark
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Flare
@@ -15,7 +16,11 @@ import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.SportsSoccer
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.Hub
+import androidx.compose.material.icons.filled.MilitaryTech
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.SportsHandball
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Timeline
@@ -45,7 +50,7 @@ import com.safemode.safekeepingforffx.data.reference.Trophies
  * Everything the drawer needs to know about a screen.
  *
  * Adding a future tracker category is now a data change: write the reference object, then add one
- * [Checklist] entry to [drawerDestinations]. The NavHost picks it up automatically.
+ * [Checklist] entry to a group in [drawerLayout]. The NavHost picks it up automatically.
  */
 sealed class FfxDestination(
     val route: String,
@@ -104,28 +109,94 @@ sealed class FfxDestination(
     ) : FfxDestination(category.id, category.label, icon)
 }
 
-/** The main body of the drawer. */
-val drawerDestinations: List<FfxDestination> = listOf(
-    FfxDestination.Home,
-    FfxDestination.Favorites,
-    FfxDestination.MissablesTimeline,
-    FfxDestination.Checklist(AlBhedPrimers.category, Icons.Filled.Translate),
-    FfxDestination.Checklist(JechtSpheres.category, Icons.Filled.Movie),
-    FfxDestination.Checklist(CelestialWeapons.category, Icons.Filled.AutoAwesome),
-    FfxDestination.Checklist(Aeons.category, Icons.Filled.Flare),
-    FfxDestination.Checklist(DestructionSpheres.category, Icons.Filled.Adjust),
-    FfxDestination.Checklist(RonsoRages.category, Icons.Filled.Whatshot),
-    FfxDestination.Checklist(OverdriveModes.category, Icons.Filled.Bolt),
-    FfxDestination.Checklist(BlitzballKeyTechs.category, Icons.Filled.SportsSoccer),
-    FfxDestination.Checklist(BlitzballRecruits.category, Icons.Filled.Groups),
-    FfxDestination.Checklist(EquipmentAbilities.category, Icons.Filled.Build),
-    FfxDestination.Checklist(DarkAeonsAndPenance.category, Icons.Filled.DarkMode),
-    FfxDestination.Checklist(Trophies.category, Icons.Filled.EmojiEvents),
-    FfxDestination.ItemList,
-    FfxDestination.MonsterArena,
-    FfxDestination.SphereGrid,
-    FfxDestination.MixCalculator
+/** One line of the drawer: a screen on its own, or a collapsible group of related screens. */
+sealed interface DrawerEntry {
+
+    data class Single(val destination: FfxDestination) : DrawerEntry
+
+    data class Group(
+        /** Stable key for remembering which groups are open and for looking up their count. */
+        val id: String,
+        val label: String,
+        val icon: ImageVector,
+        val destinations: List<FfxDestination>,
+        /** False for a group of tools and lookups, which has nothing to count. */
+        val showProgress: Boolean = true
+    ) : DrawerEntry
+}
+
+/**
+ * The main body of the drawer, grouped by game system. The cross-cutting views that draw on every
+ * list stay ungrouped at the top; everything else sits in a group that starts collapsed.
+ */
+val drawerLayout: List<DrawerEntry> = listOf(
+    DrawerEntry.Single(FfxDestination.Home),
+    DrawerEntry.Single(FfxDestination.Favorites),
+    DrawerEntry.Single(FfxDestination.MissablesTimeline),
+    DrawerEntry.Group(
+        id = "collectibles",
+        label = "Collectibles",
+        icon = Icons.Filled.CollectionsBookmark,
+        destinations = listOf(
+            FfxDestination.Checklist(AlBhedPrimers.category, Icons.Filled.Translate),
+            FfxDestination.Checklist(JechtSpheres.category, Icons.Filled.Movie),
+            FfxDestination.Checklist(DestructionSpheres.category, Icons.Filled.Adjust)
+        )
+    ),
+    DrawerEntry.Group(
+        id = "party_aeons",
+        label = "Party & Aeons",
+        icon = Icons.Filled.Shield,
+        destinations = listOf(
+            FfxDestination.Checklist(Aeons.category, Icons.Filled.Flare),
+            FfxDestination.Checklist(CelestialWeapons.category, Icons.Filled.AutoAwesome),
+            FfxDestination.Checklist(OverdriveModes.category, Icons.Filled.Bolt),
+            FfxDestination.Checklist(RonsoRages.category, Icons.Filled.Whatshot)
+        )
+    ),
+    DrawerEntry.Group(
+        id = "blitzball",
+        label = "Blitzball",
+        icon = Icons.Filled.SportsHandball,
+        destinations = listOf(
+            FfxDestination.Checklist(BlitzballKeyTechs.category, Icons.Filled.SportsSoccer),
+            FfxDestination.Checklist(BlitzballRecruits.category, Icons.Filled.Groups)
+        )
+    ),
+    DrawerEntry.Group(
+        id = "endgame",
+        label = "Endgame",
+        icon = Icons.Filled.MilitaryTech,
+        destinations = listOf(
+            FfxDestination.MonsterArena,
+            FfxDestination.Checklist(DarkAeonsAndPenance.category, Icons.Filled.DarkMode),
+            FfxDestination.Checklist(Trophies.category, Icons.Filled.EmojiEvents)
+        )
+    ),
+    DrawerEntry.Group(
+        id = "tools_reference",
+        label = "Tools & Reference",
+        icon = Icons.Filled.Handyman,
+        destinations = listOf(
+            FfxDestination.SphereGrid,
+            FfxDestination.MixCalculator,
+            FfxDestination.ItemList,
+            FfxDestination.Checklist(EquipmentAbilities.category, Icons.Filled.Build)
+        ),
+        showProgress = false
+    )
 )
+
+/**
+ * Every drawer screen in the order the drawer reads, groups flattened. Favorites orders its sections
+ * by this, and the NavHost registers routes from it, so neither has to know the drawer is grouped.
+ */
+val drawerDestinations: List<FfxDestination> = drawerLayout.flatMap { entry ->
+    when (entry) {
+        is DrawerEntry.Single -> listOf(entry.destination)
+        is DrawerEntry.Group -> entry.destinations
+    }
+}
 
 /** Pinned to the bottom of the drawer, below a divider. */
 val settingsDestination = FfxDestination.Settings
