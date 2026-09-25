@@ -117,7 +117,7 @@ fun FfxNavHost(
                 onResultClick = { categoryId, itemId ->
                     navController.navigateToDestination(categoryId, focusId = itemId)
                 },
-                onSearchDismissChange = { handler ->
+                onBackHandlerChange = { handler ->
                     onScreenBackHandlerChange(FfxDestination.Home.route, handler)
                 }
             )

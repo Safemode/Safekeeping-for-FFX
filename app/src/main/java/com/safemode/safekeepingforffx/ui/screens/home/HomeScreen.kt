@@ -61,8 +61,12 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     /** The drawer's order, used as the default when the player hasn't set one and by Reset. */
     defaultHomeOrder: List<String> = emptyList(),
-    /** Publishes a "dismiss the search" action while one is active, so back can clear it. */
-    onSearchDismissChange: ((() -> Unit)?) -> Unit = {},
+    /**
+     * Publishes a back action for Home to claim, or null to release it. Used for two transient states
+     * that back should undo before it does anything else: an active search, and edit mode. Only one is
+     * ever live at a time, so a single slot is enough.
+     */
+    onBackHandlerChange: ((() -> Unit)?) -> Unit = {},
     viewModel: HomeViewModel = viewModel(
         factory = HomeViewModel.factory(categories, searchCategories, defaultHomeOrder)
     )
@@ -72,24 +76,34 @@ fun HomeScreen(
     val results by viewModel.results.collectAsStateWithLifecycle()
     val searching = query.isNotBlank()
 
+    // Lives here rather than in ProgressList so it survives a search (which swaps ProgressList out) and
+    // so the back handler below can cancel it. Cancelling just leaves edit mode; the uncommitted order
+    // and hidden set are dropped, since only Done saves them.
+    var editing by rememberSaveable { mutableStateOf(false) }
+
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
 
-    // Only claimed while there is a search to back out of; released as soon as the field is empty
-    // or Home leaves the composition, so back reverts to its normal behaviour.
-    DisposableEffect(searching) {
-        onSearchDismissChange(
-            if (searching) {
-                {
-                    viewModel.setQuery("")
-                    focusManager.clearFocus()
-                    keyboard?.hide()
+    // Back undoes a search first, then edit mode, before it would fall through to leaving the app.
+    // Claimed only while one of those is active and released otherwise (and when Home leaves the
+    // composition), so back is normal the rest of the time.
+    DisposableEffect(searching, editing) {
+        onBackHandlerChange(
+            when {
+                searching -> {
+                    {
+                        viewModel.setQuery("")
+                        focusManager.clearFocus()
+                        keyboard?.hide()
+                    }
                 }
-            } else {
-                null
+                editing -> {
+                    { editing = false }
+                }
+                else -> null
             }
         )
-        onDispose { onSearchDismissChange(null) }
+        onDispose { onBackHandlerChange(null) }
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -110,6 +124,8 @@ fun HomeScreen(
             ProgressList(
                 state = state,
                 defaultHomeOrder = defaultHomeOrder,
+                editing = editing,
+                onEditingChange = { editing = it },
                 onCategoryClick = onCategoryClick,
                 onCommit = { order, hidden ->
                     viewModel.setHomeOrder(order)
@@ -132,11 +148,12 @@ fun HomeScreen(
 private fun ProgressList(
     state: HomeUiState,
     defaultHomeOrder: List<String>,
+    editing: Boolean,
+    onEditingChange: (Boolean) -> Unit,
     onCategoryClick: (String) -> Unit,
     onCommit: (order: List<String>, hidden: Set<String>) -> Unit
 ) {
     val listState = rememberLazyListState()
-    var editing by rememberSaveable { mutableStateOf(false) }
 
     // The edit in progress: the order being dragged and the set being toggled. Held in
     // rememberSaveable so a rotation (or process death) mid-edit keeps the uncommitted arrangement
@@ -215,7 +232,7 @@ private fun ProgressList(
                         onClick = {
                             if (editing) {
                                 onCommit(workingOrder.toList(), workingHidden.toSet())
-                                editing = false
+                                onEditingChange(false)
                             } else {
                                 // Seed here, on the actual tap, rather than in a launched effect:
                                 // that way a rotation while editing never re-triggers seeding and
@@ -224,7 +241,7 @@ private fun ProgressList(
                                 workingOrder.addAll(state.categories.map { it.route })
                                 workingHidden.clear()
                                 workingHidden.addAll(state.hidden)
-                                editing = true
+                                onEditingChange(true)
                             }
                         }
                     ) {
