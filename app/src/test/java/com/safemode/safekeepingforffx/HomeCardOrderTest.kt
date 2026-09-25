@@ -61,4 +61,18 @@ class HomeCardOrderTest {
             routesOf(HomeViewModel.orderCards(cards, listOf("gone", "b", "also_gone", "a")))
         )
     }
+
+    @Test
+    fun defaultDrawerOrderPlacesMonsterArenaWhereTheSidebarHasIt() {
+        // The arena progress arrives last, after the checklists, but the default is the drawer order,
+        // where the arena sits inside Endgame ahead of Dark Aeons and Trophies. Applying that order
+        // (what an untouched Home and the Reset button both use) has to move it back up, not leave it
+        // trailing. Extra drawer routes with no Home card - the Sphere Grid here - are just skipped.
+        val cardsAsTheyArrive = listOf(card("aeons"), card("dark_aeons"), card("trophies"), card("monsterArena"))
+        val drawerOrder = listOf("aeons", "sphere_grid", "monsterArena", "dark_aeons", "trophies")
+        assertEquals(
+            listOf("aeons", "monsterArena", "dark_aeons", "trophies"),
+            routesOf(HomeViewModel.orderCards(cardsAsTheyArrive, drawerOrder))
+        )
+    }
 }
