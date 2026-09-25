@@ -81,7 +81,14 @@ data class BackupSettings(
      * per list, because the set of categories is reference data that changes between releases - a
      * category this build doesn't have simply isn't applied.
      */
-    val checklistSorts: Map<String, String> = emptyMap()
+    val checklistSorts: Map<String, String> = emptyMap(),
+    /**
+     * The order of the Home progress cards, as route ids, and which of them are hidden. Both are
+     * null in a file written before the feature existed, which reads as "leave Home alone"; present
+     * (empty list included) they are applied verbatim. Unknown route ids are ignored on restore.
+     */
+    val homeOrder: List<String>? = null,
+    val homeHidden: List<String>? = null
 )
 
 /**

@@ -34,11 +34,18 @@ data class CategoryProgress(
     val isComplete: Boolean get() = totalCount > 0 && foundCount == totalCount
 }
 
+/**
+ * [categories] is the full set of cards in the player's chosen order, hidden ones included, so the
+ * edit screen can show and reorder everything at once. Normal display and the summary counts use
+ * [visibleCategories]: a hidden list contributes nothing to "X of Y across N lists".
+ */
 data class HomeUiState(
-    val categories: List<CategoryProgress> = emptyList()
+    val categories: List<CategoryProgress> = emptyList(),
+    val hidden: Set<String> = emptySet()
 ) {
-    val totalFound: Int get() = categories.sumOf { it.foundCount }
-    val totalItems: Int get() = categories.sumOf { it.totalCount }
+    val visibleCategories: List<CategoryProgress> get() = categories.filterNot { it.route in hidden }
+    val totalFound: Int get() = visibleCategories.sumOf { it.foundCount }
+    val totalItems: Int get() = visibleCategories.sumOf { it.totalCount }
 }
 
 /** One hit from the global search: the item, plus which list it lives in so we can navigate there. */
@@ -54,7 +61,7 @@ class HomeViewModel(
     private val searchCategories: List<ChecklistCategory>,
     itemListRepository: ItemListRepository,
     private val monsterArenaRepository: MonsterArenaRepository,
-    settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
@@ -114,21 +121,28 @@ class HomeViewModel(
             CategoryProgress(MONSTER_ARENA_ID, MONSTER_ARENA_LABEL, progress.found, progress.total)
         }
 
-    val uiState = combine(
+    private val progress: Flow<List<CategoryProgress>> = combine(
         categories.map { category ->
             repository.observeProgress(category).map { progress ->
                 CategoryProgress(category.id, category.label, progress.found, progress.total)
             }
         } + monsterArenaProgress
-    ) { progress -> progress.toList() }
-        .combine(settingsRepository.gameVersion) { progress, version ->
-            // A list the chosen release doesn't have drops off Home entirely - card, found count and
-            // total - rather than sitting at zero forever. Its screen stays in the drawer regardless.
-            val unavailable = categories
-                .filterNot { it.isAvailableOn(version) }
-                .mapTo(HashSet()) { it.id }
-            HomeUiState(progress.filterNot { it.route in unavailable })
-        }
+    ) { it.toList() }
+
+    val uiState = combine(
+        progress,
+        settingsRepository.gameVersion,
+        settingsRepository.homeOrder,
+        settingsRepository.homeHidden
+    ) { progress, version, order, hidden ->
+        // A list the chosen release doesn't have drops off Home entirely - card, found count and
+        // total - rather than sitting at zero forever. Its screen stays in the drawer regardless.
+        val unavailable = categories
+            .filterNot { it.isAvailableOn(version) }
+            .mapTo(HashSet()) { it.id }
+        val available = progress.filterNot { it.route in unavailable }
+        HomeUiState(categories = orderCards(available, order), hidden = hidden)
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -140,7 +154,35 @@ class HomeViewModel(
             )
         )
 
+    /** Persists a new card order. Called once, on leaving edit mode, not on every drag. */
+    fun setHomeOrder(order: List<String>) {
+        viewModelScope.launch { settingsRepository.setHomeOrder(order) }
+    }
+
+    /** Persists which cards are hidden. Called once, on leaving edit mode. */
+    fun setHomeHidden(hidden: Set<String>) {
+        viewModelScope.launch { settingsRepository.setHomeHidden(hidden) }
+    }
+
     companion object {
+
+        /**
+         * Puts [cards] into the player's saved [order]. A card whose route the order doesn't mention -
+         * a list added in an update, or one never seen when the order was saved - keeps its natural
+         * position at the end, in the order [cards] already had. A route in [order] that no card
+         * matches is simply skipped. The sort is stable, so those trailing cards don't shuffle among
+         * themselves. An empty [order] means the player never reordered, so the natural order stands.
+         */
+        internal fun orderCards(
+            cards: List<CategoryProgress>,
+            order: List<String>
+        ): List<CategoryProgress> {
+            if (order.isEmpty()) return cards
+            val position = order.withIndex().associate { (index, route) -> route to index }
+            return cards.sortedBy { position[it.route] ?: Int.MAX_VALUE }
+        }
+
+
         fun factory(
             categories: List<ChecklistCategory>,
             searchCategories: List<ChecklistCategory>

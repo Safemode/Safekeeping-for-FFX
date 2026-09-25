@@ -15,6 +15,7 @@ import com.safemode.safekeepingforffx.data.backup.backupFileName
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.text.SimpleDateFormat
@@ -38,7 +39,9 @@ class BackupCodecTest {
             showHelp = false,
             sphereGridTapActivates = true,
             sphereGridFullNodeEditor = null,
-            checklistSorts = mapOf("celestial_weapons" to "CHRONOLOGICAL")
+            checklistSorts = mapOf("celestial_weapons" to "CHRONOLOGICAL"),
+            homeOrder = listOf("monsterArena", "celestial_weapons", "al_bhed_primers"),
+            homeHidden = listOf("al_bhed_primers")
         ),
         checklists = listOf(
             BackupChecklistEntry("al_bhed_primers", "primer_01", true, 1_700_000_000_000),
@@ -147,6 +150,27 @@ class BackupCodecTest {
         ).getOrThrow()
         assertEquals("ORIGINAL_PS2", decoded.settings?.gameVersion)
         assertEquals(emptyMap<String, String>(), decoded.settings?.checklistSorts)
+    }
+
+    @Test
+    fun homeLayoutFromAnOlderBuildDecodesAsNull() {
+        // A file written before Home could be reordered has no home fields. They must read as null -
+        // "leave Home as it is" - rather than as an empty order that would wipe a saved arrangement.
+        val decoded = BackupCodec.decode(
+            """{"format":"$BACKUP_FORMAT","version":$BACKUP_VERSION,"settings":{"showHelp":false}}"""
+        ).getOrThrow()
+        assertNull(decoded.settings?.homeOrder)
+        assertNull(decoded.settings?.homeHidden)
+    }
+
+    @Test
+    fun homeLayoutRoundTrips() {
+        val decoded = BackupCodec.decode(BackupCodec.encode(sample())).getOrThrow()
+        assertEquals(
+            listOf("monsterArena", "celestial_weapons", "al_bhed_primers"),
+            decoded.settings?.homeOrder
+        )
+        assertEquals(listOf("al_bhed_primers"), decoded.settings?.homeHidden)
     }
 
     @Test
