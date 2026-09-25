@@ -38,10 +38,15 @@ data class CategoryProgress(
  * [categories] is the full set of cards in the player's chosen order, hidden ones included, so the
  * edit screen can show and reorder everything at once. Normal display and the summary counts use
  * [visibleCategories]: a hidden list contributes nothing to "X of Y across N lists".
+ *
+ * [loaded] is false only for the seed value shown before the saved order and hidden set have been
+ * read from disk. The list waits for it rather than drawing the default order first and then
+ * animating into the saved one, which read as a flash of reordering on every cold start.
  */
 data class HomeUiState(
     val categories: List<CategoryProgress> = emptyList(),
-    val hidden: Set<String> = emptySet()
+    val hidden: Set<String> = emptySet(),
+    val loaded: Boolean = false
 ) {
     val visibleCategories: List<CategoryProgress> get() = categories.filterNot { it.route in hidden }
     val totalFound: Int get() = visibleCategories.sumOf { it.foundCount }
@@ -141,7 +146,7 @@ class HomeViewModel(
             .filterNot { it.isAvailableOn(version) }
             .mapTo(HashSet()) { it.id }
         val available = progress.filterNot { it.route in unavailable }
-        HomeUiState(categories = orderCards(available, order), hidden = hidden)
+        HomeUiState(categories = orderCards(available, order), hidden = hidden, loaded = true)
     }
         .stateIn(
             scope = viewModelScope,

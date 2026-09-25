@@ -142,10 +142,11 @@ private fun ProgressList(
     val workingHidden = rememberSaveable(saver = stringListSaver) { mutableStateListOf<String>() }
 
     // A safety net only: if we somehow return to an edit with nothing staged - a restore that lost
-    // the working lists - fill them from the saved state. It never runs when they already hold an
-    // edit, so it can't clobber the arrangement rememberSaveable just brought back.
-    LaunchedEffect(editing) {
-        if (editing && workingOrder.isEmpty()) {
+    // the working lists - fill them from the saved state. Gated on loaded so it seeds from the real
+    // order rather than the pre-load seed, and it never runs when the lists already hold an edit, so
+    // it can't clobber the arrangement rememberSaveable just brought back.
+    LaunchedEffect(editing, state.loaded) {
+        if (editing && state.loaded && workingOrder.isEmpty()) {
             workingOrder.addAll(state.categories.map { it.route })
             workingHidden.addAll(state.hidden)
         }
@@ -177,34 +178,48 @@ private fun ProgressList(
                         text = "Your progress",
                         style = MaterialTheme.typography.headlineSmall
                     )
-                    Text(
-                        text = "${state.totalFound} of ${state.totalItems} collected across " +
-                            "${state.visibleCategories.size} lists",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
-                    )
-                }
-                TextButton(
-                    onClick = {
-                        if (editing) {
-                            onCommit(workingOrder.toList(), workingHidden.toSet())
-                            editing = false
-                        } else {
-                            // Seed here, on the actual tap, rather than in a launched effect: that
-                            // way a rotation while editing never re-triggers seeding and wipes an
-                            // in-progress reorder.
-                            workingOrder.clear()
-                            workingOrder.addAll(state.categories.map { it.route })
-                            workingHidden.clear()
-                            workingHidden.addAll(state.hidden)
-                            editing = true
-                        }
+                    // Held back until the saved state is in, so the count doesn't jump from the
+                    // seed's "all lists" to the real "visible lists" alongside the cards appearing.
+                    if (state.loaded) {
+                        Text(
+                            text = "${state.totalFound} of ${state.totalItems} collected across " +
+                                "${state.visibleCategories.size} lists",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                        )
                     }
-                ) {
-                    Text(if (editing) "Done" else "Edit")
+                }
+                // No Edit until there's a real, saved order to edit - editing the pre-load seed
+                // could stage and then commit the wrong arrangement.
+                if (state.loaded) {
+                    TextButton(
+                        onClick = {
+                            if (editing) {
+                                onCommit(workingOrder.toList(), workingHidden.toSet())
+                                editing = false
+                            } else {
+                                // Seed here, on the actual tap, rather than in a launched effect:
+                                // that way a rotation while editing never re-triggers seeding and
+                                // wipes an in-progress reorder.
+                                workingOrder.clear()
+                                workingOrder.addAll(state.categories.map { it.route })
+                                workingHidden.clear()
+                                workingHidden.addAll(state.hidden)
+                                editing = true
+                            }
+                        }
+                    ) {
+                        Text(if (editing) "Done" else "Edit")
+                    }
                 }
             }
+        }
+
+        if (!state.loaded) {
+            // Nothing else until the saved order and hidden set are read. The wait is a frame or
+            // two of just the header, rather than the default order flashing in and reshuffling.
+            return@LazyColumn
         }
 
         if (editing) {
