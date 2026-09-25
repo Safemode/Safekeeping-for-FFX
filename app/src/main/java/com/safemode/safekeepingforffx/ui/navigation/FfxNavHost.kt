@@ -110,6 +110,9 @@ fun FfxNavHost(
                     .filter { it.trackProgress && it.showOnHome },
                 // Search covers every category, including the ones with no card on Home.
                 searchCategories = checklistDestinations.map { it.category },
+                // The drawer's own order, so an untouched Home and the Reset button both match the
+                // sidebar. Routes with no Home card are ignored when it's applied.
+                defaultHomeOrder = drawerDestinations.map { it.route },
                 onCategoryClick = { route -> navController.navigateToDestination(route) },
                 onResultClick = { categoryId, itemId ->
                     navController.navigateToDestination(categoryId, focusId = itemId)

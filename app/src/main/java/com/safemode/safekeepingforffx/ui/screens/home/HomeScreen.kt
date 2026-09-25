@@ -59,10 +59,12 @@ fun HomeScreen(
     onCategoryClick: (String) -> Unit,
     onResultClick: (categoryId: String, itemId: String) -> Unit,
     modifier: Modifier = Modifier,
+    /** The drawer's order, used as the default when the player hasn't set one and by Reset. */
+    defaultHomeOrder: List<String> = emptyList(),
     /** Publishes a "dismiss the search" action while one is active, so back can clear it. */
     onSearchDismissChange: ((() -> Unit)?) -> Unit = {},
     viewModel: HomeViewModel = viewModel(
-        factory = HomeViewModel.factory(categories, searchCategories)
+        factory = HomeViewModel.factory(categories, searchCategories, defaultHomeOrder)
     )
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -107,6 +109,7 @@ fun HomeScreen(
         } else {
             ProgressList(
                 state = state,
+                defaultHomeOrder = defaultHomeOrder,
                 onCategoryClick = onCategoryClick,
                 onCommit = { order, hidden ->
                     viewModel.setHomeOrder(order)
@@ -128,6 +131,7 @@ fun HomeScreen(
 @Composable
 private fun ProgressList(
     state: HomeUiState,
+    defaultHomeOrder: List<String>,
     onCategoryClick: (String) -> Unit,
     onCommit: (order: List<String>, hidden: Set<String>) -> Unit
 ) {
@@ -193,6 +197,20 @@ private fun ProgressList(
                 // No Edit until there's a real, saved order to edit - editing the pre-load seed
                 // could stage and then commit the wrong arrangement.
                 if (state.loaded) {
+                    // Puts the edit back to the drawer order with everything shown. It only restages
+                    // the working copies - like every other edit, it lands when Done is tapped.
+                    if (editing) {
+                        TextButton(
+                            onClick = {
+                                val present = state.categories.mapTo(HashSet()) { it.route }
+                                workingOrder.clear()
+                                workingOrder.addAll(defaultHomeOrder.filter { it in present })
+                                workingHidden.clear()
+                            }
+                        ) {
+                            Text("Reset")
+                        }
+                    }
                     TextButton(
                         onClick = {
                             if (editing) {
