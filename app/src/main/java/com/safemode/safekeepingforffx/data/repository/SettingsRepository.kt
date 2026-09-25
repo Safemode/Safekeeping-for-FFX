@@ -74,6 +74,29 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { it[checklistSortKey(categoryId)] = sort }
     }
 
+    /**
+     * The order the Home progress cards are shown in, as a list of route ids, or empty if the player
+     * never reordered them. Stored as a single delimited string rather than a key per card: it is one
+     * ordering, always read and written whole. A route the current build no longer has is harmless
+     * here - Home resolves these against the cards it actually has and ignores the rest.
+     */
+    val homeOrder: Flow<List<String>> = dataStore.data.map { preferences ->
+        preferences[HOME_ORDER].toIdList()
+    }
+
+    /** Route ids the player has hidden from Home. Their screens stay reachable from the drawer. */
+    val homeHidden: Flow<Set<String>> = dataStore.data.map { preferences ->
+        preferences[HOME_HIDDEN].toIdList().toSet()
+    }
+
+    suspend fun setHomeOrder(order: List<String>) {
+        dataStore.edit { it[HOME_ORDER] = order.joinToString(ID_DELIMITER) }
+    }
+
+    suspend fun setHomeHidden(hidden: Set<String>) {
+        dataStore.edit { it[HOME_HIDDEN] = hidden.joinToString(ID_DELIMITER) }
+    }
+
     suspend fun setGameVersion(version: GameVersion) {
         dataStore.edit { it[GAME_VERSION] = version.name }
     }
@@ -107,6 +130,10 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             showHelp = preferences[SHOW_HELP],
             sphereGridTapActivates = preferences[SPHERE_GRID_TAP_ACTIVATES],
             sphereGridFullNodeEditor = preferences[SPHERE_GRID_FULL_NODE_EDITOR],
+            // Null when the player never set one, so a restore can tell "leave Home as it is" apart
+            // from "the player deliberately cleared the order / hid nothing".
+            homeOrder = preferences[HOME_ORDER]?.let { it.toIdList() },
+            homeHidden = preferences[HOME_HIDDEN]?.let { it.toIdList() },
             // Collected by prefix rather than listed one by one, since there is a key per category
             // and the set of categories is not this class's business.
             checklistSorts = preferences.asMap()
@@ -135,6 +162,11 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
             snapshot.showHelp?.let { preferences[SHOW_HELP] = it }
             snapshot.sphereGridTapActivates?.let { preferences[SPHERE_GRID_TAP_ACTIVATES] = it }
             snapshot.sphereGridFullNodeEditor?.let { preferences[SPHERE_GRID_FULL_NODE_EDITOR] = it }
+            // A file from before this feature has null for both, which leaves Home untouched. A file
+            // that does carry them applies them exactly, empty list included, so restoring a backup
+            // where nothing was hidden really does un-hide everything.
+            snapshot.homeOrder?.let { preferences[HOME_ORDER] = it.joinToString(ID_DELIMITER) }
+            snapshot.homeHidden?.let { preferences[HOME_HIDDEN] = it.joinToString(ID_DELIMITER) }
             // Same rule as the fields above: a category the file doesn't mention keeps whatever
             // order it already had, rather than being reset by an unrelated restore.
             snapshot.checklistSorts.forEach { (categoryId, sort) ->
@@ -153,7 +185,11 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val sphereGridTapActivates: Boolean?,
         val sphereGridFullNodeEditor: Boolean?,
         /** Category id to stored order name. Absent categories are at their default. */
-        val checklistSorts: Map<String, String> = emptyMap()
+        val checklistSorts: Map<String, String> = emptyMap(),
+        /** Home card order as route ids, or null if the player never reordered them. */
+        val homeOrder: List<String>? = null,
+        /** Route ids hidden from Home, or null if the player never changed what's shown. */
+        val homeHidden: List<String>? = null
     )
 
     private companion object {
@@ -162,11 +198,23 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val SHOW_HELP = booleanPreferencesKey("show_help")
         val SPHERE_GRID_TAP_ACTIVATES = booleanPreferencesKey("sphere_grid_tap_activates")
         val SPHERE_GRID_FULL_NODE_EDITOR = booleanPreferencesKey("sphere_grid_full_node_editor")
+        val HOME_ORDER = stringPreferencesKey("home_order")
+        val HOME_HIDDEN = stringPreferencesKey("home_hidden")
 
         /** One key per category, e.g. `checklist_sort_celestial_weapons`. */
         const val CHECKLIST_SORT_PREFIX = "checklist_sort_"
 
         fun checklistSortKey(categoryId: String) =
             stringPreferencesKey("$CHECKLIST_SORT_PREFIX$categoryId")
+
+        /**
+         * Newline rather than comma so an id that ever contained a comma couldn't split into two.
+         * Route ids don't today, but the store shouldn't depend on that staying true.
+         */
+        const val ID_DELIMITER = "\n"
+
+        /** A stored list back to ids, dropping blanks so a trailing delimiter can't yield an empty id. */
+        fun String?.toIdList(): List<String> =
+            this?.split(ID_DELIMITER)?.filter { it.isNotEmpty() } ?: emptyList()
     }
 }
