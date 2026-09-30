@@ -9,6 +9,9 @@ import androidx.room.PrimaryKey
  * code in [payload], the same string that gets shared, so saving, sharing and replaying all speak one
  * format. [gridType] is duplicated out of the payload only so the library can label rows without
  * decoding every one.
+ *
+ * [createdAt] is when the route was first saved or imported and never changes; [updatedAt] tracks
+ * the last time it was modified (currently a rename) and is what the library labels each row with.
  */
 @Entity(tableName = "sphere_grid_route")
 data class SphereGridRouteEntity(
@@ -16,5 +19,6 @@ data class SphereGridRouteEntity(
     val name: String,
     val gridType: String,
     val createdAt: Long,
+    val updatedAt: Long,
     val payload: String
 )

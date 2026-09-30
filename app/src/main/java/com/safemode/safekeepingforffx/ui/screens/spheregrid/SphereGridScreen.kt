@@ -103,6 +103,8 @@ import com.safemode.safekeepingforffx.data.reference.NodeType
 import com.safemode.safekeepingforffx.data.reference.SphereGridNode
 import com.safemode.safekeepingforffx.data.repository.SphereGridRepository
 import com.safemode.safekeepingforffx.ui.components.Banner
+import java.text.DateFormat
+import java.util.Date
 import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.roundToInt
@@ -1445,6 +1447,17 @@ private fun RoutesSheet(
     }
 }
 
+/**
+ * A saved route's last-updated stamp, e.g. "Sep 29, 2026 · 2:03 PM". Uses the platform's locale
+ * formats so it reads naturally wherever the player is.
+ */
+private fun formatRouteTimestamp(millis: Long): String {
+    val date = Date(millis)
+    val day = DateFormat.getDateInstance(DateFormat.MEDIUM).format(date)
+    val time = DateFormat.getTimeInstance(DateFormat.SHORT).format(date)
+    return "$day · $time"
+}
+
 /** One row in the routes library: tap to replay, overflow to share/rename/delete. */
 @Composable
 private fun RouteRow(
@@ -1473,6 +1486,11 @@ private fun RouteRow(
             Text(route.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1)
             Text(
                 subtitle,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "Updated ${formatRouteTimestamp(route.updatedAt)}",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
