@@ -223,6 +223,10 @@ class SphereGridViewModel(
         gridType.flatMapLatest { repository.observeCharactersOnGrid(it) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
+    /** Whether any character has a path on either grid, so the menu can enable "Clear all paths". */
+    val hasAnyPath: StateFlow<Boolean> = repository.observeAnyPath()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     /** Non-null while replaying a route read-only; the screen renders this instead of live progress. */
     private val _routeView = MutableStateFlow<RouteViewState?>(null)
     val routeView: StateFlow<RouteViewState?> = _routeView
@@ -367,6 +371,11 @@ class SphereGridViewModel(
     /** Clears the selected character's whole path. Caller confirms first - cannot be undone. */
     fun clearCharacterPath() {
         viewModelScope.launch { repository.clearCharacterActivations(character.value) }
+    }
+
+    /** Clears every character's path on both grids. Caller confirms first - cannot be undone. */
+    fun clearAllPaths() {
+        viewModelScope.launch { repository.clearAllActivations() }
     }
 
     /**

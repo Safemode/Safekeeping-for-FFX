@@ -141,6 +141,12 @@ class SphereGridRepository(
     suspend fun clearCharacterActivations(character: GridCharacter) =
         activationDao.clearCharacter(character.name)
 
+    /** Whether any character has a path on either grid, for enabling the "Clear all paths" action. */
+    fun observeAnyPath(): Flow<Boolean> = activationDao.observeAnyPath()
+
+    /** Clears every character's path on both grids. Edits and saved routes are left alone. */
+    suspend fun clearAllActivations() = activationDao.clearAll()
+
     /**
      * Activates every node on [gridType] that holds a stat or an ability for [character], so the
      * planner can show what their totals look like with the whole grid taken. Locks and blank nodes

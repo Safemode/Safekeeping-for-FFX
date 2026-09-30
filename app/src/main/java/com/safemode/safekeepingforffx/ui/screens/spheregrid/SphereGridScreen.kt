@@ -176,6 +176,7 @@ fun SphereGridScreen(
     val routes by viewModel.routes.collectAsStateWithLifecycle()
     val loadedRoute by viewModel.loadedRoute.collectAsStateWithLifecycle()
     val charactersOnGrid by viewModel.charactersOnGrid.collectAsStateWithLifecycle()
+    val hasAnyPath by viewModel.hasAnyPath.collectAsStateWithLifecycle()
     var showRoutesSheet by remember { mutableStateOf(false) }
     var showSaveRouteDialog by remember { mutableStateOf(false) }
     var showImportRouteDialog by rememberSaveable { mutableStateOf(false) }
@@ -282,6 +283,16 @@ fun SphereGridScreen(
                             "cleared. This can't be undone.",
                         confirmLabel = "Clear path",
                         onConfirm = viewModel::clearCharacterPath
+                    )
+                },
+                anyCharacterHasPath = hasAnyPath,
+                onClearAllPaths = {
+                    confirm = ConfirmAction(
+                        title = "Clear all paths?",
+                        message = "Every character's activated path on both grids will be cleared. " +
+                            "Grid edits are kept. This can't be undone.",
+                        confirmLabel = "Clear all paths",
+                        onConfirm = viewModel::clearAllPaths
                     )
                 },
                 canActivateAll = state.gridAvailable && !state.isLoading,
@@ -689,6 +700,8 @@ private fun SelectorBar(
     characterName: String,
     onRevertEdits: () -> Unit,
     onClearPath: () -> Unit,
+    anyCharacterHasPath: Boolean,
+    onClearAllPaths: () -> Unit,
     canActivateAll: Boolean,
     onActivateAll: () -> Unit,
     canShare: Boolean,
@@ -804,6 +817,14 @@ private fun SelectorBar(
                     onClick = {
                         overflow = false
                         onClearPath()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Clear all paths") },
+                    enabled = anyCharacterHasPath,
+                    onClick = {
+                        overflow = false
+                        onClearAllPaths()
                     }
                 )
             }

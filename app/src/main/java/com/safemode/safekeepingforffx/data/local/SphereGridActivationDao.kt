@@ -48,6 +48,10 @@ interface SphereGridActivationDao {
     @Query("DELETE FROM sphere_grid_activation WHERE nodeId = :nodeId")
     suspend fun deleteNode(nodeId: String)
 
+    /** Whether any character has any activation, on either grid - drives the "Clear all paths" action. */
+    @Query("SELECT EXISTS(SELECT 1 FROM sphere_grid_activation)")
+    fun observeAnyPath(): Flow<Boolean>
+
     @Query("DELETE FROM sphere_grid_activation WHERE character = :character")
     suspend fun clearCharacter(character: String)
 
