@@ -19,3 +19,12 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# --- Moshi ---
+# Moshi and Room ship their own consumer rules, and all JSON models use @JsonClass(generateAdapter
+# = true), so R8 keeps the generated *JsonAdapter classes. These keeps are belt-and-braces for the
+# model data classes parsed from the bundled JSON / backup files, whose members are only touched
+# through the generated adapters and so could otherwise look unused to R8.
+-keep,allowobfuscation @com.squareup.moshi.JsonClass class * { *; }
+-keepclassmembers class com.safemode.safekeepingforffx.data.backup.** { <fields>; }
+-keepclassmembers class com.safemode.safekeepingforffx.data.reference.** { <fields>; }

@@ -1,4 +1,10 @@
 <resources>
 
-    <style name="Theme.SafekeepingForFFX" parent="Theme.MaterialComponents.Light" />
+    <!--
+      Base window theme used only for the brief blank window before Compose draws. Using a DayNight
+      parent lets android:windowBackground follow the system dark-mode setting, so cold-starting in
+      dark mode no longer flashes a white window. All real theming happens in Compose (Material3);
+      the app is Compose-only with no XML action bar (MainActivity is a ComponentActivity).
+    -->
+    <style name="Theme.SafekeepingForFFX" parent="Theme.Material3.DayNight.NoActionBar" />
 </resources>

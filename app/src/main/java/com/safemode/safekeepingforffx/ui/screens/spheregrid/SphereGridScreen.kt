@@ -1,5 +1,6 @@
 package com.safemode.safekeepingforffx.ui.screens.spheregrid
 
+import android.content.ClipData
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.core.animate
@@ -37,7 +38,7 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FirstPage
-import androidx.compose.material.icons.filled.LastPage
+import androidx.compose.material.icons.automirrored.filled.LastPage
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.outlined.Info
@@ -79,9 +80,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -187,12 +188,12 @@ fun SphereGridScreen(
     var canResetView by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
                 is SphereGridEvent.ExportReady -> {
-                    clipboard.setText(AnnotatedString(event.code))
+                    clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("Sphere grid route", event.code)))
                     context.startActivity(
                         Intent.createChooser(
                             Intent(Intent.ACTION_SEND).apply {
@@ -1385,7 +1386,7 @@ private fun RouteStepBar(route: RouteViewState, currentStepText: String?, onStep
             IconButton(
                 onClick = { onStep(route.stepCount) },
                 enabled = route.stepIndex < route.stepCount
-            ) { Icon(Icons.Filled.LastPage, contentDescription = "Jump to end") }
+            ) { Icon(Icons.AutoMirrored.Filled.LastPage, contentDescription = "Jump to end") }
         }
     }
 }
