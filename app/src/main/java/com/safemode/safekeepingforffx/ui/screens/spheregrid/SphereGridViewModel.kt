@@ -204,6 +204,16 @@ class SphereGridViewModel(
     val routes: StateFlow<List<SphereGridRepository.SavedRoute>> = repository.observeRoutes()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /**
+     * The route the live grid was loaded from or last saved to, resolved against the current library
+     * so a deleted route (or reassigned ids after a restore) reads as "nothing loaded". Drives the
+     * "Update <name>" option in the save dialog. Null when the live grid isn't tied to a saved route.
+     */
+    val loadedRoute: StateFlow<SphereGridRepository.SavedRoute?> =
+        combine(repository.observeActiveRouteId(), routes) { id, library ->
+            id?.let { active -> library.firstOrNull { it.id == active } }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     /** Non-null while replaying a route read-only; the screen renders this instead of live progress. */
     private val _routeView = MutableStateFlow<RouteViewState?>(null)
     val routeView: StateFlow<RouteViewState?> = _routeView
@@ -381,7 +391,11 @@ class SphereGridViewModel(
     fun importBuild(text: String) {
         viewModelScope.launch {
             repository.importBuild(text, gridType.value)
-                .onSuccess { eventChannel.send(SphereGridEvent.ImportDone(it)) }
+                .onSuccess {
+                    // Pasted work isn't tied to a saved route, so it can't update one.
+                    repository.setActiveRouteId(null)
+                    eventChannel.send(SphereGridEvent.ImportDone(it))
+                }
                 .onFailure {
                     eventChannel.send(
                         SphereGridEvent.ImportFailed(it.message ?: "That build code couldn't be read.")
@@ -395,13 +409,24 @@ class SphereGridViewModel(
     /** The route currently open for replay, kept so switching characters needs no database read. */
     private var openRouteBuild: SphereGridBuild? = null
 
-    /** Saves the current work as a named route in the library. */
+    /** The id behind [openRouteBuild], so adopting it can mark that route as the loaded one. */
+    private var openRouteId: Long? = null
+
+    /** Saves the current work as a named route in the library, and loads it for future updates. */
     fun saveCurrentAsRoute(name: String, scope: BuildScope) {
         val label = name.trim()
         if (label.isEmpty()) return
         viewModelScope.launch {
             repository.saveCurrentAsRoute(label, scope, character.value, gridType.value)
             eventChannel.send(SphereGridEvent.Notice("Route saved to your library."))
+        }
+    }
+
+    /** Overwrites the loaded route [id] with the current work (per [scope]), bumping its updated time. */
+    fun updateRoute(id: Long, scope: BuildScope) {
+        viewModelScope.launch {
+            repository.updateRoute(id, scope, character.value, gridType.value)
+            eventChannel.send(SphereGridEvent.Notice("Route updated."))
         }
     }
 
@@ -443,6 +468,7 @@ class SphereGridViewModel(
                 return@launch
             }
             openRouteBuild = build
+            openRouteId = id
             gridType.value = build.gridType
             val chars = build.events.filterIsInstance<RouteEvent.Activate>()
                 .map { it.character }.distinct()
@@ -502,6 +528,7 @@ class SphereGridViewModel(
 
     fun exitRouteView() {
         openRouteBuild = null
+        openRouteId = null
         _routeView.value = null
     }
 
@@ -517,15 +544,17 @@ class SphereGridViewModel(
     fun applyRouteToProgress(scope: RouteApplyScope = RouteApplyScope.ALL_CHARACTERS) {
         val build = openRouteBuild ?: return
         val viewedCharacter = _routeView.value?.character
-        val toApply = when {
-            scope == RouteApplyScope.ALL_CHARACTERS || viewedCharacter == null -> build
-            else -> build.forCharacterOnly(viewedCharacter)
-        }
+        val fullAdopt = scope == RouteApplyScope.ALL_CHARACTERS || viewedCharacter == null
+        val toApply = if (fullAdopt) build else build.forCharacterOnly(viewedCharacter)
+        // Adopting the whole route makes the live grid that route, so mark it loaded; a narrowed
+        // adopt only replaces one character's path, leaving a blend that matches no single route.
+        val adoptedRouteId = openRouteId.takeIf { fullAdopt }
         viewModelScope.launch {
             repository.applyBuild(toApply, build.gridType)
                 .onSuccess {
                     viewedCharacter?.let { character.value = it }
                     exitRouteView()
+                    repository.setActiveRouteId(adoptedRouteId)
                     eventChannel.send(SphereGridEvent.Notice("Route applied to your grid."))
                 }
                 .onFailure {

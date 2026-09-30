@@ -172,6 +172,7 @@ fun SphereGridScreen(
     // Saved routes library + read-only replay of a route.
     val routeView by viewModel.routeView.collectAsStateWithLifecycle()
     val routes by viewModel.routes.collectAsStateWithLifecycle()
+    val loadedRoute by viewModel.loadedRoute.collectAsStateWithLifecycle()
     var showRoutesSheet by remember { mutableStateOf(false) }
     var showSaveRouteDialog by remember { mutableStateOf(false) }
     var showImportRouteDialog by rememberSaveable { mutableStateOf(false) }
@@ -574,12 +575,20 @@ fun SphereGridScreen(
     }
 
     if (showSaveRouteDialog) {
+        // Offer "Update" only when the loaded route is for the grid on screen; a route captures one
+        // grid, so saving an Expert grid over a Standard route would silently change its type.
+        val updatableRoute = loadedRoute?.takeIf { it.gridType == state.gridType }
         SaveRouteDialog(
             characterName = state.character.displayName,
+            updatableRouteName = updatableRoute?.name,
             onDismiss = { showSaveRouteDialog = false },
             onSave = { name, scope ->
                 showSaveRouteDialog = false
                 viewModel.saveCurrentAsRoute(name, scope)
+            },
+            onUpdate = { scope ->
+                showSaveRouteDialog = false
+                updatableRoute?.let { viewModel.updateRoute(it.id, scope) }
             }
         )
     }
@@ -1521,28 +1530,51 @@ private fun RouteRow(
     }
 }
 
-/** Names the current work and picks how much of it to keep, then saves it as a route. */
+/**
+ * Names the current work and picks how much of it to keep, then saves it as a route. When a route is
+ * loaded ([updatableRouteName] non-null), it also offers to overwrite that route instead of adding a
+ * new one; the scope picker below applies to whichever is chosen.
+ */
 @Composable
 private fun SaveRouteDialog(
     characterName: String,
+    updatableRouteName: String?,
     onDismiss: () -> Unit,
-    onSave: (String, BuildScope) -> Unit
+    onSave: (String, BuildScope) -> Unit,
+    onUpdate: (BuildScope) -> Unit
 ) {
     var name by rememberSaveable { mutableStateOf("") }
     var scope by remember { mutableStateOf(BuildScope.EDITS_AND_CURRENT) }
+    // Default to updating the loaded route, since that's the more likely intent once one is open.
+    var updateExisting by rememberSaveable(updatableRouteName) { mutableStateOf(updatableRouteName != null) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Save route") },
         text = {
             Column {
-                androidx.compose.material3.OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    singleLine = true,
-                    label = { Text("Route name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.size(12.dp))
+                if (updatableRouteName != null) {
+                    SaveModeOption(
+                        selected = updateExisting,
+                        label = "Update \"$updatableRouteName\"",
+                        onClick = { updateExisting = true }
+                    )
+                    SaveModeOption(
+                        selected = !updateExisting,
+                        label = "Save as a new route",
+                        onClick = { updateExisting = false }
+                    )
+                    Spacer(Modifier.size(12.dp))
+                }
+                if (!updateExisting) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        singleLine = true,
+                        label = { Text("Route name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.size(12.dp))
+                }
                 Text("Include:", style = MaterialTheme.typography.labelLarge)
                 BuildScope.entries.forEach { option ->
                     Row(
@@ -1560,12 +1592,32 @@ private fun SaveRouteDialog(
             }
         },
         confirmButton = {
-            TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), scope) }) {
-                Text("Save")
+            if (updateExisting) {
+                TextButton(onClick = { onUpdate(scope) }) { Text("Update") }
+            } else {
+                TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), scope) }) {
+                    Text("Save")
+                }
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
+}
+
+/** One "update vs save new" choice at the top of the save dialog. */
+@Composable
+private fun SaveModeOption(selected: Boolean, label: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Spacer(Modifier.size(4.dp))
+        Text(label)
+    }
 }
 
 /** Pastes a route code and adds it to the library, optionally under a chosen name. */

@@ -23,6 +23,7 @@ import com.safemode.safekeepingforffx.data.reference.SphereGridBuildCodec
 import com.safemode.safekeepingforffx.data.reference.SphereGridParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -39,7 +40,8 @@ class SphereGridRepository(
     private val database: FfxDatabase,
     private val nodeDao: SphereGridNodeDao,
     private val activationDao: SphereGridActivationDao,
-    private val routeDao: SphereGridRouteDao
+    private val routeDao: SphereGridRouteDao,
+    private val settingsRepository: SettingsRepository
 ) {
     private val cache = ConcurrentHashMap<GridType, GridData>()
 
@@ -160,10 +162,15 @@ class SphereGridRepository(
         return targets.size
     }
 
-    /** Full wipe used by the Settings "Reset all progress": both edits and every character's path. */
+    /**
+     * Full wipe used by the Settings "Reset all progress": both edits and every character's path.
+     * Saved routes are kept, but the live grid no longer descends from one, so the loaded-route link
+     * is cleared - otherwise a later save would offer to overwrite a route with the emptied grid.
+     */
     suspend fun clearAll() {
         nodeDao.clearAll()
         activationDao.clearAll()
+        settingsRepository.setActiveSphereGridRouteId(null)
     }
 
     // --- Sharing: export/import a build as a copy/paste code ---
@@ -299,16 +306,28 @@ class SphereGridRepository(
     fun observeRoutes(): Flow<List<SavedRoute>> =
         routeDao.observeAll().map { rows -> rows.mapNotNull { it.toSummary() } }
 
-    /** Saves the player's current work (per [scope]) as a named route in the library. */
+    /**
+     * The route the live grid was loaded from or last saved to, or null. Persisted, so it survives an
+     * app restart; the caller resolves it against [observeRoutes] and ignores an id no longer present.
+     */
+    fun observeActiveRouteId(): Flow<Long?> = settingsRepository.activeSphereGridRouteId
+
+    /** Points the loaded-route link at [id], or clears it with null. */
+    suspend fun setActiveRouteId(id: Long?) = settingsRepository.setActiveSphereGridRouteId(id)
+
+    /**
+     * Saves the player's current work (per [scope]) as a named route and makes it the loaded route,
+     * so a following save offers to update this same one. Returns the new row id.
+     */
     suspend fun saveCurrentAsRoute(
         name: String,
         scope: BuildScope,
         character: GridCharacter,
         gridType: GridType
-    ) {
+    ): Long {
         val build = currentBuild(scope, character, gridType).copy(name = name)
         val now = System.currentTimeMillis()
-        routeDao.insert(
+        val id = routeDao.insert(
             SphereGridRouteEntity(
                 name = name,
                 gridType = gridType.name,
@@ -317,6 +336,30 @@ class SphereGridRepository(
                 payload = SphereGridBuildCodec.encode(build)
             )
         )
+        settingsRepository.setActiveSphereGridRouteId(id)
+        return id
+    }
+
+    /**
+     * Overwrites route [id] with the player's current work (per [scope]), keeping the route's name and
+     * original save time but bumping its updated time, and keeps it the loaded route. No-op if the
+     * route is gone. This is "Update <name>" - writing edits back to the route they were loaded from.
+     */
+    suspend fun updateRoute(
+        id: Long,
+        scope: BuildScope,
+        character: GridCharacter,
+        gridType: GridType
+    ) {
+        val existing = routeDao.get(id) ?: return
+        val build = currentBuild(scope, character, gridType).copy(name = existing.name)
+        routeDao.updateContent(
+            id = id,
+            gridType = gridType.name,
+            payload = SphereGridBuildCodec.encode(build),
+            updatedAt = System.currentTimeMillis()
+        )
+        settingsRepository.setActiveSphereGridRouteId(id)
     }
 
     /** Saves a pasted route code into the library, using its own name unless [name] overrides it. */
@@ -339,9 +382,18 @@ class SphereGridRepository(
     suspend fun renameRoute(id: Long, name: String) =
         routeDao.rename(id, name, System.currentTimeMillis())
 
-    suspend fun deleteRoute(id: Long) = routeDao.delete(id)
+    suspend fun deleteRoute(id: Long) {
+        routeDao.delete(id)
+        // Nothing to load back from, so drop the link if it pointed here.
+        if (settingsRepository.activeSphereGridRouteId.first() == id) {
+            settingsRepository.setActiveSphereGridRouteId(null)
+        }
+    }
 
-    suspend fun clearRoutes() = routeDao.clearAll()
+    suspend fun clearRoutes() {
+        routeDao.clearAll()
+        settingsRepository.setActiveSphereGridRouteId(null)
+    }
 
     /** The route's shareable code, for the library's Share action. */
     suspend fun routeCode(id: Long): String? = routeDao.get(id)?.payload
