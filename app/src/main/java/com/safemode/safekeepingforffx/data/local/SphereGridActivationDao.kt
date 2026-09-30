@@ -44,6 +44,10 @@ interface SphereGridActivationDao {
     @Query("DELETE FROM sphere_grid_activation WHERE character = :character AND nodeId = :nodeId")
     suspend fun delete(character: String, nodeId: String)
 
+    /** Removes a node from every character's path, e.g. when a gate is re-locked. */
+    @Query("DELETE FROM sphere_grid_activation WHERE nodeId = :nodeId")
+    suspend fun deleteNode(nodeId: String)
+
     @Query("DELETE FROM sphere_grid_activation WHERE character = :character")
     suspend fun clearCharacter(character: String)
 

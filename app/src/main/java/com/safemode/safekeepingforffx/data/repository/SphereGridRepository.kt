@@ -92,6 +92,10 @@ class SphereGridRepository(
     suspend fun setContent(nodeId: String, content: NodeContent?, original: NodeContent) {
         if (content == null || content == original) {
             nodeDao.delete(nodeId)
+            // Reverting a lock re-gates the node for everyone. A gate can't be activated, so drop any
+            // path that took it while it was open - otherwise it stays drawn as an activated node and
+            // keeps its connected route highlighted.
+            if (original is NodeContent.Lock) activationDao.deleteNode(nodeId)
         } else {
             seqMutex.withLock {
                 nodeDao.upsert(
