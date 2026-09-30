@@ -10,7 +10,7 @@
 - Kotlin
 - Jetpack Compose
 - MVVM Architecture
-- Hilt for dependency injection
+- Manual dependency injection via `di/AppContainer.kt` (no Hilt/Dagger - the app is small enough that a DI framework would be overhead)
 
 ## Conventions
 - All UI in Compose, no XML layouts
