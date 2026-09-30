@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FirstPage
 import androidx.compose.material.icons.automirrored.filled.LastPage
 import androidx.compose.material.icons.filled.MoreVert
@@ -1320,7 +1321,6 @@ private fun RouteReplayBar(
     onExit: () -> Unit,
     onApply: () -> Unit
 ) {
-    var menu by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onExit) {
@@ -1334,19 +1334,15 @@ private fun RouteReplayBar(
                 )
                 Text(route.name, style = MaterialTheme.typography.titleMedium, maxLines = 1)
             }
-            Box {
-                IconButton(onClick = { menu = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "Route actions")
-                }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Make this my live progress") },
-                        onClick = {
-                            menu = false
-                            onApply()
-                        }
-                    )
-                }
+            // "Make this my live progress" as a direct button rather than an overflow menu.
+            OutlinedButton(onClick = onApply) {
+                Icon(
+                    imageVector = Icons.Filled.Download,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("Make Live", maxLines = 1)
             }
         }
         if (route.availableCharacters.size > 1) {
