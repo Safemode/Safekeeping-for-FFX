@@ -25,8 +25,8 @@ interface SphereGridRouteDao {
     @Insert
     suspend fun insertAll(routes: List<SphereGridRouteEntity>)
 
-    @Query("UPDATE sphere_grid_route SET name = :name WHERE id = :id")
-    suspend fun rename(id: Long, name: String)
+    @Query("UPDATE sphere_grid_route SET name = :name, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun rename(id: Long, name: String, updatedAt: Long)
 
     @Query("DELETE FROM sphere_grid_route WHERE id = :id")
     suspend fun delete(id: Long)

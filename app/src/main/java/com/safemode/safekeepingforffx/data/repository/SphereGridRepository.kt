@@ -307,11 +307,13 @@ class SphereGridRepository(
         gridType: GridType
     ) {
         val build = currentBuild(scope, character, gridType).copy(name = name)
+        val now = System.currentTimeMillis()
         routeDao.insert(
             SphereGridRouteEntity(
                 name = name,
                 gridType = gridType.name,
-                createdAt = System.currentTimeMillis(),
+                createdAt = now,
+                updatedAt = now,
                 payload = SphereGridBuildCodec.encode(build)
             )
         )
@@ -321,18 +323,21 @@ class SphereGridRepository(
     suspend fun saveImportedRoute(name: String, code: String): Result<Unit> {
         val build = SphereGridBuildCodec.decode(code).getOrElse { return Result.failure(it) }
         val label = name.ifBlank { build.name ?: "Imported route" }
+        val now = System.currentTimeMillis()
         routeDao.insert(
             SphereGridRouteEntity(
                 name = label,
                 gridType = build.gridType.name,
-                createdAt = System.currentTimeMillis(),
+                createdAt = now,
+                updatedAt = now,
                 payload = code.trim()
             )
         )
         return Result.success(Unit)
     }
 
-    suspend fun renameRoute(id: Long, name: String) = routeDao.rename(id, name)
+    suspend fun renameRoute(id: Long, name: String) =
+        routeDao.rename(id, name, System.currentTimeMillis())
 
     suspend fun deleteRoute(id: Long) = routeDao.delete(id)
 
@@ -361,6 +366,7 @@ class SphereGridRepository(
             name = name,
             gridType = gridType,
             createdAt = createdAt,
+            updatedAt = updatedAt,
             editCount = build.events.count { it is RouteEvent.Edit },
             pathCounts = build.events.filterIsInstance<RouteEvent.Activate>()
                 .groupingBy { it.character }.eachCount()
@@ -382,6 +388,7 @@ class SphereGridRepository(
         val name: String,
         val gridType: GridType,
         val createdAt: Long,
+        val updatedAt: Long,
         val editCount: Int,
         val pathCounts: Map<GridCharacter, Int>
     )

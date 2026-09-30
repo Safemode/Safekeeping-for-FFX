@@ -58,7 +58,7 @@ class BackupCodecTest {
             BackupSphereGridActivation("YUNA", "s_n40", 5)
         ),
         sphereGridRoutes = listOf(
-            BackupSphereGridRoute("Tidus opener", "STANDARD", 1_700_000_000_003, "{\"v\":2}")
+            BackupSphereGridRoute("Tidus opener", "STANDARD", 1_700_000_000_003, 1_700_000_000_009, "{\"v\":2}")
         )
     )
 
@@ -136,6 +136,21 @@ class BackupCodecTest {
         assertTrue(decoded.sphereGridEdits.isEmpty())
         assertTrue(decoded.sphereGridActivations.isEmpty())
         assertTrue(decoded.sphereGridRoutes.isEmpty())
+    }
+
+    @Test
+    fun routeFromAnOlderBuildDecodesWithoutUpdatedAt() {
+        // A route written before routes tracked an edit time has no `updatedAt` field. It must
+        // default to 0 (the restore reads that as "same as createdAt") rather than failing.
+        val decoded = BackupCodec.decode(
+            """
+            {"format":"$BACKUP_FORMAT","version":$BACKUP_VERSION,
+             "sphereGridRoutes":[{"name":"Old route","gridType":"STANDARD",
+             "createdAt":1700000000003,"payload":"{}"}]}
+            """.trimIndent()
+        ).getOrThrow()
+        assertEquals(1, decoded.sphereGridRoutes.size)
+        assertEquals(0L, decoded.sphereGridRoutes.first().updatedAt)
     }
 
     @Test

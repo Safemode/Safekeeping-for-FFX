@@ -89,7 +89,7 @@ class BackupRepository(
                 BackupSphereGridActivation(it.character, it.nodeId, it.seq)
             },
             sphereGridRoutes = routeDao.snapshot().map {
-                BackupSphereGridRoute(it.name, it.gridType, it.createdAt, it.payload)
+                BackupSphereGridRoute(it.name, it.gridType, it.createdAt, it.updatedAt, it.payload)
             }
         )
     }
@@ -139,7 +139,12 @@ class BackupRepository(
             .map { SphereGridActivationEntity(it.character, it.nodeId, it.seq) }
         val routes = backup.sphereGridRoutes
             .filter { it.payload.isNotBlank() }
-            .map { SphereGridRouteEntity(0, it.name, it.gridType, it.createdAt, it.payload) }
+            .map {
+                // A file from before routes tracked an edit time carries updatedAt = 0; show those
+                // as last updated when they were saved.
+                val updatedAt = if (it.updatedAt > 0) it.updatedAt else it.createdAt
+                SphereGridRouteEntity(0, it.name, it.gridType, it.createdAt, updatedAt, it.payload)
+            }
 
         runCatching {
             database.withTransaction {

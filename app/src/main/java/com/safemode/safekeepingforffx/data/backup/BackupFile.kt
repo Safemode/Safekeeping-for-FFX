@@ -136,12 +136,16 @@ data class BackupSphereGridActivation(
 /**
  * A saved route. The database row's `id` is deliberately not carried: a restore inserts routes as
  * new rows, so merging a file into a library that already has rows can never collide on a key.
+ *
+ * [updatedAt] defaults to 0 so a file written before routes tracked an edit time still decodes; the
+ * restore reads that 0 as "same as createdAt".
  */
 @JsonClass(generateAdapter = true)
 data class BackupSphereGridRoute(
     val name: String,
     val gridType: String,
     val createdAt: Long,
+    val updatedAt: Long = 0,
     val payload: String
 )
 

@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SphereGridRouteEntity::class,
         FavoriteEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 abstract class FfxDatabase : RoomDatabase() {
@@ -161,6 +161,21 @@ abstract class FfxDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds `updatedAt` to the saved-routes table so the library can show when each route was
+         * last modified. Existing routes have no separate edit time, so seed it from their save
+         * time - the same value the library would have shown anyway - rather than leaving them at
+         * the epoch. Additive: no other table is touched, so nobody loses progress on update.
+         */
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `sphere_grid_route` ADD COLUMN `updatedAt` INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL("UPDATE `sphere_grid_route` SET `updatedAt` = `createdAt`")
+            }
+        }
+
         @Volatile
         private var instance: FfxDatabase? = null
 
@@ -172,7 +187,7 @@ abstract class FfxDatabase : RoomDatabase() {
                     "ffx_tracker.db"
                 ).addMigrations(
                     MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
-                    MIGRATION_6_7, MIGRATION_7_8
+                    MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9
                 ).build().also { instance = it }
             }
     }
