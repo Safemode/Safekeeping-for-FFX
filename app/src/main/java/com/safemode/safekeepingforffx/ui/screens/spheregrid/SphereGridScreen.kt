@@ -37,10 +37,12 @@ import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FirstPage
 import androidx.compose.material.icons.automirrored.filled.LastPage
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -172,6 +174,9 @@ fun SphereGridScreen(
     // Saved routes library + read-only replay of a route.
     val routeView by viewModel.routeView.collectAsStateWithLifecycle()
     val routes by viewModel.routes.collectAsStateWithLifecycle()
+    val loadedRoute by viewModel.loadedRoute.collectAsStateWithLifecycle()
+    val charactersOnGrid by viewModel.charactersOnGrid.collectAsStateWithLifecycle()
+    val hasAnyPath by viewModel.hasAnyPath.collectAsStateWithLifecycle()
     var showRoutesSheet by remember { mutableStateOf(false) }
     var showSaveRouteDialog by remember { mutableStateOf(false) }
     var showImportRouteDialog by rememberSaveable { mutableStateOf(false) }
@@ -280,6 +285,16 @@ fun SphereGridScreen(
                         onConfirm = viewModel::clearCharacterPath
                     )
                 },
+                anyCharacterHasPath = hasAnyPath,
+                onClearAllPaths = {
+                    confirm = ConfirmAction(
+                        title = "Clear all paths?",
+                        message = "Every character's activated path on both grids will be cleared. " +
+                            "Grid edits are kept. This can't be undone.",
+                        confirmLabel = "Clear all paths",
+                        onConfirm = viewModel::clearAllPaths
+                    )
+                },
                 canActivateAll = state.gridAvailable && !state.isLoading,
                 onActivateAll = {
                     confirm = ConfirmAction(
@@ -383,9 +398,9 @@ fun SphereGridScreen(
                     modifier = Modifier.fillMaxSize()
                 )
             }
-            // View controls, stacked bottom-right: go back to this character, and zoom out to the
-            // whole grid. Each appears only when it has somewhere to take you, so the stack is
-            // usually one button and never both when there is nothing to do.
+            // Actions stacked bottom-right: save the current work as a route, go back to this
+            // character, and zoom out to the whole grid. Each appears only when it applies, so the
+            // stack shows just the buttons that currently do something.
             val gridShown = state.gridAvailable && !state.isLoading
             val homeNodeId = state.homeNodeId
             Column(
@@ -395,6 +410,16 @@ fun SphereGridScreen(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Save the current work as a route - the same action as the overflow menu's "Save
+                // current as route". Hidden during a replay and when there is nothing built to save.
+                if (activeRoute == null && gridShown && state.hasAnythingToShare) {
+                    FilledTonalIconButton(onClick = { showSaveRouteDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.Save,
+                            contentDescription = "Save current work as a route"
+                        )
+                    }
+                }
                 // Back to where this character is: the node they last activated on this grid, or - with
                 // no path here yet - where the game starts them. Hidden during a route replay, where
                 // the live path is not what is on screen and the replay bar drives the view instead.
@@ -569,17 +594,37 @@ fun SphereGridScreen(
                     onConfirm = { viewModel.deleteRoute(route.id) }
                 )
             },
+            onDeleteAll = {
+                val count = routes.size
+                confirm = ConfirmAction(
+                    title = "Delete all saved routes?",
+                    message = "This removes all $count saved ${if (count == 1) "route" else "routes"} " +
+                        "from your library. This can't be undone.",
+                    confirmLabel = "Delete all",
+                    onConfirm = { viewModel.clearAllRoutes() }
+                )
+            },
             onImportRoute = { showImportRouteDialog = true }
         )
     }
 
     if (showSaveRouteDialog) {
+        // Offer "Update" only when the loaded route is for the grid on screen; a route captures one
+        // grid, so saving an Expert grid over a Standard route would silently change its type.
+        val updatableRoute = loadedRoute?.takeIf { it.gridType == state.gridType }
         SaveRouteDialog(
             characterName = state.character.displayName,
+            updatableRouteName = updatableRoute?.name,
+            // Work spanning more than one character defaults to saving every path.
+            defaultAllPaths = charactersOnGrid.size > 1,
             onDismiss = { showSaveRouteDialog = false },
             onSave = { name, scope ->
                 showSaveRouteDialog = false
                 viewModel.saveCurrentAsRoute(name, scope)
+            },
+            onUpdate = { scope ->
+                showSaveRouteDialog = false
+                updatableRoute?.let { viewModel.updateRoute(it.id, scope) }
             }
         )
     }
@@ -655,6 +700,8 @@ private fun SelectorBar(
     characterName: String,
     onRevertEdits: () -> Unit,
     onClearPath: () -> Unit,
+    anyCharacterHasPath: Boolean,
+    onClearAllPaths: () -> Unit,
     canActivateAll: Boolean,
     onActivateAll: () -> Unit,
     canShare: Boolean,
@@ -770,6 +817,14 @@ private fun SelectorBar(
                     onClick = {
                         overflow = false
                         onClearPath()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Clear all paths") },
+                    enabled = anyCharacterHasPath,
+                    onClick = {
+                        overflow = false
+                        onClearAllPaths()
                     }
                 )
             }
@@ -1287,7 +1342,6 @@ private fun RouteReplayBar(
     onExit: () -> Unit,
     onApply: () -> Unit
 ) {
-    var menu by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onExit) {
@@ -1301,19 +1355,15 @@ private fun RouteReplayBar(
                 )
                 Text(route.name, style = MaterialTheme.typography.titleMedium, maxLines = 1)
             }
-            Box {
-                IconButton(onClick = { menu = true }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "Route actions")
-                }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Make this my live progress") },
-                        onClick = {
-                            menu = false
-                            onApply()
-                        }
-                    )
-                }
+            // "Make this my live progress" as a direct button rather than an overflow menu.
+            OutlinedButton(onClick = onApply) {
+                Icon(
+                    imageVector = Icons.Filled.Download,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text("Make Live", maxLines = 1)
             }
         }
         if (route.availableCharacters.size > 1) {
@@ -1403,6 +1453,7 @@ private fun RoutesSheet(
     onShare: (Long) -> Unit,
     onRename: (SphereGridRepository.SavedRoute) -> Unit,
     onDelete: (SphereGridRepository.SavedRoute) -> Unit,
+    onDeleteAll: () -> Unit,
     onImportRoute: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState()
@@ -1419,6 +1470,11 @@ private fun RoutesSheet(
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f)
                 )
+                if (routes.isNotEmpty()) {
+                    TextButton(onClick = onDeleteAll) {
+                        Text("Delete all", color = MaterialTheme.colorScheme.error)
+                    }
+                }
                 TextButton(onClick = onImportRoute) { Text("Import") }
             }
             Spacer(Modifier.size(8.dp))
@@ -1521,28 +1577,55 @@ private fun RouteRow(
     }
 }
 
-/** Names the current work and picks how much of it to keep, then saves it as a route. */
+/**
+ * Names the current work and picks how much of it to keep, then saves it as a route. When a route is
+ * loaded ([updatableRouteName] non-null), it also offers to overwrite that route instead of adding a
+ * new one; the scope picker below applies to whichever is chosen.
+ */
 @Composable
 private fun SaveRouteDialog(
     characterName: String,
+    updatableRouteName: String?,
+    defaultAllPaths: Boolean,
     onDismiss: () -> Unit,
-    onSave: (String, BuildScope) -> Unit
+    onSave: (String, BuildScope) -> Unit,
+    onUpdate: (BuildScope) -> Unit
 ) {
     var name by rememberSaveable { mutableStateOf("") }
-    var scope by remember { mutableStateOf(BuildScope.EDITS_AND_CURRENT) }
+    // Default the scope to all paths for multi-character work, otherwise just this character's.
+    var scope by remember(defaultAllPaths) {
+        mutableStateOf(if (defaultAllPaths) BuildScope.EDITS_AND_ALL else BuildScope.EDITS_AND_CURRENT)
+    }
+    // Default to updating the loaded route, since that's the more likely intent once one is open.
+    var updateExisting by rememberSaveable(updatableRouteName) { mutableStateOf(updatableRouteName != null) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Save route") },
         text = {
             Column {
-                androidx.compose.material3.OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    singleLine = true,
-                    label = { Text("Route name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.size(12.dp))
+                if (updatableRouteName != null) {
+                    SaveModeOption(
+                        selected = updateExisting,
+                        label = "Update \"$updatableRouteName\"",
+                        onClick = { updateExisting = true }
+                    )
+                    SaveModeOption(
+                        selected = !updateExisting,
+                        label = "Save as a new route",
+                        onClick = { updateExisting = false }
+                    )
+                    Spacer(Modifier.size(12.dp))
+                }
+                if (!updateExisting) {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        singleLine = true,
+                        label = { Text("Route name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.size(12.dp))
+                }
                 Text("Include:", style = MaterialTheme.typography.labelLarge)
                 BuildScope.entries.forEach { option ->
                     Row(
@@ -1560,12 +1643,32 @@ private fun SaveRouteDialog(
             }
         },
         confirmButton = {
-            TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), scope) }) {
-                Text("Save")
+            if (updateExisting) {
+                TextButton(onClick = { onUpdate(scope) }) { Text("Update") }
+            } else {
+                TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), scope) }) {
+                    Text("Save")
+                }
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
+}
+
+/** One "update vs save new" choice at the top of the save dialog. */
+@Composable
+private fun SaveModeOption(selected: Boolean, label: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Spacer(Modifier.size(4.dp))
+        Text(label)
+    }
 }
 
 /** Pastes a route code and adds it to the library, optionally under a chosen name. */

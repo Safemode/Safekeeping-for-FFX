@@ -42,7 +42,8 @@ class AppContainer(context: Context) {
             database,
             database.sphereGridNodeDao(),
             database.sphereGridActivationDao(),
-            database.sphereGridRouteDao()
+            database.sphereGridRouteDao(),
+            settingsRepository
         )
     }
 

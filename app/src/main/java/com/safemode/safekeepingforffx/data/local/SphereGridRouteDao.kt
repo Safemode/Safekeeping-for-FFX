@@ -28,6 +28,13 @@ interface SphereGridRouteDao {
     @Query("UPDATE sphere_grid_route SET name = :name, updatedAt = :updatedAt WHERE id = :id")
     suspend fun rename(id: Long, name: String, updatedAt: Long)
 
+    /** Overwrites a route's build (and its grid label) in place, bumping its updated time. */
+    @Query(
+        "UPDATE sphere_grid_route SET gridType = :gridType, payload = :payload, " +
+            "updatedAt = :updatedAt WHERE id = :id"
+    )
+    suspend fun updateContent(id: Long, gridType: String, payload: String, updatedAt: Long)
+
     @Query("DELETE FROM sphere_grid_route WHERE id = :id")
     suspend fun delete(id: Long)
 

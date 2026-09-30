@@ -23,6 +23,14 @@ interface SphereGridActivationDao {
     @Query("SELECT * FROM sphere_grid_activation ORDER BY seq")
     suspend fun snapshot(): List<SphereGridActivationEntity>
 
+    /**
+     * The distinct characters with any activation on the grid whose node ids start with [prefix]
+     * (see `GridType.idPrefix`). Lets the save dialog tell single- from multi-character work on the
+     * grid in view without loading every path.
+     */
+    @Query("SELECT DISTINCT character FROM sphere_grid_activation WHERE nodeId LIKE :prefix || '%'")
+    fun observeCharactersOnGrid(prefix: String): Flow<List<String>>
+
     /** Highest activation seq, or null if none. Paired with the edit table's max for the next seq. */
     @Query("SELECT MAX(seq) FROM sphere_grid_activation")
     suspend fun maxSeq(): Long?
@@ -35,6 +43,14 @@ interface SphereGridActivationDao {
 
     @Query("DELETE FROM sphere_grid_activation WHERE character = :character AND nodeId = :nodeId")
     suspend fun delete(character: String, nodeId: String)
+
+    /** Removes a node from every character's path, e.g. when a gate is re-locked. */
+    @Query("DELETE FROM sphere_grid_activation WHERE nodeId = :nodeId")
+    suspend fun deleteNode(nodeId: String)
+
+    /** Whether any character has any activation, on either grid - drives the "Clear all paths" action. */
+    @Query("SELECT EXISTS(SELECT 1 FROM sphere_grid_activation)")
+    fun observeAnyPath(): Flow<Boolean>
 
     @Query("DELETE FROM sphere_grid_activation WHERE character = :character")
     suspend fun clearCharacter(character: String)

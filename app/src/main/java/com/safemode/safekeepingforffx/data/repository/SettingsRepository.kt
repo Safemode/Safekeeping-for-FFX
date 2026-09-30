@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.safemode.safekeepingforffx.data.reference.GameVersion
 import com.safemode.safekeepingforffx.data.reference.ThemePreference
@@ -113,6 +114,24 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { it[SPHERE_GRID_FULL_NODE_EDITOR] = value }
     }
 
+    /**
+     * The saved Sphere Grid route the live grid was loaded from or last saved to, or null for none.
+     * Lets "Save route" offer to update that route instead of only creating a new one. Deliberately
+     * left out of [snapshot]/[restore]: route row ids are reassigned on restore, so a backed-up id
+     * would point at the wrong route - the planner resolves this id against the live library and
+     * treats a miss as "no route loaded".
+     */
+    val activeSphereGridRouteId: Flow<Long?> = dataStore.data.map { preferences ->
+        preferences[ACTIVE_SPHERE_GRID_ROUTE_ID]
+    }
+
+    suspend fun setActiveSphereGridRouteId(id: Long?) {
+        dataStore.edit { preferences ->
+            if (id == null) preferences.remove(ACTIVE_SPHERE_GRID_ROUTE_ID)
+            else preferences[ACTIVE_SPHERE_GRID_ROUTE_ID] = id
+        }
+    }
+
     suspend fun setTheme(theme: ThemePreference) {
         dataStore.edit { it[THEME] = theme.name }
     }
@@ -198,6 +217,7 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
         val SHOW_HELP = booleanPreferencesKey("show_help")
         val SPHERE_GRID_TAP_ACTIVATES = booleanPreferencesKey("sphere_grid_tap_activates")
         val SPHERE_GRID_FULL_NODE_EDITOR = booleanPreferencesKey("sphere_grid_full_node_editor")
+        val ACTIVE_SPHERE_GRID_ROUTE_ID = longPreferencesKey("active_sphere_grid_route_id")
         val HOME_ORDER = stringPreferencesKey("home_order")
         val HOME_HIDDEN = stringPreferencesKey("home_hidden")
 
