@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.FirstPage
 import androidx.compose.material.icons.automirrored.filled.LastPage
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -385,9 +386,9 @@ fun SphereGridScreen(
                     modifier = Modifier.fillMaxSize()
                 )
             }
-            // View controls, stacked bottom-right: go back to this character, and zoom out to the
-            // whole grid. Each appears only when it has somewhere to take you, so the stack is
-            // usually one button and never both when there is nothing to do.
+            // Actions stacked bottom-right: save the current work as a route, go back to this
+            // character, and zoom out to the whole grid. Each appears only when it applies, so the
+            // stack shows just the buttons that currently do something.
             val gridShown = state.gridAvailable && !state.isLoading
             val homeNodeId = state.homeNodeId
             Column(
@@ -397,6 +398,16 @@ fun SphereGridScreen(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Save the current work as a route - the same action as the overflow menu's "Save
+                // current as route". Hidden during a replay and when there is nothing built to save.
+                if (activeRoute == null && gridShown && state.hasAnythingToShare) {
+                    FilledTonalIconButton(onClick = { showSaveRouteDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.Save,
+                            contentDescription = "Save current work as a route"
+                        )
+                    }
+                }
                 // Back to where this character is: the node they last activated on this grid, or - with
                 // no path here yet - where the game starts them. Hidden during a route replay, where
                 // the live path is not what is on screen and the replay bar drives the view instead.
