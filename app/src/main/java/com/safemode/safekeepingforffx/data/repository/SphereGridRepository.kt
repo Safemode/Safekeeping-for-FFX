@@ -114,6 +114,14 @@ class SphereGridRepository(
     fun observeActivations(character: GridCharacter): Flow<List<String>> =
         activationDao.observeForCharacter(character.name)
 
+    /** The characters that currently have any path on [gridType], for the save dialog's scope default. */
+    fun observeCharactersOnGrid(gridType: GridType): Flow<Set<GridCharacter>> =
+        activationDao.observeCharactersOnGrid(gridType.idPrefix).map { names ->
+            names.mapNotNullTo(mutableSetOf()) { name ->
+                GridCharacter.entries.firstOrNull { it.name == name }
+            }
+        }
+
     suspend fun setActivation(character: GridCharacter, nodeId: String, activated: Boolean) {
         if (activated) {
             seqMutex.withLock {

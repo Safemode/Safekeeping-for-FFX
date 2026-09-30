@@ -173,6 +173,7 @@ fun SphereGridScreen(
     val routeView by viewModel.routeView.collectAsStateWithLifecycle()
     val routes by viewModel.routes.collectAsStateWithLifecycle()
     val loadedRoute by viewModel.loadedRoute.collectAsStateWithLifecycle()
+    val charactersOnGrid by viewModel.charactersOnGrid.collectAsStateWithLifecycle()
     var showRoutesSheet by remember { mutableStateOf(false) }
     var showSaveRouteDialog by remember { mutableStateOf(false) }
     var showImportRouteDialog by rememberSaveable { mutableStateOf(false) }
@@ -581,6 +582,8 @@ fun SphereGridScreen(
         SaveRouteDialog(
             characterName = state.character.displayName,
             updatableRouteName = updatableRoute?.name,
+            // Work spanning more than one character defaults to saving every path.
+            defaultAllPaths = charactersOnGrid.size > 1,
             onDismiss = { showSaveRouteDialog = false },
             onSave = { name, scope ->
                 showSaveRouteDialog = false
@@ -1539,12 +1542,16 @@ private fun RouteRow(
 private fun SaveRouteDialog(
     characterName: String,
     updatableRouteName: String?,
+    defaultAllPaths: Boolean,
     onDismiss: () -> Unit,
     onSave: (String, BuildScope) -> Unit,
     onUpdate: (BuildScope) -> Unit
 ) {
     var name by rememberSaveable { mutableStateOf("") }
-    var scope by remember { mutableStateOf(BuildScope.EDITS_AND_CURRENT) }
+    // Default the scope to all paths for multi-character work, otherwise just this character's.
+    var scope by remember(defaultAllPaths) {
+        mutableStateOf(if (defaultAllPaths) BuildScope.EDITS_AND_ALL else BuildScope.EDITS_AND_CURRENT)
+    }
     // Default to updating the loaded route, since that's the more likely intent once one is open.
     var updateExisting by rememberSaveable(updatableRouteName) { mutableStateOf(updatableRouteName != null) }
     AlertDialog(

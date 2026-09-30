@@ -23,6 +23,14 @@ interface SphereGridActivationDao {
     @Query("SELECT * FROM sphere_grid_activation ORDER BY seq")
     suspend fun snapshot(): List<SphereGridActivationEntity>
 
+    /**
+     * The distinct characters with any activation on the grid whose node ids start with [prefix]
+     * (see `GridType.idPrefix`). Lets the save dialog tell single- from multi-character work on the
+     * grid in view without loading every path.
+     */
+    @Query("SELECT DISTINCT character FROM sphere_grid_activation WHERE nodeId LIKE :prefix || '%'")
+    fun observeCharactersOnGrid(prefix: String): Flow<List<String>>
+
     /** Highest activation seq, or null if none. Paired with the edit table's max for the next seq. */
     @Query("SELECT MAX(seq) FROM sphere_grid_activation")
     suspend fun maxSeq(): Long?

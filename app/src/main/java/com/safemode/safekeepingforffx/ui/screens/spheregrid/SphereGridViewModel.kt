@@ -214,6 +214,15 @@ class SphereGridViewModel(
             id?.let { active -> library.firstOrNull { it.id == active } }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    /**
+     * The characters with a path on the grid in view, for the save dialog's scope default: work that
+     * spans more than one character defaults to saving all paths, single-character work to just that
+     * one. Re-subscribed when the grid type changes.
+     */
+    val charactersOnGrid: StateFlow<Set<GridCharacter>> =
+        gridType.flatMapLatest { repository.observeCharactersOnGrid(it) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
     /** Non-null while replaying a route read-only; the screen renders this instead of live progress. */
     private val _routeView = MutableStateFlow<RouteViewState?>(null)
     val routeView: StateFlow<RouteViewState?> = _routeView
