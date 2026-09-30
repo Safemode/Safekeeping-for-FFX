@@ -462,6 +462,11 @@ class SphereGridViewModel(
         viewModelScope.launch { repository.deleteRoute(id) }
     }
 
+    /** Empties the saved routes library. Caller confirms first - this cannot be undone. */
+    fun clearAllRoutes() {
+        viewModelScope.launch { repository.clearRoutes() }
+    }
+
     /** Hands a saved route's code to the screen (clipboard + share sheet), like a build export. */
     fun shareRoute(id: Long) {
         viewModelScope.launch {

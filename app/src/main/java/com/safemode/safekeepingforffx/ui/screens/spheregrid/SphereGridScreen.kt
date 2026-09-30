@@ -582,6 +582,16 @@ fun SphereGridScreen(
                     onConfirm = { viewModel.deleteRoute(route.id) }
                 )
             },
+            onDeleteAll = {
+                val count = routes.size
+                confirm = ConfirmAction(
+                    title = "Delete all saved routes?",
+                    message = "This removes all $count saved ${if (count == 1) "route" else "routes"} " +
+                        "from your library. This can't be undone.",
+                    confirmLabel = "Delete all",
+                    onConfirm = { viewModel.clearAllRoutes() }
+                )
+            },
             onImportRoute = { showImportRouteDialog = true }
         )
     }
@@ -1426,6 +1436,7 @@ private fun RoutesSheet(
     onShare: (Long) -> Unit,
     onRename: (SphereGridRepository.SavedRoute) -> Unit,
     onDelete: (SphereGridRepository.SavedRoute) -> Unit,
+    onDeleteAll: () -> Unit,
     onImportRoute: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState()
@@ -1442,6 +1453,11 @@ private fun RoutesSheet(
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.weight(1f)
                 )
+                if (routes.isNotEmpty()) {
+                    TextButton(onClick = onDeleteAll) {
+                        Text("Delete all", color = MaterialTheme.colorScheme.error)
+                    }
+                }
                 TextButton(onClick = onImportRoute) { Text("Import") }
             }
             Spacer(Modifier.size(8.dp))
