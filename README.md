@@ -9,9 +9,15 @@ I primarily used Claude Code for this app. I'm no programmer, and given this app
 
 The information inside the app comes from various online sources and community references.
 
+
 ## Google Play Release
 
-The app is currently in Closed Testing with Google, which has their requirement of 12+ testers opted in and have the app installed for at least 14 days.
+The app is now publicly available on the [Google Play Store!](https://play.google.com/store/apps/details?id=com.safemode.safekeepingforffx)
+
+Builds will continue to be released on Github in the [Releases page](https://github.com/Safemode/Safekeeping-for-FFX/releases)
+
+
+## Closed Testing Releases
 
 If you would like to join this testing, follow the steps below:
 
