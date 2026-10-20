@@ -279,8 +279,8 @@ fun SphereGridScreen(
                 onClearPath = {
                     confirm = ConfirmAction(
                         title = "Clear ${state.character.displayName}'s path?",
-                        message = "Every node ${state.character.displayName} has activated will be " +
-                            "cleared. This can't be undone.",
+                        message = "Every node ${state.character.displayName} has activated on both " +
+                            "grids will be cleared. This can't be undone.",
                         confirmLabel = "Clear path",
                         onConfirm = viewModel::clearCharacterPath
                     )
@@ -889,14 +889,14 @@ private fun applyRouteConfirm(
     val paths = when {
         viewedOnly -> "${route.character.displayName}'s path"
         route.availableCharacters.size > 1 ->
-            "the paths of all ${route.availableCharacters.size} characters in it"
+            "the paths of all ${route.availableCharacters.size} characters in the route"
         else -> "the route's character paths"
     }
     val untouched = if (viewedOnly) " Every other character's path is left alone." else ""
     return ConfirmAction(
         title = "Make this your live progress?",
-        message = "This overwrites your current grid edits and $paths with \"${route.name}\"." +
-            "$untouched This can't be undone.",
+        message = "This overwrites your ${route.gridType.label} grid edits and $paths on it with " +
+            "\"${route.name}\".$untouched The other grid is left alone. This can't be undone.",
         confirmLabel = "Overwrite",
         onConfirm = onConfirm
     )
@@ -954,8 +954,9 @@ private fun ImportBuildDialog(
         text = {
             Column {
                 Text(
-                    "Paste a build code below. Importing replaces the grid edits and any character " +
-                        "paths the code includes - this can't be undone.",
+                    "Paste a build code below. Importing replaces this grid's edits and any " +
+                        "character paths the code includes - this can't be undone. The other " +
+                        "grid is left alone.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

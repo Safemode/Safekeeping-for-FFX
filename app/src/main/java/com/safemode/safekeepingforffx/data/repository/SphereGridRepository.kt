@@ -138,6 +138,7 @@ class SphereGridRepository(
         }
     }
 
+    /** Clears the character's whole path on both grids. Edits and other characters are left alone. */
     suspend fun clearCharacterActivations(character: GridCharacter) =
         activationDao.clearCharacter(character.name)
 
@@ -264,9 +265,9 @@ class SphereGridRepository(
     /**
      * Applies a build code, replacing (not merging) the sections it carries so the recipient's grid
      * and paths end up matching the sharer's. Edits are replaced when the code carries any edit; a
-     * character's path is replaced when the code carries any activation for them. Node ids not on
-     * [gridType]'s grid are dropped. The whole apply runs in one transaction, so a partial import can
-     * never be observed.
+     * character's path is replaced when the code carries any activation for them. Only [gridType]'s
+     * grid is touched, and node ids not on it are dropped. The whole apply runs in one transaction, so
+     * a partial import can never be observed.
      */
     suspend fun importBuild(text: String, gridType: GridType): Result<ImportSummary> {
         val build = SphereGridBuildCodec.decode(text).getOrElse { return Result.failure(it) }
@@ -278,6 +279,10 @@ class SphereGridRepository(
      * and a character's path is replaced when it carries any activation for them. This is what "make
      * this route my live progress" does. Node ids not on [gridType]'s grid are dropped, and the whole
      * apply runs in one transaction so a partial state can never be observed.
+     *
+     * Only [gridType]'s grid is replaced. Edits and paths share their tables across both grids, so
+     * the clears are narrowed by the grid's id prefix - otherwise applying a Standard route would
+     * also wipe every Expert edit and the character's Expert path.
      */
     suspend fun applyBuild(build: SphereGridBuild, gridType: GridType): Result<ImportSummary> {
         val validIds = grid(gridType).nodes.mapTo(HashSet()) { it.id }
@@ -290,20 +295,24 @@ class SphereGridRepository(
         val hasEdits = events.any { it is RouteEvent.Edit }
         val characters = events.filterIsInstance<RouteEvent.Activate>().mapTo(HashSet()) { it.character }
 
-        database.withTransaction {
-            if (hasEdits) nodeDao.clearAll()
-            characters.forEach { activationDao.clearCharacter(it.name) }
-            // One increasing counter across the whole apply keeps the replayed timeline in order.
-            var seq = 0L
-            events.forEach { event ->
-                seq += 1
-                when (event) {
-                    is RouteEvent.Edit ->
-                        nodeDao.upsert(SphereGridNodeEntity(event.nodeId, event.content.encode(), seq))
-                    is RouteEvent.Activate ->
-                        activationDao.upsert(
-                            SphereGridActivationEntity(event.character.name, event.nodeId, seq)
-                        )
+        seqMutex.withLock {
+            database.withTransaction {
+                if (hasEdits) nodeDao.clearGrid(gridType.idPrefix)
+                characters.forEach { activationDao.clearCharacterOnGrid(it.name, gridType.idPrefix) }
+                // One increasing counter across the whole apply keeps the replayed timeline in order.
+                // It continues from the rows the apply leaves in place (the other grid, untouched
+                // characters) so the applied events sort after them, like any new work would.
+                var seq = nextSeq() - 1
+                events.forEach { event ->
+                    seq += 1
+                    when (event) {
+                        is RouteEvent.Edit ->
+                            nodeDao.upsert(SphereGridNodeEntity(event.nodeId, event.content.encode(), seq))
+                        is RouteEvent.Activate ->
+                            activationDao.upsert(
+                                SphereGridActivationEntity(event.character.name, event.nodeId, seq)
+                            )
+                    }
                 }
             }
         }

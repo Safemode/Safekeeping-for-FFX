@@ -30,4 +30,11 @@ interface SphereGridNodeDao {
 
     @Query("DELETE FROM sphere_grid_node")
     suspend fun clearAll()
+
+    /**
+     * Reverts the edits on one grid only - the one whose node ids start with [prefix] (see
+     * `GridType.idPrefix`) - leaving the other grid's edits alone.
+     */
+    @Query("DELETE FROM sphere_grid_node WHERE nodeId LIKE :prefix || '%'")
+    suspend fun clearGrid(prefix: String)
 }

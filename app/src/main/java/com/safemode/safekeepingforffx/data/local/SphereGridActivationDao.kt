@@ -55,6 +55,16 @@ interface SphereGridActivationDao {
     @Query("DELETE FROM sphere_grid_activation WHERE character = :character")
     suspend fun clearCharacter(character: String)
 
+    /**
+     * Clears one character's path on one grid only - the one whose node ids start with [prefix]
+     * (see `GridType.idPrefix`) - leaving their path on the other grid alone.
+     */
+    @Query(
+        "DELETE FROM sphere_grid_activation WHERE character = :character " +
+            "AND nodeId LIKE :prefix || '%'"
+    )
+    suspend fun clearCharacterOnGrid(character: String, prefix: String)
+
     @Query("DELETE FROM sphere_grid_activation")
     suspend fun clearAll()
 }
