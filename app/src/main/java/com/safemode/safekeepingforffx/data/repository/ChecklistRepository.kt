@@ -74,10 +74,4 @@ class ChecklistRepository(private val dao: ChecklistProgressDao) {
     }
 
     suspend fun clearCategory(categoryId: String) = dao.clearCategory(categoryId)
-
-    /**
-     * Wipes every checked item in every category. Irreversible - callers must confirm with the
-     * user first. Only touches progress; settings live in DataStore and are unaffected.
-     */
-    suspend fun clearAllProgress() = dao.clearAll()
 }
