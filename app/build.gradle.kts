@@ -73,10 +73,11 @@ androidComponents {
             .filterIsInstance<com.android.build.api.variant.impl.VariantOutputImpl>()
             .forEach { it.outputFileName.set(apkName) }
 
-        // Release builds are obfuscated by R8, so a crash log from a GitHub APK is unreadable without
-        // that exact build's mapping.txt - and the next build overwrites it. This zips it per version
-        // into release-mappings/ (git-ignored, ~5 MB zipped vs ~60 MB raw) so it survives a clean and
-        // can be attached to the GitHub release. Play needs none of this: the .aab carries its own.
+        // Release builds keep real class and method names (-dontobfuscate), but R8 renumbers lines and
+        // inlines small methods, so exact source lines in a crash log need that build's mapping.txt -
+        // and the next build overwrites it. This zips it per version into release-mappings/
+        // (git-ignored, ~5 MB zipped vs ~60 MB raw) so it survives a clean and can be attached to the
+        // GitHub release. Play needs none of this: the .aab carries its own.
         if (variant.buildType == "release") {
             val versionName = android.defaultConfig.versionName
             tasks.register<Zip>("archiveReleaseMapping") {
