@@ -138,9 +138,17 @@ class SphereGridRepository(
         }
     }
 
-    /** Clears the character's whole path on both grids. Edits and other characters are left alone. */
-    suspend fun clearCharacterActivations(character: GridCharacter) =
-        activationDao.clearCharacter(character.name)
+    /**
+     * Clears the character's path on [gridType]'s grid, or on both grids when it is null. Edits and
+     * other characters' paths are left alone.
+     */
+    suspend fun clearCharacterActivations(character: GridCharacter, gridType: GridType?) {
+        if (gridType == null) {
+            activationDao.clearCharacter(character.name)
+        } else {
+            activationDao.clearCharacterOnGrid(character.name, gridType.idPrefix)
+        }
+    }
 
     /** Whether any character has a path on either grid, for enabling the "Clear all paths" action. */
     fun observeAnyPath(): Flow<Boolean> = activationDao.observeAnyPath()

@@ -368,9 +368,13 @@ class SphereGridViewModel(
         viewModelScope.launch { repository.clearOverrides() }
     }
 
-    /** Clears the selected character's whole path. Caller confirms first - cannot be undone. */
-    fun clearCharacterPath() {
-        viewModelScope.launch { repository.clearCharacterActivations(character.value) }
+    /**
+     * Clears the selected character's path on [gridType]'s grid, or on both grids when it is null.
+     * Taken as an argument rather than read from the grid in view, so the clear always matches the
+     * grid the confirmation named. Caller confirms first - cannot be undone.
+     */
+    fun clearCharacterPath(gridType: GridType?) {
+        viewModelScope.launch { repository.clearCharacterActivations(character.value, gridType) }
     }
 
     /** Clears every character's path on both grids. Caller confirms first - cannot be undone. */

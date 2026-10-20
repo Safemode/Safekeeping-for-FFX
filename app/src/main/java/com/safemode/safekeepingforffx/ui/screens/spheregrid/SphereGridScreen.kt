@@ -182,6 +182,7 @@ fun SphereGridScreen(
     var showImportRouteDialog by rememberSaveable { mutableStateOf(false) }
     var routeToRename by remember { mutableStateOf<SphereGridRepository.SavedRoute?>(null) }
     var showRouteApplyScope by remember { mutableStateOf(false) }
+    var showClearPathDialog by rememberSaveable { mutableStateOf(false) }
     // Which node the canvas should ease to, bumped each time something asks to be taken there:
     // stepping a route replay, or tapping an ability in the character status sheet.
     var focusTarget by remember { mutableStateOf<String?>(null) }
@@ -276,15 +277,7 @@ fun SphereGridScreen(
                         onConfirm = viewModel::revertEdits
                     )
                 },
-                onClearPath = {
-                    confirm = ConfirmAction(
-                        title = "Clear ${state.character.displayName}'s path?",
-                        message = "Every node ${state.character.displayName} has activated on both " +
-                            "grids will be cleared. This can't be undone.",
-                        confirmLabel = "Clear path",
-                        onConfirm = viewModel::clearCharacterPath
-                    )
-                },
+                onClearPath = { showClearPathDialog = true },
                 anyCharacterHasPath = hasAnyPath,
                 onClearAllPaths = {
                     confirm = ConfirmAction(
@@ -652,6 +645,21 @@ fun SphereGridScreen(
         )
     }
 
+    if (showClearPathDialog) {
+        ClearPathDialog(
+            characterName = state.character.displayName,
+            gridType = state.gridType,
+            // The path spans both grids, so split it to show what each choice would clear.
+            nodesOnThisGrid = state.activated.count { it in state.grid.nodeIds },
+            nodesOnBothGrids = state.activated.size,
+            onDismiss = { showClearPathDialog = false },
+            onConfirm = { gridType ->
+                showClearPathDialog = false
+                viewModel.clearCharacterPath(gridType)
+            }
+        )
+    }
+
     routeToRename?.let { route ->
         RenameRouteDialog(
             currentName = route.name,
@@ -878,6 +886,100 @@ private fun RouteApplyScopeDialog(
         }
     )
 }
+
+/**
+ * Confirms clearing one character's path, and asks which grid it should come off: the one in view or
+ * both. The grid in view leads as the narrower choice, unless the character has nothing there - then
+ * that option is disabled and both grids is preselected, since it is the only one that does anything.
+ * [onConfirm] gets the grid to clear, or null for both.
+ */
+@Composable
+private fun ClearPathDialog(
+    characterName: String,
+    gridType: GridType,
+    nodesOnThisGrid: Int,
+    nodesOnBothGrids: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (GridType?) -> Unit
+) {
+    val canClearThisGrid = nodesOnThisGrid > 0
+    var bothGrids by rememberSaveable { mutableStateOf(!canClearThisGrid) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Clear $characterName's path?") },
+        text = {
+            Column {
+                Text(
+                    "Grid edits and other characters' paths are kept. This can't be undone.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.size(8.dp))
+                ClearPathOption(
+                    label = "${gridType.label} grid only",
+                    detail = nodeCount(nodesOnThisGrid),
+                    selected = !bothGrids,
+                    enabled = canClearThisGrid,
+                    onClick = { bothGrids = false }
+                )
+                ClearPathOption(
+                    label = "Both grids",
+                    detail = nodeCount(nodesOnBothGrids),
+                    selected = bothGrids,
+                    enabled = true,
+                    onClick = { bothGrids = true }
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(if (bothGrids) null else gridType) }) {
+                Text("Clear path", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+/** One grid choice in [ClearPathDialog], with how many nodes it would clear. */
+@Composable
+private fun ClearPathOption(
+    label: String,
+    detail: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, enabled = enabled, onClick = onClick)
+        Spacer(Modifier.size(4.dp))
+        Column {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                }
+            )
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+private fun nodeCount(count: Int): String = if (count == 1) "1 node" else "$count nodes"
 
 /** The overwrite warning, worded for how much of the route is about to be adopted. */
 private fun applyRouteConfirm(
