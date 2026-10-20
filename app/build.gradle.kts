@@ -89,10 +89,14 @@ androidComponents {
     }
 }
 
-// Every release build - the APK for GitHub and the .aab for Play share one R8 run - leaves its
-// mapping archived, including builds made through Android Studio's "Generate Signed Bundle / APK".
+// Only signed release builds are archived - the ones that can actually ship. This project has no
+// signingConfig, so a signed build always comes from Android Studio's "Generate Signed Bundle / APK",
+// which passes the keystore as an injected property. CI and local verification builds are unsigned
+// and leave the archive alone; otherwise one run after the real build would overwrite that version's
+// zip with a mapping that no longer matches the APK people installed.
+val isSignedBuild = providers.gradleProperty("android.injected.signing.store.file").isPresent
 tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
-    finalizedBy("archiveReleaseMapping")
+    if (isSignedBuild) finalizedBy("archiveReleaseMapping")
 }
 
 dependencies {
