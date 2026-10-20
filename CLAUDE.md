@@ -3,6 +3,13 @@
 ## Build
 ./gradlew assembleDebug
 
+## Release
+Release builds are R8-obfuscated. Every `assembleRelease` / `bundleRelease` (including Android
+Studio's "Generate Signed Bundle / APK") writes `release-mappings/safekeeping-for-ffx-<version>-mapping.zip`.
+When publishing a GitHub release, attach that zip alongside the APK so crash logs from that build can
+be decoded later (Play gets its mapping from the .aab automatically):
+gh release upload v<version> release-mappings/safekeeping-for-ffx-<version>-mapping.zip
+
 ## Run Tests
 ./gradlew test
 

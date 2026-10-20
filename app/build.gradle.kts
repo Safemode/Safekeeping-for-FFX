@@ -72,7 +72,27 @@ androidComponents {
         variant.outputs
             .filterIsInstance<com.android.build.api.variant.impl.VariantOutputImpl>()
             .forEach { it.outputFileName.set(apkName) }
+
+        // Release builds are obfuscated by R8, so a crash log from a GitHub APK is unreadable without
+        // that exact build's mapping.txt - and the next build overwrites it. This zips it per version
+        // into release-mappings/ (git-ignored, ~5 MB zipped vs ~60 MB raw) so it survives a clean and
+        // can be attached to the GitHub release. Play needs none of this: the .aab carries its own.
+        if (variant.buildType == "release") {
+            val versionName = android.defaultConfig.versionName
+            tasks.register<Zip>("archiveReleaseMapping") {
+                description = "Zips the R8 mapping for this release version into release-mappings/."
+                from(variant.artifacts.get(com.android.build.api.artifact.SingleArtifact.OBFUSCATION_MAPPING_FILE))
+                archiveFileName.set("safekeeping-for-ffx-$versionName-mapping.zip")
+                destinationDirectory.set(rootProject.layout.projectDirectory.dir("release-mappings"))
+            }
+        }
     }
+}
+
+// Every release build - the APK for GitHub and the .aab for Play share one R8 run - leaves its
+// mapping archived, including builds made through Android Studio's "Generate Signed Bundle / APK".
+tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
+    finalizedBy("archiveReleaseMapping")
 }
 
 dependencies {
