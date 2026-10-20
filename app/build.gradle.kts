@@ -127,4 +127,13 @@ tasks.withType<Test>().configureEach {
     inputs.dir(layout.projectDirectory.dir("src/main/assets"))
         .withPropertyName("bundledAssets")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    // FrozenIdsTest checks stored ids against these lists, so editing one must re-run it too.
+    inputs.dir(layout.projectDirectory.dir("src/test/frozen-ids"))
+        .withPropertyName("frozenIds")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    // `./gradlew test -PupdateFrozenIds` appends newly added ids to those lists. It never removes one.
+    systemProperty(
+        "updateFrozenIds",
+        providers.gradleProperty("updateFrozenIds").map { "true" }.getOrElse("false")
+    )
 }
