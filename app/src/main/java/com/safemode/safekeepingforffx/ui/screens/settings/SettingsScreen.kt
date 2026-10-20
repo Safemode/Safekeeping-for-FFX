@@ -243,7 +243,8 @@ fun SettingsScreen(
             title = { Text("Reset all progress?") },
             text = {
                 Text(
-                    "Every item in every list will be unchecked. This can't be undone."
+                    "Every checklist, favorite, capture count and Sphere Grid edit and path " +
+                        "will be cleared. Saved routes and settings are kept. This can't be undone."
                 )
             },
             confirmButton = {
@@ -285,10 +286,10 @@ fun SettingsScreen(
                     buildString {
                         if (fileName != null) append("$fileName\n\n")
                         append(
-                            "Everything you have now - checklists, capture counts, the Sphere " +
-                                "Grid, your saved routes and these settings - is replaced by " +
-                                "what's in this file. This can't be undone, so back up first if " +
-                                "you might want your current progress."
+                            "Everything you have now - checklists, favorites, capture counts, " +
+                                "the Sphere Grid, your saved routes and these settings - is " +
+                                "replaced by what's in this file. This can't be undone, so back " +
+                                "up first if you might want your current progress."
                         )
                     }
                 )
