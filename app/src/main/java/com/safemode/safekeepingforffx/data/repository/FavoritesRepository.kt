@@ -48,9 +48,4 @@ class FavoritesRepository(private val dao: FavoriteDao) {
             dao.delete(categoryId, itemId)
         }
     }
-
-    /**
-     * Unstars everything, everywhere. Irreversible - callers must confirm with the user first.
-     */
-    suspend fun clearAll() = dao.clearAll()
 }

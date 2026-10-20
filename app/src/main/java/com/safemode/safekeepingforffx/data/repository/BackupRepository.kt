@@ -29,7 +29,8 @@ import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.MAX_CAPTURES
 
 /**
- * Writes and reads the whole-app backup file.
+ * Writes and reads the whole-app backup file, and wipes the player's progress for "Reset all
+ * progress" - the other operation that has to touch every store at once.
  *
  * Everything the player produced lives in one of two places - the Room database (checklists, capture
  * counts, the Sphere Grid Planner) and the DataStore settings - so this is the one class that spans
@@ -52,6 +53,24 @@ class BackupRepository(
     private val appVersion: String,
     private val appVersionCode: Int
 ) {
+
+    /**
+     * "Reset all progress": every checklist tick, star, capture count, grid edit and path, cleared in
+     * one transaction so a failure partway can't leave some lists reset and others not. Saved routes
+     * and settings are kept - they are a library and preferences, not progress. The live grid no
+     * longer descends from a saved route afterwards, so the loaded-route link is cleared too, or a
+     * later save would offer to overwrite that route with the emptied grid.
+     */
+    suspend fun clearAllProgress() {
+        database.withTransaction {
+            checklistDao.clearAll()
+            favoriteDao.clearAll()
+            monsterCaptureDao.clearAll()
+            nodeDao.clearAll()
+            activationDao.clearAll()
+        }
+        settingsRepository.setActiveSphereGridRouteId(null)
+    }
 
     /** The player's whole state as a JSON document, ready to write to a file. */
     suspend fun exportJson(): String = BackupCodec.encode(snapshot())

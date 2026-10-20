@@ -73,10 +73,11 @@ androidComponents {
             .filterIsInstance<com.android.build.api.variant.impl.VariantOutputImpl>()
             .forEach { it.outputFileName.set(apkName) }
 
-        // Release builds are obfuscated by R8, so a crash log from a GitHub APK is unreadable without
-        // that exact build's mapping.txt - and the next build overwrites it. This zips it per version
-        // into release-mappings/ (git-ignored, ~5 MB zipped vs ~60 MB raw) so it survives a clean and
-        // can be attached to the GitHub release. Play needs none of this: the .aab carries its own.
+        // Release builds keep real class and method names (-dontobfuscate), but R8 renumbers lines and
+        // inlines small methods, so exact source lines in a crash log need that build's mapping.txt -
+        // and the next build overwrites it. This zips it per version into release-mappings/
+        // (git-ignored, ~5 MB zipped vs ~60 MB raw) so it survives a clean and can be attached to the
+        // GitHub release. Play needs none of this: the .aab carries its own.
         if (variant.buildType == "release") {
             val versionName = android.defaultConfig.versionName
             tasks.register<Zip>("archiveReleaseMapping") {
@@ -89,10 +90,14 @@ androidComponents {
     }
 }
 
-// Every release build - the APK for GitHub and the .aab for Play share one R8 run - leaves its
-// mapping archived, including builds made through Android Studio's "Generate Signed Bundle / APK".
+// Only signed release builds are archived - the ones that can actually ship. This project has no
+// signingConfig, so a signed build always comes from Android Studio's "Generate Signed Bundle / APK",
+// which passes the keystore as an injected property. CI and local verification builds are unsigned
+// and leave the archive alone; otherwise one run after the real build would overwrite that version's
+// zip with a mapping that no longer matches the APK people installed.
+val isSignedBuild = providers.gradleProperty("android.injected.signing.store.file").isPresent
 tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
-    finalizedBy("archiveReleaseMapping")
+    if (isSignedBuild) finalizedBy("archiveReleaseMapping")
 }
 
 dependencies {

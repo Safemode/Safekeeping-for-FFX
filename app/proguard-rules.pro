@@ -12,13 +12,19 @@
 #   public *;
 #}
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
-
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# --- Readable crash logs ---
+# Shrink and optimize, but don't rename classes and methods. The source is public, so obfuscation
+# protects nothing, and without it a stack trace pasted into a GitHub issue names the real class and
+# method (e.g. SphereGridRepository.applyBuild) instead of a.b.c. It costs about 66 KB (under 2%) of
+# APK size.
+#
+# What still needs that build's mapping.txt (archived in release-mappings/): R8 renumbers lines and
+# replaces the file name with an r8-map-id-<hash> that identifies the build, and it inlines small
+# methods, so a frame can point at the caller. Retracing with the mapping turns those back into exact
+# source lines; without it the class and method are usually enough to find the problem.
+-dontobfuscate
+# Line tables and the file attribute, so retrace has something to map back from.
+-keepattributes SourceFile,LineNumberTable
 
 # --- Moshi ---
 # Moshi and Room ship their own consumer rules, and all JSON models use @JsonClass(generateAdapter

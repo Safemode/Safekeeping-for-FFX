@@ -110,17 +110,38 @@ sealed interface NodeContent {
     }
 
     companion object {
+        /**
+         * The attribute values [decode] accepts. The game's largest sphere is HP +300, so this is
+         * generous on purpose - it isn't a list of real values, just a fence that keeps a hand-edited
+         * build code from planting a value big enough to overflow the Character Status totals.
+         */
+        val ATTRIBUTE_VALUE_RANGE = 1..999
+
+        /** Lock levels on both grids run 1-4, one per Key Sphere tier. */
+        val LOCK_LEVELS = 1..4
+
+        /**
+         * Reads stored or imported content back, or null when it isn't something the planner could
+         * have written. Build codes are pasted in from anywhere, so beyond the shape this also checks
+         * the content makes sense: an attribute names a stat with a value in [ATTRIBUTE_VALUE_RANGE],
+         * an ability names one of the four ability families, and a lock is one of [LOCK_LEVELS].
+         */
         fun decode(raw: String): NodeContent? {
             val parts = raw.split("|")
             return when (parts.getOrNull(0)) {
                 "E" -> Empty
                 "A" -> {
                     val attr = parts.getOrNull(1)?.let(NodeType::fromCode)
-                    val value = parts.getOrNull(2)?.toIntOrNull()
+                        ?.takeIf { it in NodeType.attributes }
+                    val value = parts.getOrNull(2)?.toIntOrNull()?.takeIf { it in ATTRIBUTE_VALUE_RANGE }
                     if (attr != null && value != null) Attribute(attr, value) else null
                 }
-                "B" -> if (parts.size >= 3) Ability(parts[1], NodeType.fromCode(parts[2])) else null
-                "L" -> parts.getOrNull(1)?.toIntOrNull()?.let { Lock(it) }
+                "B" -> {
+                    val name = parts.getOrNull(1)?.takeIf { it.isNotBlank() }
+                    val family = parts.getOrNull(2)?.let(NodeType::fromCode)?.takeIf { it.isAbility }
+                    if (name != null && family != null) Ability(name, family) else null
+                }
+                "L" -> parts.getOrNull(1)?.toIntOrNull()?.takeIf { it in LOCK_LEVELS }?.let { Lock(it) }
                 else -> null
             }
         }

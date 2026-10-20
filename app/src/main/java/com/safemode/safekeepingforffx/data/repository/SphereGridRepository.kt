@@ -189,17 +189,6 @@ class SphereGridRepository(
         return targets.size
     }
 
-    /**
-     * Full wipe used by the Settings "Reset all progress": both edits and every character's path.
-     * Saved routes are kept, but the live grid no longer descends from one, so the loaded-route link
-     * is cleared - otherwise a later save would offer to overwrite a route with the emptied grid.
-     */
-    suspend fun clearAll() {
-        nodeDao.clearAll()
-        activationDao.clearAll()
-        settingsRepository.setActiveSphereGridRouteId(null)
-    }
-
     // --- Sharing: export/import a build as a copy/paste code ---
 
     /**

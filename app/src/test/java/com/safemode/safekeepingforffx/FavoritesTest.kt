@@ -134,17 +134,6 @@ class FavoritesTest {
     }
 
     @Test
-    fun `clearing removes every star in every list`() = runTest {
-        val repository = FavoritesRepository(FakeFavoriteDao())
-        repository.setFavorite(CelestialWeapons.CATEGORY_ID, "celestial_tidus_crest", true)
-        repository.setFavorite(MONSTER_ARENA_ID, "dingo", true)
-
-        repository.clearAll()
-
-        assertTrue(repository.observeAll().first().isEmpty())
-    }
-
-    @Test
     fun `Favorites sits directly below Home in the drawer`() {
         assertEquals(FfxDestination.Home, drawerDestinations[0])
         assertEquals(FfxDestination.Favorites, drawerDestinations[1])

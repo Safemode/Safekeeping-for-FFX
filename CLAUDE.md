@@ -4,10 +4,14 @@
 ./gradlew assembleDebug
 
 ## Release
-Release builds are R8-obfuscated. Every `assembleRelease` / `bundleRelease` (including Android
-Studio's "Generate Signed Bundle / APK") writes `release-mappings/safekeeping-for-ffx-<version>-mapping.zip`.
-When publishing a GitHub release, attach that zip alongside the APK so crash logs from that build can
-be decoded later (Play gets its mapping from the .aab automatically):
+Release builds are shrunk and optimized by R8 but not obfuscated (`-dontobfuscate` in
+`app/proguard-rules.pro`), so crash logs show real class and method names. R8 still renumbers lines
+and inlines small methods, so exact source lines need that build's mapping. Every signed release
+build (Android Studio's "Generate Signed Bundle / APK") writes
+`release-mappings/safekeeping-for-ffx-<version>-mapping.zip`; unsigned `assembleRelease` runs, like
+CI, leave it alone.
+When publishing a GitHub release, attach that zip alongside the APK so a crash log from that build can
+be retraced to exact lines (Play gets its mapping from the .aab automatically):
 gh release upload v<version> release-mappings/safekeeping-for-ffx-<version>-mapping.zip
 
 ## Run Tests

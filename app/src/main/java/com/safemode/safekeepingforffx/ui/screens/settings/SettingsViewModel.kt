@@ -10,11 +10,7 @@ import com.safemode.safekeepingforffx.data.backup.BackupCounts
 import com.safemode.safekeepingforffx.data.reference.GameVersion
 import com.safemode.safekeepingforffx.data.reference.ThemePreference
 import com.safemode.safekeepingforffx.data.repository.BackupRepository
-import com.safemode.safekeepingforffx.data.repository.ChecklistRepository
-import com.safemode.safekeepingforffx.data.repository.FavoritesRepository
-import com.safemode.safekeepingforffx.data.repository.MonsterArenaRepository
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
-import com.safemode.safekeepingforffx.data.repository.SphereGridRepository
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,10 +21,6 @@ import kotlinx.coroutines.withContext
 
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
-    private val checklistRepository: ChecklistRepository,
-    private val monsterArenaRepository: MonsterArenaRepository,
-    private val sphereGridRepository: SphereGridRepository,
-    private val favoritesRepository: FavoritesRepository,
     private val backupRepository: BackupRepository
 ) : ViewModel() {
 
@@ -156,17 +148,13 @@ class SettingsViewModel(
         }
     }
 
-    /** Caller is responsible for confirming with the user first - this cannot be undone. */
+    /**
+     * Caller is responsible for confirming with the user first - this cannot be undone. Clears every
+     * kind of progress at once (see [BackupRepository.clearAllProgress]); settings are left alone.
+     */
     fun resetProgress() {
         viewModelScope.launch {
-            checklistRepository.clearAllProgress()
-            // Monster Arena counts and the sphere grid live in their own tables, so clearing the
-            // checklists alone would leave them behind and "reset everything" would be a lie.
-            monsterArenaRepository.clearAll()
-            sphereGridRepository.clearAll()
-            // Favorites point at items in the lists being cleared, so leaving them starred would
-            // hand back a shortlist of things the app no longer thinks you have touched.
-            favoritesRepository.clearAll()
+            backupRepository.clearAllProgress()
             _resetConfirmed.value = true
         }
     }
@@ -182,10 +170,6 @@ class SettingsViewModel(
                         as FfxApplication
                 SettingsViewModel(
                     app.container.settingsRepository,
-                    app.container.checklistRepository,
-                    app.container.monsterArenaRepository,
-                    app.container.sphereGridRepository,
-                    app.container.favoritesRepository,
                     app.container.backupRepository
                 )
             }

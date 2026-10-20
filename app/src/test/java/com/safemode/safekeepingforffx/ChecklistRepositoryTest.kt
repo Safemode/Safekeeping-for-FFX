@@ -121,30 +121,6 @@ class ChecklistRepositoryTest {
     }
 
     @Test
-    fun `reset clears every category, not just one`() = runTest {
-        val dao = FakeDao(
-            listOf(
-                row(AlBhedPrimers.CATEGORY_ID, "albhed_01", true),
-                row(JechtSpheres.CATEGORY_ID, "jecht_01", true),
-                row(CelestialWeapons.CATEGORY_ID, "celestial_tidus_weapon", true)
-            )
-        )
-        val repository = ChecklistRepository(dao)
-
-        repository.clearAllProgress()
-
-        assertTrue(dao.stored.isEmpty())
-        categories.forEach { category ->
-            val items = repository.observeCategory(category.id, category.items).first()
-            assertEquals(
-                "${category.id} still has checked items",
-                0,
-                items.count { it.isChecked }
-            )
-        }
-    }
-
-    @Test
     fun `clearing one category leaves the others alone`() = runTest {
         val dao = FakeDao(
             listOf(
