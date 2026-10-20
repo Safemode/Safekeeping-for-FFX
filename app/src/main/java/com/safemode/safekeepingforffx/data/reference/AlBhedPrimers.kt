@@ -61,7 +61,9 @@ object AlBhedPrimers {
         // also switch on the story-order sort for this list, which is a separate decision.
         stage: StoryStage? = null
     ) = ReferenceItem(
-        id = "albhed_%02d".format(number),
+        // Not "%02d".format(): that follows the device locale, which writes non-ASCII digits in
+        // e.g. Persian or Arabic and would key saved progress differently per language.
+        id = "albhed_" + number.toString().padStart(2, '0'),
         title = "Al Bhed Primer $numeral",
         location = location,
         detail = detail,

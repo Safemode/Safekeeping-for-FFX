@@ -184,10 +184,14 @@ class MonsterArenaViewModel(
         _itemFilter.update { item?.takeIf { it.isNotBlank() } }
     }
 
-    /** [delta] is +1 or -1; the repository clamps to 0..[MAX_CAPTURES]. */
+    /**
+     * [delta] is +1 or -1; the repository clamps to 0..[MAX_CAPTURES]. Only the delta is passed, not
+     * a new total worked out from [capture]'s count: that count is whatever the screen last drew, so
+     * two quick taps would both compute the same total and one would be lost.
+     */
     fun adjust(capture: MonsterCapture, delta: Int) {
         viewModelScope.launch {
-            repository.setCount(capture.monster.id, capture.count + delta)
+            repository.adjustCount(capture.monster.id, delta)
         }
     }
 

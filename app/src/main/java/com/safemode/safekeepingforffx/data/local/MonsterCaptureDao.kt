@@ -15,6 +15,10 @@ interface MonsterCaptureDao {
     @Query("SELECT * FROM monster_capture")
     suspend fun getAll(): List<MonsterCaptureEntity>
 
+    /** One fiend's stored count, or null when it has no row (captured zero times). */
+    @Query("SELECT count FROM monster_capture WHERE monsterId = :monsterId")
+    suspend fun getCount(monsterId: String): Int?
+
     @Upsert
     suspend fun upsert(entity: MonsterCaptureEntity)
 

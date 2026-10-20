@@ -61,7 +61,8 @@ object JechtSpheres {
         stage: StoryStage? = null,
         stageNote: String? = null
     ) = ReferenceItem(
-        id = "jecht_%02d".format(number),
+        // Locale-independent on purpose - see the matching note in AlBhedPrimers.
+        id = "jecht_" + number.toString().padStart(2, '0'),
         title = title,
         location = location,
         detail = detail,

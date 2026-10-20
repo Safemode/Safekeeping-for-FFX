@@ -169,6 +169,20 @@ class ChecklistRepositoryTest {
         assertEquals(allIds.size, allIds.toSet().size)
     }
 
+    /**
+     * Ids are database keys, so they must come out the same on every device. Building one with
+     * locale-aware formatting ("%02d".format) writes native digits under e.g. a Persian locale, which
+     * would key saved progress differently per device language.
+     */
+    @Test
+    fun `item ids are plain ASCII`() {
+        val nonAscii = categories.flatMap { it.items }.map { it.id }.filterNot { id ->
+            id.all { it.code < 128 }
+        }
+
+        assertEquals(emptyList<String>(), nonAscii)
+    }
+
     @Test
     fun `category ids are distinct`() {
         val ids = categories.map { it.id }
