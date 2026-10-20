@@ -41,6 +41,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,17 +70,20 @@ fun SettingsScreen(
     val selected by viewModel.gameVersion.collectAsStateWithLifecycle()
     val theme by viewModel.theme.collectAsStateWithLifecycle()
     val resetConfirmed by viewModel.resetConfirmed.collectAsStateWithLifecycle()
-    var showResetDialog by remember { mutableStateOf(false) }
+    var showResetDialog by rememberSaveable { mutableStateOf(false) }
     val showHelp by viewModel.showHelp.collectAsStateWithLifecycle()
     val tapActivates by viewModel.sphereGridTapActivates.collectAsStateWithLifecycle()
     val fullNodeEditor by viewModel.sphereGridFullNodeEditor.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val busy by viewModel.busy.collectAsStateWithLifecycle()
-    var backupResult by remember { mutableStateOf<BackupEvent?>(null) }
+    val backupResult by viewModel.backupResult.collectAsStateWithLifecycle()
 
-    /** The file the player picked to restore from, held while they confirm the overwrite. */
-    var pendingRestore by remember { mutableStateOf<Uri?>(null) }
+    /**
+     * The file the player picked to restore from, held while they confirm the overwrite. Saveable so
+     * rotating the phone doesn't quietly close the confirmation and drop the pick.
+     */
+    var pendingRestore by rememberSaveable { mutableStateOf<Uri?>(null) }
 
     // The system file picker owns where the file goes and what it's called, so the app needs no
     // storage permission and the backup lands somewhere the player can actually find it - their
@@ -101,15 +105,13 @@ fun SettingsScreen(
         pendingRestore = uri
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-            when (event) {
-                is BackupEvent.Saved ->
-                    Toast.makeText(context, "Backup saved", Toast.LENGTH_SHORT).show()
-                // Restores land in a dialog rather than a toast: one replaced everything the player
-                // had, and the other needs to be read, not glanced at.
-                is BackupEvent.Restored, is BackupEvent.Failed -> backupResult = event
-            }
+    // A save is confirmed with a toast and acknowledged straight away. Restores and failures land in
+    // a dialog below instead and stay until dismissed: one replaced everything the player had, and
+    // the other needs to be read, not glanced at.
+    LaunchedEffect(backupResult) {
+        if (backupResult is BackupEvent.Saved) {
+            Toast.makeText(context, "Backup saved", Toast.LENGTH_SHORT).show()
+            viewModel.acknowledgeBackupResult()
         }
     }
 
@@ -309,19 +311,19 @@ fun SettingsScreen(
 
     when (val result = backupResult) {
         is BackupEvent.Restored -> AlertDialog(
-            onDismissRequest = { backupResult = null },
+            onDismissRequest = { viewModel.acknowledgeBackupResult() },
             title = { Text("Backup restored") },
             text = { Text(result.counts.summary()) },
             confirmButton = {
-                TextButton(onClick = { backupResult = null }) { Text("OK") }
+                TextButton(onClick = { viewModel.acknowledgeBackupResult() }) { Text("OK") }
             }
         )
         is BackupEvent.Failed -> AlertDialog(
-            onDismissRequest = { backupResult = null },
+            onDismissRequest = { viewModel.acknowledgeBackupResult() },
             title = { Text("That didn't work") },
             text = { Text(result.reason) },
             confirmButton = {
-                TextButton(onClick = { backupResult = null }) { Text("OK") }
+                TextButton(onClick = { viewModel.acknowledgeBackupResult() }) { Text("OK") }
             }
         )
         else -> Unit
