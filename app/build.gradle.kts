@@ -39,6 +39,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    sourceSets {
+        // The exported Room schemas, as assets of the instrumented test APK, so the migration tests
+        // can build a database at any past version and migrate it forward.
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
+    }
     buildFeatures {
         compose = true
         // Generates BuildConfig.VERSION_NAME / VERSION_CODE so the About section in Settings
@@ -100,10 +105,20 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.runner)
+    androidTestImplementation(libs.androidx.room.testing)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     "ksp"(libs.androidx.room.compiler)
     "ksp"(libs.moshi.kotlin.codegen)
+
+    constraints {
+        // Not used directly - lifecycle pulls in 1.7.3, and the instrumented test APK is pinned to the
+        // app's versions. Room's MigrationTestHelper reads the schema files with serializers built for
+        // 1.8+, which crash on 1.7.3 with an AbstractMethodError, so the floor is raised here.
+        implementation(libs.kotlinx.serialization.core) {
+            because("room-testing's schema reader needs kotlinx-serialization 1.8+")
+        }
+    }
 }
 // Several unit tests parse the bundled CSVs straight off disk rather than through a fixture, so
 // Gradle cannot see the dependency and would report a stale pass after a data-only edit. Declaring

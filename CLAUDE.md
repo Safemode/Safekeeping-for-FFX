@@ -6,6 +6,10 @@
 ## Run Tests
 ./gradlew test
 
+Database migration tests are instrumented (they need a real SQLite), so CI does not run them. Run
+them on an emulator or device whenever the Room schema changes, before releasing:
+./gradlew connectedDebugAndroidTest
+
 ## Stack
 - Kotlin
 - Jetpack Compose
