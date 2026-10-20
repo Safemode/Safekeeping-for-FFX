@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 private const val ASSET_NAME = "monster_arena.csv"
@@ -59,11 +61,19 @@ class MonsterArenaRepository(
     }
 
     /**
-     * Clamped to 0..[MAX_CAPTURES] here rather than at the UI, so no caller can write a count the
-     * game could not produce. Zero deletes the row instead of storing it.
+     * Serializes every read-then-write of a count. Each +/- tap launches its own coroutine, so two
+     * quick taps computed from the count on screen would both write the same value and one capture
+     * would be lost. Holding this across read and write makes each change apply on top of the last.
      */
-    suspend fun setCount(monsterId: String, count: Int) {
-        val clamped = count.coerceIn(0, MAX_CAPTURES)
+    private val writeMutex = Mutex()
+
+    /**
+     * Moves one fiend's count by [delta], starting from the stored count rather than whatever the
+     * screen last showed. Clamped to 0..[MAX_CAPTURES] here rather than at the UI, so no caller can
+     * write a count the game could not produce. Zero deletes the row instead of storing it.
+     */
+    suspend fun adjustCount(monsterId: String, delta: Int) = writeMutex.withLock {
+        val clamped = ((dao.getCount(monsterId) ?: 0) + delta).coerceIn(0, MAX_CAPTURES)
         if (clamped == 0) {
             dao.delete(monsterId)
         } else {
@@ -81,10 +91,10 @@ class MonsterArenaRepository(
      * Raises each fiend in [targets] to at least its required count in a single write, never
      * lowering a count that is already higher - so a creation's auto-capture unlocks it without
      * undoing progress the player already made towards another. Counts are clamped to
-     * 0..[MAX_CAPTURES] here, same as [setCount].
+     * 0..[MAX_CAPTURES] here, same as [adjustCount].
      */
-    suspend fun captureAtLeast(targets: Map<String, Int>) {
-        if (targets.isEmpty()) return
+    suspend fun captureAtLeast(targets: Map<String, Int>) = writeMutex.withLock {
+        if (targets.isEmpty()) return@withLock
         val current = dao.getAll().associate { it.monsterId to it.count }
         val now = System.currentTimeMillis()
         val updates = targets.mapNotNull { (monsterId, needed) ->
