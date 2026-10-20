@@ -176,6 +176,16 @@ abstract class FfxDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Every migration, oldest first. Shared with the instrumented migration tests, which replay
+         * them against the exported schemas in `app/schemas` - so a new migration added here is
+         * covered there without being listed twice.
+         */
+        internal val ALL_MIGRATIONS: Array<Migration> = arrayOf(
+            MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
+            MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9
+        )
+
         @Volatile
         private var instance: FfxDatabase? = null
 
@@ -185,10 +195,7 @@ abstract class FfxDatabase : RoomDatabase() {
                     context.applicationContext,
                     FfxDatabase::class.java,
                     "ffx_tracker.db"
-                ).addMigrations(
-                    MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
-                    MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9
-                ).build().also { instance = it }
+                ).addMigrations(*ALL_MIGRATIONS).build().also { instance = it }
             }
     }
 }

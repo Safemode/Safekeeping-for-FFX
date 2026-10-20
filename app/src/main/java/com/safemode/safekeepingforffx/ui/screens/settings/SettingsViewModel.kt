@@ -15,13 +15,13 @@ import com.safemode.safekeepingforffx.data.repository.FavoritesRepository
 import com.safemode.safekeepingforffx.data.repository.MonsterArenaRepository
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
 import com.safemode.safekeepingforffx.data.repository.SphereGridRepository
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
@@ -92,24 +92,38 @@ class SettingsViewModel(
     /** True while a backup or restore is running, so the buttons can't be tapped twice. */
     val busy = _busy.asStateFlow()
 
-    private val _events = MutableSharedFlow<BackupEvent>(extraBufferCapacity = 4)
+    private val _backupResult = MutableStateFlow<BackupEvent?>(null)
 
-    /** One-shot outcomes of a backup or restore, for the screen to report. */
-    val events = _events.asSharedFlow()
+    /**
+     * The outcome of the last backup or restore, held until the screen calls [acknowledgeBackupResult].
+     * State rather than a one-shot event: an event fired while the screen was being recreated (a
+     * rotation during a slow write to Drive) had no collector and was lost, and the player never
+     * learned whether their backup was saved.
+     */
+    val backupResult = _backupResult.asStateFlow()
+
+    fun acknowledgeBackupResult() {
+        _backupResult.value = null
+    }
 
     /**
      * Writes the whole backup to [sink]. The sink is supplied by the screen and points at the file
      * the player chose, so nothing here needs to know about content URIs.
+     *
+     * Runs to completion even if the player leaves Settings partway: the file was opened in truncate
+     * mode, so cancelling mid-write would leave them a broken backup in place of the old one.
      */
     fun backUp(sink: BackupSink) {
         if (_busy.value) return
+        _busy.value = true
         viewModelScope.launch {
-            _busy.value = true
-            runCatching { sink.write(backupRepository.exportJson()) }
-                .onSuccess { _events.emit(BackupEvent.Saved) }
-                .onFailure {
-                    _events.emit(BackupEvent.Failed(it.message ?: "Couldn't save the backup."))
-                }
+            val result = withContext(NonCancellable) {
+                runCatching { sink.write(backupRepository.exportJson()) }
+            }
+            _backupResult.value = result.fold(
+                onSuccess = { BackupEvent.Saved },
+                onFailure = { BackupEvent.Failed(it.message ?: "Couldn't save the backup.") }
+            )
             _busy.value = false
         }
     }
@@ -117,22 +131,26 @@ class SettingsViewModel(
     /**
      * Replaces everything with the backup read from [source]. Caller is responsible for confirming
      * with the user first - the current progress is overwritten, not merged.
+     *
+     * Like [backUp], runs to completion once started, so leaving Settings can't stop a restore
+     * between its database write and its settings write.
      */
     fun restore(source: BackupSource) {
         if (_busy.value) return
+        _busy.value = true
         viewModelScope.launch {
-            _busy.value = true
-            val json = runCatching { source.read() }.getOrNull()
-            if (json == null) {
-                _events.emit(BackupEvent.Failed("Couldn't read that file."))
-            } else {
-                backupRepository.restoreJson(json)
-                    .onSuccess { _events.emit(BackupEvent.Restored(it)) }
-                    .onFailure {
-                        _events.emit(
+            _backupResult.value = withContext(NonCancellable) {
+                val json = runCatching { source.read() }.getOrNull()
+                if (json == null) {
+                    BackupEvent.Failed("Couldn't read that file.")
+                } else {
+                    backupRepository.restoreJson(json).fold(
+                        onSuccess = { BackupEvent.Restored(it) },
+                        onFailure = {
                             BackupEvent.Failed(it.message ?: "That backup couldn't be restored.")
-                        )
-                    }
+                        }
+                    )
+                }
             }
             _busy.value = false
         }
@@ -175,7 +193,7 @@ class SettingsViewModel(
     }
 }
 
-/** The outcome of a backup or a restore, reported once. */
+/** The outcome of a backup or a restore, shown until the player acknowledges it. */
 sealed interface BackupEvent {
     data object Saved : BackupEvent
 

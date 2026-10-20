@@ -16,8 +16,8 @@ android {
         applicationId = "com.safemode.safekeepingforffx"
         minSdk = 24
         targetSdk = 36
-        versionCode = 34
-        versionName = "1.0.4"
+        versionCode = 35
+        versionName = "1.0.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -38,6 +38,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+    sourceSets {
+        // The exported Room schemas, as assets of the instrumented test APK, so the migration tests
+        // can build a database at any past version and migrate it forward.
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
     }
     buildFeatures {
         compose = true
@@ -67,7 +72,27 @@ androidComponents {
         variant.outputs
             .filterIsInstance<com.android.build.api.variant.impl.VariantOutputImpl>()
             .forEach { it.outputFileName.set(apkName) }
+
+        // Release builds are obfuscated by R8, so a crash log from a GitHub APK is unreadable without
+        // that exact build's mapping.txt - and the next build overwrites it. This zips it per version
+        // into release-mappings/ (git-ignored, ~5 MB zipped vs ~60 MB raw) so it survives a clean and
+        // can be attached to the GitHub release. Play needs none of this: the .aab carries its own.
+        if (variant.buildType == "release") {
+            val versionName = android.defaultConfig.versionName
+            tasks.register<Zip>("archiveReleaseMapping") {
+                description = "Zips the R8 mapping for this release version into release-mappings/."
+                from(variant.artifacts.get(com.android.build.api.artifact.SingleArtifact.OBFUSCATION_MAPPING_FILE))
+                archiveFileName.set("safekeeping-for-ffx-$versionName-mapping.zip")
+                destinationDirectory.set(rootProject.layout.projectDirectory.dir("release-mappings"))
+            }
+        }
     }
+}
+
+// Every release build - the APK for GitHub and the .aab for Play share one R8 run - leaves its
+// mapping archived, including builds made through Android Studio's "Generate Signed Bundle / APK".
+tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
+    finalizedBy("archiveReleaseMapping")
 }
 
 dependencies {
@@ -100,10 +125,20 @@ dependencies {
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.runner)
+    androidTestImplementation(libs.androidx.room.testing)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     "ksp"(libs.androidx.room.compiler)
     "ksp"(libs.moshi.kotlin.codegen)
+
+    constraints {
+        // Not used directly - lifecycle pulls in 1.7.3, and the instrumented test APK is pinned to the
+        // app's versions. Room's MigrationTestHelper reads the schema files with serializers built for
+        // 1.8+, which crash on 1.7.3 with an AbstractMethodError, so the floor is raised here.
+        implementation(libs.kotlinx.serialization.core) {
+            because("room-testing's schema reader needs kotlinx-serialization 1.8+")
+        }
+    }
 }
 // Several unit tests parse the bundled CSVs straight off disk rather than through a fixture, so
 // Gradle cannot see the dependency and would report a stale pass after a data-only edit. Declaring
@@ -112,4 +147,13 @@ tasks.withType<Test>().configureEach {
     inputs.dir(layout.projectDirectory.dir("src/main/assets"))
         .withPropertyName("bundledAssets")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    // FrozenIdsTest checks stored ids against these lists, so editing one must re-run it too.
+    inputs.dir(layout.projectDirectory.dir("src/test/frozen-ids"))
+        .withPropertyName("frozenIds")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    // `./gradlew test -PupdateFrozenIds` appends newly added ids to those lists. It never removes one.
+    systemProperty(
+        "updateFrozenIds",
+        providers.gradleProperty("updateFrozenIds").map { "true" }.getOrElse("false")
+    )
 }

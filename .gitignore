@@ -48,3 +48,5 @@ google-services.json
 
 # Android Profiling
 *.hprof
+# Zipped R8 mappings, one per release build (see archiveReleaseMapping). Attach to the GitHub release.
+/release-mappings/
