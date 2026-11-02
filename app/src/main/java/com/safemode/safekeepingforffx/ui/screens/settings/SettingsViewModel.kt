@@ -54,7 +54,7 @@ class SettingsViewModel(
     val sphereGridTapActivates = settingsRepository.sphereGridTapActivates.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = false
+        initialValue = true
     )
 
     fun setTheme(preference: ThemePreference) {

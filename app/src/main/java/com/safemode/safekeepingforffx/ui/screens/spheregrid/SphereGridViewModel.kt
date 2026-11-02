@@ -49,7 +49,7 @@ data class SphereGridUiState(
     val lastActivatedNodeId: String? = null,
     val showHelp: Boolean = true,
     /** When true a tap activates a node and a long-press opens its details; otherwise tap opens. */
-    val tapActivates: Boolean = false,
+    val tapActivates: Boolean = true,
     /** When true the node editor offers every attribute and ability; otherwise the short list. */
     val fullNodeEditor: Boolean = false
 ) {
