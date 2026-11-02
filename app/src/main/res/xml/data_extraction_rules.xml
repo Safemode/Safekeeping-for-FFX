@@ -1,19 +1,22 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample data extraction rules file; uncomment and customize as necessary.
-   See https://developer.android.com/about/versions/12/backup-restore#xml-changes
-   for details.
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Auto Backup and device-to-device transfer on Android 12 and newer. Android 11 and older read
+    backup_rules.xml instead, which holds the same rules - change them together.
+
+    Only the player's own data travels to a new phone: the progress database and the settings
+    DataStore. Naming them means anything else the app or a library writes stays on the device, such
+    as androidx's profileInstalled marker, which records this device's startup-profile state and
+    has no meaning on another one. Cache and no_backup are never backed up anyway.
 -->
 <data-extraction-rules>
     <cloud-backup>
-        <!-- TODO: Use <include> and <exclude> to control what is backed up.
-        <include .../>
-        <exclude .../>
-        -->
+        <!-- ffx_tracker.db and its -wal / -shm files, so a restore is never missing recent writes. -->
+        <include domain="database" path="." />
+        <!-- files/datastore/settings.preferences_pb -->
+        <include domain="file" path="datastore/" />
     </cloud-backup>
-    <!--
     <device-transfer>
-        <include .../>
-        <exclude .../>
+        <include domain="database" path="." />
+        <include domain="file" path="datastore/" />
     </device-transfer>
-    -->
 </data-extraction-rules>
