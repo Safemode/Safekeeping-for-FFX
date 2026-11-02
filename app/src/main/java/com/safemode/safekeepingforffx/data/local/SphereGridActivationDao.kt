@@ -48,6 +48,13 @@ interface SphereGridActivationDao {
     @Query("DELETE FROM sphere_grid_activation WHERE nodeId = :nodeId")
     suspend fun deleteNode(nodeId: String)
 
+    /**
+     * [deleteNode] for many nodes at once, e.g. every lock a bulk revert re-gates. Each id is a bound
+     * variable, so keep a call under SQLite's 999-variable limit; a grid has well under 100 locks.
+     */
+    @Query("DELETE FROM sphere_grid_activation WHERE nodeId IN (:nodeIds)")
+    suspend fun deleteNodes(nodeIds: List<String>)
+
     /** Whether any character has any activation, on either grid - drives the "Clear all paths" action. */
     @Query("SELECT EXISTS(SELECT 1 FROM sphere_grid_activation)")
     fun observeAnyPath(): Flow<Boolean>

@@ -5,6 +5,9 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.io.InputStream
 
 /**
  * Where a backup's JSON goes and comes from.
@@ -31,7 +34,7 @@ fun interface BackupSource {
 fun contentSink(resolver: ContentResolver, uri: Uri): BackupSink = BackupSink { text ->
     withContext(Dispatchers.IO) {
         val stream = resolver.openOutputStream(uri, "wt")
-            ?: throw java.io.IOException("Couldn't open that location for writing.")
+            ?: throw IOException("Couldn't open that location for writing.")
         stream.use { it.write(text.toByteArray()) }
     }
 }
@@ -39,9 +42,37 @@ fun contentSink(resolver: ContentResolver, uri: Uri): BackupSink = BackupSink { 
 fun contentSource(resolver: ContentResolver, uri: Uri): BackupSource = BackupSource {
     withContext(Dispatchers.IO) {
         val stream = resolver.openInputStream(uri)
-            ?: throw java.io.IOException("Couldn't open that file.")
-        stream.use { it.bufferedReader().readText() }
+            ?: throw IOException("Couldn't open that file.")
+        stream.use { readBackupText(it) }
     }
+}
+
+/**
+ * The most a restore will read. The picker isn't filtered to .json (see the Settings screen), so a
+ * video picked by mistake would otherwise be read whole into memory. A route carrying every
+ * character's path across the full grid is about 200 KB in a backup, so this still fits a library
+ * of around a hundred of them on top of everything else.
+ */
+const val MAX_BACKUP_BYTES = 20 * 1024 * 1024
+
+/** Thrown for a file over [MAX_BACKUP_BYTES]. The message is written to be shown as-is. */
+class BackupTooLargeException : IOException("That file is too large to be a Safekeeping backup.")
+
+/**
+ * Reads [stream] as UTF-8, giving up with [BackupTooLargeException] as soon as it passes [limit]
+ * rather than after reading the whole file. Counted while reading because providers don't reliably
+ * report a file's size up front.
+ */
+fun readBackupText(stream: InputStream, limit: Int = MAX_BACKUP_BYTES): String {
+    val out = ByteArrayOutputStream()
+    val buffer = ByteArray(64 * 1024)
+    while (true) {
+        val read = stream.read(buffer)
+        if (read < 0) break
+        if (out.size() + read > limit) throw BackupTooLargeException()
+        out.write(buffer, 0, read)
+    }
+    return String(out.toByteArray(), Charsets.UTF_8)
 }
 
 /**

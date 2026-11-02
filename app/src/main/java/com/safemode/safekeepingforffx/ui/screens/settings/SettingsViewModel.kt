@@ -54,7 +54,7 @@ class SettingsViewModel(
     val sphereGridTapActivates = settingsRepository.sphereGridTapActivates.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = false
+        initialValue = true
     )
 
     fun setTheme(preference: ThemePreference) {
@@ -132,17 +132,24 @@ class SettingsViewModel(
         _busy.value = true
         viewModelScope.launch {
             _backupResult.value = withContext(NonCancellable) {
-                val json = runCatching { source.read() }.getOrNull()
-                if (json == null) {
-                    BackupEvent.Failed("Couldn't read that file.")
-                } else {
-                    backupRepository.restoreJson(json).fold(
-                        onSuccess = { BackupEvent.Restored(it) },
-                        onFailure = {
-                            BackupEvent.Failed(it.message ?: "That backup couldn't be restored.")
-                        }
-                    )
-                }
+                runCatching { source.read() }.fold(
+                    onSuccess = { json ->
+                        backupRepository.restoreJson(json).fold(
+                            onSuccess = { BackupEvent.Restored(it) },
+                            onFailure = {
+                                BackupEvent.Failed(it.message ?: "That backup couldn't be restored.")
+                            }
+                        )
+                    },
+                    // Only the size refusal is worded for the player; a provider's own read error
+                    // is not, so anything else gets the plain message.
+                    onFailure = {
+                        BackupEvent.Failed(
+                            if (it is BackupTooLargeException) it.message.orEmpty()
+                            else "Couldn't read that file."
+                        )
+                    }
+                )
             }
             _busy.value = false
         }

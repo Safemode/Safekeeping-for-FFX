@@ -271,7 +271,8 @@ fun SphereGridScreen(
                 onRevertEdits = {
                     confirm = ConfirmAction(
                         title = "Revert all edits?",
-                        message = "Every node's content goes back to vanilla on both grids. This " +
+                        message = "Every node's content goes back to vanilla on both grids. Opened " +
+                            "locks close again and come off any path that ran through them. This " +
                             "can't be undone.",
                         confirmLabel = "Revert all",
                         onConfirm = viewModel::revertEdits

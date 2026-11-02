@@ -105,8 +105,22 @@ class SphereGridRepository(
         }
     }
 
-    /** Reverts every edited node on every grid back to vanilla. Activations are left alone. */
-    suspend fun clearOverrides() = nodeDao.clearAll()
+    /**
+     * Reverts every edited node on every grid back to vanilla. Paths are left alone, except where
+     * they ran through a lock: reverting re-gates every opened lock, and a gate can't be activated -
+     * the same rule [setContent] applies when one lock is reverted on its own.
+     */
+    suspend fun clearOverrides() {
+        val locks = GridType.entries.flatMap { lockIds(it) }
+        database.withTransaction {
+            nodeDao.clearAll()
+            if (locks.isNotEmpty()) activationDao.deleteNodes(locks)
+        }
+    }
+
+    /** Every node on [gridType] that is a lock in the vanilla grid, opened or not. */
+    private suspend fun lockIds(gridType: GridType): List<String> =
+        grid(gridType).nodes.filter { it.original is NodeContent.Lock }.map { it.id }
 
     // --- Per-character activation (each character's path) ---
 
@@ -196,8 +210,11 @@ class SphereGridRepository(
      * for: the shared content edits, and either the current [character]'s path or everyone's. The
      * grid shape itself is never exported - the recipient reconstructs it from the same bundled asset.
      */
-    suspend fun exportBuild(scope: BuildScope, character: GridCharacter, gridType: GridType): String =
-        SphereGridBuildCodec.encode(currentBuild(scope, character, gridType))
+    suspend fun exportBuild(scope: BuildScope, character: GridCharacter, gridType: GridType): String? =
+        currentBuild(scope, character, gridType)
+            // An empty build has no code anyone could import, so there is nothing to hand out.
+            .takeIf { it.events.isNotEmpty() }
+            ?.let(SphereGridBuildCodec::encode)
 
     /**
      * Snapshots the player's current work as a [SphereGridBuild], carrying only the pieces [scope]
@@ -294,7 +311,15 @@ class SphereGridRepository(
 
         seqMutex.withLock {
             database.withTransaction {
-                if (hasEdits) nodeDao.clearGrid(gridType.idPrefix)
+                if (hasEdits) {
+                    nodeDao.clearGrid(gridType.idPrefix)
+                    // Clearing the grid's edits re-gates every lock the build doesn't open again, so
+                    // paths it leaves in place (other characters') can't keep running through them.
+                    // Done before the events are written, so the build's own path is kept as it is.
+                    val opened = events.filterIsInstance<RouteEvent.Edit>().mapTo(HashSet()) { it.nodeId }
+                    val closed = lockIds(gridType).filterNot { it in opened }
+                    if (closed.isNotEmpty()) activationDao.deleteNodes(closed)
+                }
                 characters.forEach { activationDao.clearCharacterOnGrid(it.name, gridType.idPrefix) }
                 // One increasing counter across the whole apply keeps the replayed timeline in order.
                 // It continues from the rows the apply leaves in place (the other grid, untouched
@@ -341,15 +366,18 @@ class SphereGridRepository(
 
     /**
      * Saves the player's current work (per [scope]) as a named route and makes it the loaded route,
-     * so a following save offers to update this same one. Returns the new row id.
+     * so a following save offers to update this same one. Returns the new row id, or null when
+     * [scope] picks out nothing on this grid: an empty route can't be decoded, so it would sit in the
+     * library unseen rather than as a route the player could open or delete.
      */
     suspend fun saveCurrentAsRoute(
         name: String,
         scope: BuildScope,
         character: GridCharacter,
         gridType: GridType
-    ): Long {
+    ): Long? {
         val build = currentBuild(scope, character, gridType).copy(name = name)
+        if (build.events.isEmpty()) return null
         val now = System.currentTimeMillis()
         val id = routeDao.insert(
             SphereGridRouteEntity(
@@ -368,15 +396,19 @@ class SphereGridRepository(
      * Overwrites route [id] with the player's current work (per [scope]), keeping the route's name and
      * original save time but bumping its updated time, and keeps it the loaded route. No-op if the
      * route is gone. This is "Update <name>" - writing edits back to the route they were loaded from.
+     *
+     * Returns false, leaving the route untouched, when [scope] picks out nothing on this grid. Writing
+     * that empty build would make the route unreadable, so it would drop out of the library.
      */
     suspend fun updateRoute(
         id: Long,
         scope: BuildScope,
         character: GridCharacter,
         gridType: GridType
-    ) {
-        val existing = routeDao.get(id) ?: return
+    ): Boolean {
+        val existing = routeDao.get(id) ?: return false
         val build = currentBuild(scope, character, gridType).copy(name = existing.name)
+        if (build.events.isEmpty()) return false
         routeDao.updateContent(
             id = id,
             gridType = gridType.name,
@@ -384,6 +416,7 @@ class SphereGridRepository(
             updatedAt = System.currentTimeMillis()
         )
         settingsRepository.setActiveSphereGridRouteId(id)
+        return true
     }
 
     /** Saves a pasted route code into the library, using its own name unless [name] overrides it. */

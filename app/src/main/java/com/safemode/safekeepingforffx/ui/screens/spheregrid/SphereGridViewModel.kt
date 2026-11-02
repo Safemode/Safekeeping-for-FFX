@@ -49,7 +49,7 @@ data class SphereGridUiState(
     val lastActivatedNodeId: String? = null,
     val showHelp: Boolean = true,
     /** When true a tap activates a node and a long-press opens its details; otherwise tap opens. */
-    val tapActivates: Boolean = false,
+    val tapActivates: Boolean = true,
     /** When true the node editor offers every attribute and ability; otherwise the short list. */
     val fullNodeEditor: Boolean = false
 ) {
@@ -96,8 +96,13 @@ data class SphereGridUiState(
     val hasEdits: Boolean get() = overrides.isNotEmpty()
     val characterHasPath: Boolean get() = activated.isNotEmpty()
 
-    /** True when there is any player work at all to export. */
-    val hasAnythingToShare: Boolean get() = hasEdits || characterHasPath
+    /**
+     * True when there is work on the grid in view to share or save as a route. Edits and paths span
+     * both grids, but a build carries only this one, so work that is all on the other grid doesn't
+     * count - it would save an empty route.
+     */
+    val hasAnythingToShare: Boolean
+        get() = overrides.keys.any { it in grid.nodeIds } || activated.any { it in grid.nodeIds }
 }
 
 /** One step of a route replay for the viewed character: a grid edit, or an activation. */
@@ -405,7 +410,9 @@ class SphereGridViewModel(
     fun exportBuild(scope: BuildScope) {
         viewModelScope.launch {
             val code = repository.exportBuild(scope, character.value, gridType.value)
-            eventChannel.send(SphereGridEvent.ExportReady(code))
+            eventChannel.send(
+                if (code != null) SphereGridEvent.ExportReady(code) else nothingInScope("share")
+            )
         }
     }
 
@@ -439,18 +446,31 @@ class SphereGridViewModel(
         val label = name.trim()
         if (label.isEmpty()) return
         viewModelScope.launch {
-            repository.saveCurrentAsRoute(label, scope, character.value, gridType.value)
-            eventChannel.send(SphereGridEvent.Notice("Route saved to your library."))
+            val id = repository.saveCurrentAsRoute(label, scope, character.value, gridType.value)
+            eventChannel.send(
+                if (id != null) SphereGridEvent.Notice("Route saved to your library.")
+                else nothingInScope("save")
+            )
         }
     }
 
-    /** Overwrites the loaded route [id] with the current work (per [scope]), bumping its updated time. */
+    /**
+     * Overwrites the loaded route [id] with the current work (per [scope]), bumping its updated time.
+     * A scope with nothing in it leaves the route as it was rather than emptying it.
+     */
     fun updateRoute(id: Long, scope: BuildScope) {
         viewModelScope.launch {
-            repository.updateRoute(id, scope, character.value, gridType.value)
-            eventChannel.send(SphereGridEvent.Notice("Route updated."))
+            val updated = repository.updateRoute(id, scope, character.value, gridType.value)
+            eventChannel.send(
+                if (updated) SphereGridEvent.Notice("Route updated.") else nothingInScope("save")
+            )
         }
     }
+
+    /** Why a share or save did nothing: the chosen scope picked out no work on the grid in view. */
+    private fun nothingInScope(action: String) = SphereGridEvent.Notice(
+        "Nothing to $action with that choice on the ${gridType.value.label} grid."
+    )
 
     /** Saves a pasted route code into the library for replay. */
     fun importRouteToLibrary(name: String, code: String) {

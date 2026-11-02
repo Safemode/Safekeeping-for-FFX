@@ -1,5 +1,6 @@
 package com.safemode.safekeepingforffx.data.repository
 
+import androidx.datastore.core.DataMigration
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -40,12 +41,37 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     }
 
     /**
-     * How a tap behaves on the Sphere Grid. Defaults to false - a tap opens the node's details -
-     * which is the more discoverable behaviour. When true, a tap activates the node for the current
-     * character and a long-press opens details, which is faster for building a path.
+     * How a tap behaves on the Sphere Grid. When true, a tap activates the node for the current
+     * character and a long-press opens details, which is the faster way to build a path; when false,
+     * a tap opens the node's details. Defaults to true. Installs from before 1.0.6, when the
+     * default was false, are kept on false by [TapActivatesDefault].
      */
     val sphereGridTapActivates: Flow<Boolean> = dataStore.data.map { preferences ->
-        preferences[SPHERE_GRID_TAP_ACTIVATES] ?: false
+        preferences[SPHERE_GRID_TAP_ACTIVATES] ?: true
+    }
+
+    /**
+     * Pins the tap-to-activate setting on the first launch of 1.0.6, when its default changed
+     * from false to true. A setting the player never touched isn't stored, so changing the default
+     * alone would also flip it for everyone who has been using the planner with tap-to-open. An
+     * update writes the old default (false) and a fresh install writes the new one (true). Writing
+     * it either way means this runs only once: after that the key is present.
+     *
+     * [isExistingInstall] is asked only when the key is missing, and must be true for an update and
+     * false for a first install.
+     */
+    class TapActivatesDefault(
+        private val isExistingInstall: () -> Boolean
+    ) : DataMigration<Preferences> {
+        override suspend fun shouldMigrate(currentData: Preferences): Boolean =
+            SPHERE_GRID_TAP_ACTIVATES !in currentData
+
+        override suspend fun migrate(currentData: Preferences): Preferences =
+            currentData.toMutablePreferences().apply {
+                this[SPHERE_GRID_TAP_ACTIVATES] = !isExistingInstall()
+            }
+
+        override suspend fun cleanUp() = Unit
     }
 
     /**
