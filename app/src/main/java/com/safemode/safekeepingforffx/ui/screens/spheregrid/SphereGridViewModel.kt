@@ -11,13 +11,16 @@ import com.safemode.safekeepingforffx.data.reference.CharacterStatus
 import com.safemode.safekeepingforffx.data.reference.CharacterStatusCalculator
 import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.GridData
+import com.safemode.safekeepingforffx.data.reference.GridPath
 import com.safemode.safekeepingforffx.data.reference.GridStartNodes
 import com.safemode.safekeepingforffx.data.reference.GridType
 import com.safemode.safekeepingforffx.data.reference.NodeContent
 import com.safemode.safekeepingforffx.data.reference.NodeType
+import com.safemode.safekeepingforffx.data.reference.PathMode
 import com.safemode.safekeepingforffx.data.reference.RouteEvent
 import com.safemode.safekeepingforffx.data.reference.SphereGridBuild
 import com.safemode.safekeepingforffx.data.reference.SphereGridNode
+import com.safemode.safekeepingforffx.data.reference.SphereGridPathfinder
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
 import com.safemode.safekeepingforffx.data.repository.SphereGridRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -103,6 +106,51 @@ data class SphereGridUiState(
      */
     val hasAnythingToShare: Boolean
         get() = overrides.keys.any { it in grid.nodeIds } || activated.any { it in grid.nodeIds }
+
+    /**
+     * Resolves [request] against the grid in view: a null start means wherever the selected character
+     * is now ([homeNodeId]), and the path is costed against their own path and the grid's lock state.
+     * Null when the request is for the other grid.
+     */
+    fun planPath(request: PathRequest): PathPlan? {
+        if (request.gridType != gridType) return null
+        val from = request.fromId ?: homeNodeId
+        val path = if (from != null && request.toId != null) {
+            SphereGridPathfinder.find(grid, from, request.toId, request.mode, overrides, activated)
+        } else {
+            null
+        }
+        return PathPlan(request = request, fromId = from, path = path, activated = activated)
+    }
+}
+
+/**
+ * The path the player asked for: between two nodes on [gridType], or from wherever the selected
+ * character is now when [fromId] is null. [toId] is null until a destination has been picked.
+ */
+data class PathRequest(
+    val gridType: GridType,
+    val fromId: String?,
+    val toId: String?,
+    val mode: PathMode
+)
+
+/** A [PathRequest] resolved against the live grid, ready for the path bar and the canvas. */
+data class PathPlan(
+    val request: PathRequest,
+    /** The node the path starts on, or null when the character has nowhere to start from. */
+    val fromId: String?,
+    /** The cheapest path under the request's mode, or null when there is none or no destination. */
+    val path: GridPath?,
+    private val activated: Set<String>
+) {
+    val startsAtCharacter: Boolean get() = request.fromId == null
+
+    /** Nodes "Activate path" would add, in path order - the ones the character hasn't taken yet. */
+    val nodesToActivate: List<String> get() = path?.nodeIds?.filter { it !in activated }.orEmpty()
+
+    /** Unopened locks "Activate path" would open, for every character. */
+    val locksToOpen: Set<String> get() = path?.locks?.mapTo(LinkedHashSet()) { it.nodeId }.orEmpty()
 }
 
 /** One step of a route replay for the viewed character: a grid edit, or an activation. */
@@ -332,7 +380,78 @@ class SphereGridViewModel(
 
     fun setGridType(type: GridType) {
         gridType.value = type
+        // Node ids belong to one grid, so a path planned on the other one has nothing to show here.
+        if (pathRequest.value?.gridType != type) pathRequest.value = null
     }
+
+    // --- Path planning between two nodes ---
+
+    /** The path the player has asked for, or null when none is being planned. */
+    private val pathRequest = MutableStateFlow<PathRequest?>(null)
+
+    /** The mode the next plan starts in: whichever the player last picked. */
+    private var lastPathMode = PathMode.DEFAULT
+
+    /** The requested path resolved against the live grid, or null when none is being planned. */
+    val pathPlan: StateFlow<PathPlan?> =
+        combine(uiState, pathRequest) { state, request ->
+            if (request == null || !state.gridAvailable) null else state.planPath(request)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Plans a path to [node], from the current start (the character, unless one was picked). */
+    fun planPathTo(node: SphereGridNode) {
+        pathRequest.value = currentRequest().copy(toId = node.id)
+    }
+
+    /** Plans a path starting at [node] instead of where the character is. */
+    fun planPathFrom(node: SphereGridNode) {
+        pathRequest.value = currentRequest().copy(fromId = node.id)
+    }
+
+    /** Starts the planned path from wherever the selected character is again. */
+    fun planPathFromCharacter() {
+        pathRequest.value = pathRequest.value?.copy(fromId = null)
+    }
+
+    fun setPathMode(mode: PathMode) {
+        lastPathMode = mode
+        pathRequest.value = pathRequest.value?.copy(mode = mode)
+    }
+
+    fun clearPath() {
+        pathRequest.value = null
+    }
+
+    /** The open request on this grid, or a fresh one starting at the character. */
+    private fun currentRequest(): PathRequest =
+        pathRequest.value?.takeIf { it.gridType == gridType.value }
+            ?: PathRequest(gridType.value, fromId = null, toId = null, mode = lastPathMode)
+
+    /**
+     * Adds the planned path to the selected character's path, opening any locks on it for every
+     * character, then clears the plan. Caller confirms first.
+     */
+    fun walkPlannedPath() {
+        val plan = pathPlan.value ?: return
+        val nodes = plan.nodesToActivate
+        val locks = plan.locksToOpen
+        if (nodes.isEmpty() && locks.isEmpty()) return
+        val who = character.value
+        pathRequest.value = null
+        viewModelScope.launch {
+            repository.walkPath(who, nodes, locks)
+            val opened = if (locks.isEmpty()) "" else " and opened ${lockCount(locks.size)}"
+            eventChannel.send(
+                SphereGridEvent.Notice(
+                    "Added ${nodeCountText(nodes.size)} to ${who.displayName}'s path$opened."
+                )
+            )
+        }
+    }
+
+    private fun nodeCountText(count: Int) = if (count == 1) "1 node" else "$count nodes"
+
+    private fun lockCount(count: Int) = if (count == 1) "1 lock" else "$count locks"
 
     fun setCharacter(value: GridCharacter) {
         character.value = value

@@ -189,6 +189,23 @@ data class GridData(
      */
     val nodeIds: Set<String> by lazy { nodes.mapTo(HashSet()) { it.id } }
 
+    /** Each node by id, built once per parsed grid. */
+    val nodesById: Map<String, SphereGridNode> by lazy { nodes.associateBy { it.id } }
+
+    /**
+     * Each node's directly linked neighbours, built once per parsed grid. Links are two-way, so each
+     * edge appears under both of its ends. Neighbour order follows the edge list, which the parser
+     * emits in a fixed order, so anything walking this gets the same answer every time.
+     */
+    val neighbours: Map<String, List<String>> by lazy {
+        val map = HashMap<String, MutableList<String>>()
+        edges.forEach { e ->
+            map.getOrPut(e.fromId) { mutableListOf() }.add(e.toId)
+            map.getOrPut(e.toId) { mutableListOf() }.add(e.fromId)
+        }
+        map
+    }
+
     companion object {
         val EMPTY = GridData(emptyList(), emptyList(), GridBounds(0f, 0f, 0f, 0f))
     }

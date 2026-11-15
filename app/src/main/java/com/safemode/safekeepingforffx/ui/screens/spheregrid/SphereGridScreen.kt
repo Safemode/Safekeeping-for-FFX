@@ -79,6 +79,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -177,6 +178,7 @@ fun SphereGridScreen(
     val loadedRoute by viewModel.loadedRoute.collectAsStateWithLifecycle()
     val charactersOnGrid by viewModel.charactersOnGrid.collectAsStateWithLifecycle()
     val hasAnyPath by viewModel.hasAnyPath.collectAsStateWithLifecycle()
+    val pathPlan by viewModel.pathPlan.collectAsStateWithLifecycle()
     var showRoutesSheet by remember { mutableStateOf(false) }
     var showSaveRouteDialog by remember { mutableStateOf(false) }
     var showImportRouteDialog by rememberSaveable { mutableStateOf(false) }
@@ -382,6 +384,9 @@ fun SphereGridScreen(
                     focusNodeId = focusTarget,
                     focusSignal = focusSignal,
                     homeNodeId = state.homeNodeId,
+                    plannedPath = pathPlan?.path?.nodeIds.orEmpty(),
+                    plannedEnds = listOfNotNull(pathPlan?.fromId, pathPlan?.request?.toId),
+                    plannedLocks = pathPlan?.locksToOpen.orEmpty(),
                     viewKey = gridViewKey(state.gridType, state.character),
                     icons = sphereIcons,
                     textMeasurer = textMeasurer,
@@ -471,6 +476,42 @@ fun SphereGridScreen(
                 }
             )
         }
+
+        // The path planner works on live progress only, so it steps aside during a route replay.
+        val plan = pathPlan
+        if (activeRoute == null && plan != null) {
+            HorizontalDivider()
+            PathPlanBar(
+                plan = plan,
+                characterName = state.character.displayName,
+                fromLabel = plan.fromId?.let { nodesById[it] }?.let { state.current(it).endpointLabel() },
+                toLabel = plan.request.toId?.let { nodesById[it] }?.let { state.current(it).endpointLabel() },
+                onModeChange = viewModel::setPathMode,
+                onStartFromCharacter = viewModel::planPathFromCharacter,
+                onWalk = {
+                    val name = state.character.displayName
+                    val nodes = plan.nodesToActivate.size
+                    val locks = plan.path?.takeIf { it.locks.isNotEmpty() }
+                    confirm = ConfirmAction(
+                        title = "Activate this path for $name?",
+                        message = buildString {
+                            append("Adds ${nodeCount(nodes)} to $name's path, in order. ")
+                            if (locks != null) {
+                                append(
+                                    "Opens ${if (locks.locks.size == 1) "1 lock" else "${locks.locks.size} locks"} " +
+                                        "on the way (${locks.keySummary()}), which opens them for every " +
+                                        "character. "
+                                )
+                            }
+                            append("Nodes already on the path are left as they are.")
+                        },
+                        confirmLabel = "Activate path",
+                        onConfirm = viewModel::walkPlannedPath
+                    )
+                },
+                onClose = viewModel::clearPath
+            )
+        }
     }
 
     val selected = selectedNodeId?.let { nodesById[it] }
@@ -503,6 +544,14 @@ fun SphereGridScreen(
                     },
                     onRevert = {
                         viewModel.setContent(selected, null)
+                        selectedNodeId = null
+                    },
+                    onPathTo = {
+                        viewModel.planPathTo(selected)
+                        selectedNodeId = null
+                    },
+                    onPathFrom = {
+                        viewModel.planPathFrom(selected)
                         selectedNodeId = null
                     }
                 )
@@ -1170,7 +1219,9 @@ private fun NodeDetail(
     canEdit: Boolean,
     onToggleActivation: () -> Unit,
     onEdit: () -> Unit,
-    onRevert: () -> Unit
+    onRevert: () -> Unit,
+    onPathTo: () -> Unit,
+    onPathFrom: () -> Unit
 ) {
     val edited = current != node.original
     // A gate nobody has opened yet still holds its Lock content; opening it is a shared change, so it
@@ -1242,6 +1293,16 @@ private fun NodeDetail(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        Spacer(Modifier.size(16.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = onPathTo, modifier = Modifier.weight(1f)) {
+                Text("Path to here")
+            }
+            OutlinedButton(onClick = onPathFrom, modifier = Modifier.weight(1f)) {
+                Text("Path from here")
+            }
+        }
 
         if (current.isEditable) {
             if (canEdit || edited) {
@@ -1932,6 +1993,12 @@ private fun GridCanvas(
      * or where they start. Null falls back to framing the whole grid.
      */
     homeNodeId: String? = null,
+    /** A planned path to draw over the grid, in order from its start. Empty when none is planned. */
+    plannedPath: List<String> = emptyList(),
+    /** The planned path's chosen start and destination, ringed even before a path connects them. */
+    plannedEnds: List<String> = emptyList(),
+    /** Unopened locks on the planned path, ringed to show they need a key. */
+    plannedLocks: Set<String> = emptySet(),
     /** Which slot of [savedViews] this canvas owns: one view per grid and character. */
     viewKey: String
 ) {
@@ -2142,6 +2209,30 @@ private fun GridCanvas(
             drawLine(characterColor, Offset(ax, ay), Offset(bx, by), strokeWidth = linkWidth)
         }
 
+        // Planned path pass: dashed, over the character's own path so the plan shows even where it
+        // runs back along nodes they have already taken, and under the nodes so none is hidden.
+        if (plannedPath.size > 1) {
+            val dash = (linkWidth * 2.4f).coerceAtLeast(4f)
+            val dashEffect = PathEffect.dashPathEffect(floatArrayOf(dash, dash * 0.7f))
+            val plannedWidth = linkWidth * 1.3f
+            plannedPath.zipWithNext().forEach { (fromId, toId) ->
+                val a = grid.nodesById[fromId] ?: return@forEach
+                val b = grid.nodesById[toId] ?: return@forEach
+                val ax = a.x * scale + offset.x
+                val ay = a.y * scale + offset.y
+                val bx = b.x * scale + offset.x
+                val by = b.y * scale + offset.y
+                if (!segmentVisible(ax, ay, bx, by, size.width, size.height)) return@forEach
+                drawLine(
+                    PlannedPathColor,
+                    Offset(ax, ay),
+                    Offset(bx, by),
+                    strokeWidth = plannedWidth,
+                    pathEffect = dashEffect
+                )
+            }
+        }
+
         nodes.forEach { node ->
             val cx = node.x * scale + offset.x
             val cy = node.y * scale + offset.y
@@ -2286,6 +2377,28 @@ private fun GridCanvas(
                     )
                 }
             }
+        }
+
+        // The planned path's ends, and every lock on it that still needs a key, get an orange ring
+        // outside the node, clear of the activation rim and the selection highlight.
+        (plannedEnds.asSequence() + plannedLocks.asSequence()).distinct().forEach { id ->
+            val node = grid.nodesById[id] ?: return@forEach
+            val content = overrides[node.id] ?: node.original
+            val r = (content.displayType.nodeRadius() * scale).coerceAtLeast(1.5f)
+            val cx = node.x * scale + offset.x
+            val cy = node.y * scale + offset.y
+            val ringRadius = r * 1.35f
+            if (cx < -ringRadius || cy < -ringRadius ||
+                cx > size.width + ringRadius || cy > size.height + ringRadius
+            ) {
+                return@forEach
+            }
+            drawCircle(
+                color = PlannedPathColor,
+                radius = ringRadius,
+                center = Offset(cx, cy),
+                style = Stroke(width = (r * 0.16f).coerceAtLeast(1.6f))
+            )
         }
     }
 }

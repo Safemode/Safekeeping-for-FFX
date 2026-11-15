@@ -203,6 +203,34 @@ class SphereGridRepository(
         return targets.size
     }
 
+    /**
+     * Walks a planned path for [character]: opens each lock in [locksToOpen] for every character (the
+     * same blank edit a tap on a lock writes) and activates [nodeIds], in the order given. Each lock is
+     * opened just before it is activated, so a saved route replays it as "opened, then taken".
+     *
+     * Nodes already on the path should be left out by the caller, so their place in the timeline -
+     * and the order a saved route records - is not rewritten. One transaction, so a path is never
+     * left half-walked.
+     */
+    suspend fun walkPath(character: GridCharacter, nodeIds: List<String>, locksToOpen: Set<String>) {
+        if (nodeIds.isEmpty() && locksToOpen.isEmpty()) return
+        seqMutex.withLock {
+            database.withTransaction {
+                var seq = nextSeq()
+                // A lock the caller wants opened but not activated still has to be opened.
+                (locksToOpen - nodeIds.toSet()).forEach { id ->
+                    nodeDao.upsert(SphereGridNodeEntity(id, NodeContent.Empty.encode(), seq++))
+                }
+                nodeIds.forEach { id ->
+                    if (id in locksToOpen) {
+                        nodeDao.upsert(SphereGridNodeEntity(id, NodeContent.Empty.encode(), seq++))
+                    }
+                    activationDao.upsert(SphereGridActivationEntity(character.name, id, seq++))
+                }
+            }
+        }
+    }
+
     // --- Sharing: export/import a build as a copy/paste code ---
 
     /**
