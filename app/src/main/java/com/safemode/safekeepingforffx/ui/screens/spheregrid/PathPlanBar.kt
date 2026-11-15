@@ -62,7 +62,7 @@ internal fun PathPlan.summary(): String {
 
 /**
  * The bar under the grid while a path is planned: where it runs, the lock mode, what it costs and
- * which keys it needs, and the action to walk it.
+ * which keys it needs, and the actions to step through it or save it as a point-to-point route.
  */
 @Composable
 internal fun PathPlanBar(
@@ -72,7 +72,8 @@ internal fun PathPlanBar(
     toLabel: String?,
     onModeChange: (PathMode) -> Unit,
     onStartFromCharacter: () -> Unit,
-    onWalk: () -> Unit,
+    onStepThrough: () -> Unit,
+    onSave: () -> Unit,
     onClose: () -> Unit
 ) {
     val muted = MaterialTheme.colorScheme.onSurfaceVariant
@@ -122,11 +123,10 @@ internal fun PathPlanBar(
                 TextButton(onClick = onStartFromCharacter) { Text("Start from $characterName") }
             }
             Spacer(Modifier.weight(1f))
-            FilledTonalButton(
-                onClick = onWalk,
-                enabled = plan.nodesToActivate.isNotEmpty() || plan.locksToOpen.isNotEmpty()
-            ) {
-                Text("Activate path")
+            TextButton(onClick = onSave, enabled = plan.hasSteps) { Text("Save") }
+            Spacer(Modifier.width(8.dp))
+            FilledTonalButton(onClick = onStepThrough, enabled = plan.hasSteps) {
+                Text("Step through")
             }
         }
     }

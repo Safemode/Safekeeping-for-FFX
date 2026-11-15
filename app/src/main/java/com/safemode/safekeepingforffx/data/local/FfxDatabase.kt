@@ -14,9 +14,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SphereGridNodeEntity::class,
         SphereGridActivationEntity::class,
         SphereGridRouteEntity::class,
-        FavoriteEntity::class
+        FavoriteEntity::class,
+        PointRouteEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 abstract class FfxDatabase : RoomDatabase() {
@@ -32,6 +33,8 @@ abstract class FfxDatabase : RoomDatabase() {
     abstract fun sphereGridActivationDao(): SphereGridActivationDao
 
     abstract fun sphereGridRouteDao(): SphereGridRouteDao
+
+    abstract fun pointRouteDao(): PointRouteDao
 
     companion object {
         /**
@@ -177,13 +180,35 @@ abstract class FfxDatabase : RoomDatabase() {
         }
 
         /**
+         * Adds the point-to-point routes table: paths planned between two nodes and saved for
+         * stepping through. Additive: no other table is touched, so nobody loses progress on update.
+         */
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `point_route` (" +
+                        "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`gridType` TEXT NOT NULL, " +
+                        "`character` TEXT NOT NULL, " +
+                        "`mode` TEXT NOT NULL, " +
+                        "`nodeIds` TEXT NOT NULL, " +
+                        "`lockIds` TEXT NOT NULL, " +
+                        "`moveQuarters` INTEGER NOT NULL, " +
+                        "`createdAt` INTEGER NOT NULL, " +
+                        "`updatedAt` INTEGER NOT NULL)"
+                )
+            }
+        }
+
+        /**
          * Every migration, oldest first. Shared with the instrumented migration tests, which replay
          * them against the exported schemas in `app/schemas` - so a new migration added here is
          * covered there without being listed twice.
          */
         internal val ALL_MIGRATIONS: Array<Migration> = arrayOf(
             MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6,
-            MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9
+            MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10
         )
 
         @Volatile

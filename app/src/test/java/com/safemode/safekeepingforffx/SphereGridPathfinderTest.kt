@@ -208,11 +208,24 @@ class SphereGridPathfinderTest {
         )
         assertEquals(home, plan.fromId)
         assertEquals(listOf(home, target), plan.path?.nodeIds)
-        assertEquals("Both nodes are new to Wakka", listOf(home, target), plan.nodesToActivate)
+        assertTrue(plan.startsAtCharacter)
+        assertTrue(plan.hasSteps)
 
-        val walked = state.copy(activated = setOf(home), lastActivatedNodeId = home)
+        // Once Wakka has moved on, an open plan follows them: it starts from their new last node.
+        val walked = state.copy(activated = setOf(home, target), lastActivatedNodeId = target)
         val again = walked.planPath(PathRequest(GridType.STANDARD, null, target, PathMode.SHORTEST))
-        assertEquals("A node already taken is left out", listOf(target), again?.nodesToActivate)
+        assertEquals(target, again?.fromId)
+        assertEquals(false, again?.hasSteps)
+    }
+
+    @Test
+    fun aPlanListsTheLocksStillToOpen() {
+        val tidus = start(GridType.STANDARD, GridCharacter.TIDUS)
+        val yuna = start(GridType.STANDARD, GridCharacter.YUNA)
+        val state = SphereGridUiState(isLoading = false, gridType = GridType.STANDARD, grid = standard)
+        val plan = requireNotNull(state.planPath(PathRequest(GridType.STANDARD, tidus, yuna, PathMode.SHORTEST)))
+        assertEquals(plan.path!!.locks.map { it.nodeId }.toSet(), plan.lockIds)
+        assertTrue(plan.lockIds.isNotEmpty())
     }
 
     @Test

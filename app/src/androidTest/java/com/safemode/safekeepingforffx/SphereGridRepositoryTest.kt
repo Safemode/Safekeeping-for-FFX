@@ -5,13 +5,17 @@ import androidx.room.Room
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.safemode.safekeepingforffx.data.local.FfxDatabase
+import com.safemode.safekeepingforffx.data.local.PointRouteEntity
 import com.safemode.safekeepingforffx.data.reference.BuildScope
 import com.safemode.safekeepingforffx.data.reference.GridCharacter
+import com.safemode.safekeepingforffx.data.reference.GridStartNodes
 import com.safemode.safekeepingforffx.data.reference.GridType
 import com.safemode.safekeepingforffx.data.reference.NodeContent
+import com.safemode.safekeepingforffx.data.reference.PathMode
 import com.safemode.safekeepingforffx.data.reference.RouteEvent
 import com.safemode.safekeepingforffx.data.reference.SphereGridBuild
 import com.safemode.safekeepingforffx.data.reference.SphereGridNode
+import com.safemode.safekeepingforffx.data.reference.SphereGridPathfinder
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
 import com.safemode.safekeepingforffx.data.repository.SphereGridRepository
 import kotlinx.coroutines.CoroutineScope
@@ -51,6 +55,7 @@ class SphereGridRepositoryTest {
         nodeDao = database.sphereGridNodeDao(),
         activationDao = database.sphereGridActivationDao(),
         routeDao = database.sphereGridRouteDao(),
+        pointRouteDao = database.pointRouteDao(),
         settingsRepository = settings
     )
 
@@ -158,5 +163,46 @@ class SphereGridRepositoryTest {
         assertEquals(setOf(keptOpen.id, tidusStat.id), path(GridCharacter.TIDUS))
         // Yuna loses only the lock the build closed again. The Expert grid is left alone.
         assertEquals(setOf(keptOpen.id, yunaStat.id, expertLock.id), path(GridCharacter.YUNA))
+    }
+
+    // --- Point-to-point routes ---
+
+    @Test
+    fun aSavedPointRouteReadsBackAsPlanned() = runBlocking {
+        val grid = repository.grid(GridType.STANDARD)
+        val from = requireNotNull(GridStartNodes.forCharacter(GridType.STANDARD, GridCharacter.TIDUS))
+        val to = requireNotNull(GridStartNodes.forCharacter(GridType.STANDARD, GridCharacter.YUNA))
+        val planned = requireNotNull(
+            SphereGridPathfinder.find(grid, from, to, PathMode.SHORTEST, emptyMap(), emptySet())
+        )
+        assertTrue("Tidus and Yuna start behind locks", planned.locks.isNotEmpty())
+
+        val id = repository.savePointRoute("To Yuna", GridType.STANDARD, GridCharacter.TIDUS, PathMode.SHORTEST, planned)
+
+        val saved = requireNotNull(repository.pointRoute(id))
+        assertEquals("To Yuna", saved.name)
+        assertEquals(GridCharacter.TIDUS, saved.character)
+        assertEquals(planned, saved.path)
+        assertEquals(listOf(id), repository.observePointRoutes().first().map { it.id })
+
+        // Opening the locks later doesn't change the saved route: it reads as it was planned.
+        planned.locks.forEach { open(grid.nodesById.getValue(it.nodeId)) }
+        assertEquals(planned, repository.pointRoute(id)?.path)
+
+        repository.renamePointRoute(id, "Renamed")
+        assertEquals("Renamed", repository.pointRoute(id)?.name)
+        repository.deletePointRoute(id)
+        assertNull(repository.pointRoute(id))
+    }
+
+    @Test
+    fun aPointRouteOffItsGridIsLeftOut() = runBlocking {
+        database.pointRouteDao().insert(
+            PointRouteEntity(
+                name = "Broken", gridType = "STANDARD", character = "TIDUS", mode = "SHORTEST",
+                nodeIds = "n1,x5", lockIds = "", moveQuarters = 4, createdAt = 1, updatedAt = 1
+            )
+        )
+        assertTrue(repository.observePointRoutes().first().isEmpty())
     }
 }

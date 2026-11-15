@@ -120,7 +120,7 @@ data class SphereGridUiState(
         } else {
             null
         }
-        return PathPlan(request = request, fromId = from, path = path, activated = activated)
+        return PathPlan(request = request, fromId = from, path = path)
     }
 }
 
@@ -141,16 +141,15 @@ data class PathPlan(
     /** The node the path starts on, or null when the character has nowhere to start from. */
     val fromId: String?,
     /** The cheapest path under the request's mode, or null when there is none or no destination. */
-    val path: GridPath?,
-    private val activated: Set<String>
+    val path: GridPath?
 ) {
     val startsAtCharacter: Boolean get() = request.fromId == null
 
-    /** Nodes "Activate path" would add, in path order - the ones the character hasn't taken yet. */
-    val nodesToActivate: List<String> get() = path?.nodeIds?.filter { it !in activated }.orEmpty()
+    /** Unopened locks on the path, each needing a key. */
+    val lockIds: Set<String> get() = path?.locks?.mapTo(LinkedHashSet()) { it.nodeId }.orEmpty()
 
-    /** Unopened locks "Activate path" would open, for every character. */
-    val locksToOpen: Set<String> get() = path?.locks?.mapTo(LinkedHashSet()) { it.nodeId }.orEmpty()
+    /** True when there is a path with at least one move in it, so stepping through or saving it means something. */
+    val hasSteps: Boolean get() = (path?.steps ?: 0) > 0
 }
 
 /** One step of a route replay for the viewed character: a grid edit, or an activation. */
@@ -243,11 +242,19 @@ sealed interface SphereGridEvent {
 @OptIn(ExperimentalCoroutinesApi::class)
 class SphereGridViewModel(
     private val repository: SphereGridRepository,
-    settingsRepository: SettingsRepository
+    settingsRepository: SettingsRepository,
+    /**
+     * Where the player was in the planner. Owned by the app rather than this ViewModel, which is
+     * cleared whenever the player backs out of the screen - see [SphereGridSession].
+     */
+    private val session: SphereGridSession = SphereGridSession()
 ) : ViewModel() {
 
-    private val gridType = MutableStateFlow(GridType.DEFAULT)
-    private val character = MutableStateFlow(GridCharacter.DEFAULT)
+    private val gridType = session.gridType
+    private val character = session.character
+
+    /** Each view's pan and zoom, kept with the session so they survive leaving the screen too. */
+    internal val savedGridViews: MutableMap<String, GridView> get() = session.gridViews
 
     /** One-shot results of a share/import action, consumed by the screen to drive clipboard + toasts. */
     private val eventChannel = Channel<SphereGridEvent>(Channel.BUFFERED)
@@ -281,8 +288,15 @@ class SphereGridViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** Non-null while replaying a route read-only; the screen renders this instead of live progress. */
-    private val _routeView = MutableStateFlow<RouteViewState?>(null)
+    private val _routeView = session.routeView
     val routeView: StateFlow<RouteViewState?> = _routeView
+
+    /** Non-null while stepping through a point-to-point route; drawn over the live grid. */
+    val pointView: StateFlow<PointRouteViewState?> = session.pointView
+
+    /** The point-to-point routes library, for its sheet. */
+    val pointRoutes: StateFlow<List<SphereGridRepository.PointRoute>> = repository.observePointRoutes()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** The parsed grid for the chosen type, reloaded whenever the type changes. */
     private val gridLoad = gridType
@@ -387,10 +401,7 @@ class SphereGridViewModel(
     // --- Path planning between two nodes ---
 
     /** The path the player has asked for, or null when none is being planned. */
-    private val pathRequest = MutableStateFlow<PathRequest?>(null)
-
-    /** The mode the next plan starts in: whichever the player last picked. */
-    private var lastPathMode = PathMode.DEFAULT
+    private val pathRequest = session.pathRequest
 
     /** The requested path resolved against the live grid, or null when none is being planned. */
     val pathPlan: StateFlow<PathPlan?> =
@@ -414,7 +425,7 @@ class SphereGridViewModel(
     }
 
     fun setPathMode(mode: PathMode) {
-        lastPathMode = mode
+        session.lastPathMode = mode
         pathRequest.value = pathRequest.value?.copy(mode = mode)
     }
 
@@ -425,33 +436,112 @@ class SphereGridViewModel(
     /** The open request on this grid, or a fresh one starting at the character. */
     private fun currentRequest(): PathRequest =
         pathRequest.value?.takeIf { it.gridType == gridType.value }
-            ?: PathRequest(gridType.value, fromId = null, toId = null, mode = lastPathMode)
+            ?: PathRequest(gridType.value, fromId = null, toId = null, mode = session.lastPathMode)
 
-    /**
-     * Adds the planned path to the selected character's path, opening any locks on it for every
-     * character, then clears the plan. Caller confirms first.
-     */
-    fun walkPlannedPath() {
+    // --- Point-to-point routes: step through a planned path, and keep it in a library ---
+
+    /** Steps through the planned path node by node, without saving it. */
+    fun stepThroughPlannedPath() {
         val plan = pathPlan.value ?: return
-        val nodes = plan.nodesToActivate
-        val locks = plan.locksToOpen
-        if (nodes.isEmpty() && locks.isEmpty()) return
+        val path = plan.path?.takeIf { plan.hasSteps } ?: return
+        openPointView(
+            PointRouteViewState(
+                routeId = null,
+                name = null,
+                gridType = plan.request.gridType,
+                character = character.value,
+                mode = plan.request.mode,
+                path = path
+            )
+        )
+    }
+
+    /** Saves the planned path to the point-to-point library under [name]. */
+    fun savePlannedPath(name: String) {
+        val label = name.trim()
+        val plan = pathPlan.value ?: return
+        val path = plan.path?.takeIf { plan.hasSteps } ?: return
+        if (label.isEmpty()) return
         val who = character.value
-        pathRequest.value = null
         viewModelScope.launch {
-            repository.walkPath(who, nodes, locks)
-            val opened = if (locks.isEmpty()) "" else " and opened ${lockCount(locks.size)}"
-            eventChannel.send(
-                SphereGridEvent.Notice(
-                    "Added ${nodeCountText(nodes.size)} to ${who.displayName}'s path$opened."
+            repository.savePointRoute(label, plan.request.gridType, who, plan.request.mode, path)
+            eventChannel.send(SphereGridEvent.Notice("Saved to Point-to-Point Routes."))
+        }
+    }
+
+    /** Saves the unsaved path being stepped through, and keeps stepping through it as that route. */
+    fun saveViewedPointRoute(name: String) {
+        val label = name.trim()
+        val view = session.pointView.value?.takeIf { !it.isSaved } ?: return
+        if (label.isEmpty()) return
+        viewModelScope.launch {
+            val id = repository.savePointRoute(label, view.gridType, view.character, view.mode, view.path)
+            session.pointView.value = session.pointView.value
+                ?.takeIf { it.path == view.path }
+                ?.copy(routeId = id, name = label)
+            eventChannel.send(SphereGridEvent.Notice("Saved to Point-to-Point Routes."))
+        }
+    }
+
+    /** Opens a saved point-to-point route to step through, on its own grid and character. */
+    fun viewPointRoute(id: Long) {
+        viewModelScope.launch {
+            val route = repository.pointRoute(id) ?: run {
+                eventChannel.send(SphereGridEvent.ImportFailed("That route couldn't be opened."))
+                return@launch
+            }
+            openPointView(
+                PointRouteViewState(
+                    routeId = route.id,
+                    name = route.name,
+                    gridType = route.gridType,
+                    character = route.character,
+                    mode = route.mode,
+                    path = route.path
                 )
             )
         }
     }
 
-    private fun nodeCountText(count: Int) = if (count == 1) "1 node" else "$count nodes"
+    /**
+     * Shows [view], switching to its grid and character so the live path under it is theirs. Any route
+     * replay is closed first, since only one overlay can be on screen. The view always opens on the
+     * path's start rather than wherever the last one was left.
+     */
+    private fun openPointView(view: PointRouteViewState) {
+        exitRouteView()
+        gridType.value = view.gridType
+        character.value = view.character
+        session.gridViews.remove(pointViewKey(view.gridType))
+        session.pointView.value = view
+    }
 
-    private fun lockCount(count: Int) = if (count == 1) "1 lock" else "$count locks"
+    /** Moves the point-to-point view to [step] (0 is the start). */
+    fun setPointStep(step: Int) {
+        val current = session.pointView.value ?: return
+        session.pointView.value = current.copy(stepIndex = step.coerceIn(0, current.stepCount))
+    }
+
+    fun exitPointView() {
+        session.pointView.value = null
+    }
+
+    fun renamePointRoute(id: Long, name: String) {
+        val label = name.trim()
+        if (label.isEmpty()) return
+        viewModelScope.launch { repository.renamePointRoute(id, label) }
+        session.pointView.value = session.pointView.value?.let {
+            if (it.routeId == id) it.copy(name = label) else it
+        }
+    }
+
+    /** Deletes a point-to-point route. If it is open, it stays on screen as an unsaved path. */
+    fun deletePointRoute(id: Long) {
+        viewModelScope.launch { repository.deletePointRoute(id) }
+        session.pointView.value = session.pointView.value?.let {
+            if (it.routeId == id) it.copy(routeId = null, name = null) else it
+        }
+    }
 
     fun setCharacter(value: GridCharacter) {
         character.value = value
@@ -555,10 +645,14 @@ class SphereGridViewModel(
     // --- Saved routes library + read-only replay ---
 
     /** The route currently open for replay, kept so switching characters needs no database read. */
-    private var openRouteBuild: SphereGridBuild? = null
+    private var openRouteBuild: SphereGridBuild?
+        get() = session.openRouteBuild
+        set(value) { session.openRouteBuild = value }
 
     /** The id behind [openRouteBuild], so adopting it can mark that route as the loaded one. */
-    private var openRouteId: Long? = null
+    private var openRouteId: Long?
+        get() = session.openRouteId
+        set(value) { session.openRouteId = value }
 
     /** Saves the current work as a named route in the library, and loads it for future updates. */
     fun saveCurrentAsRoute(name: String, scope: BuildScope) {
@@ -633,6 +727,7 @@ class SphereGridViewModel(
                 eventChannel.send(SphereGridEvent.ImportFailed("That route couldn't be opened."))
                 return@launch
             }
+            exitPointView()
             openRouteBuild = build
             openRouteId = id
             gridType.value = build.gridType
@@ -751,7 +846,8 @@ class SphereGridViewModel(
                         as FfxApplication
                 SphereGridViewModel(
                     app.container.sphereGridRepository,
-                    app.container.settingsRepository
+                    app.container.settingsRepository,
+                    app.container.sphereGridSession
                 )
             }
         }

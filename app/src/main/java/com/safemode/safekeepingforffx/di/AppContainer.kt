@@ -16,6 +16,7 @@ import com.safemode.safekeepingforffx.data.repository.MixRepository
 import com.safemode.safekeepingforffx.data.repository.MonsterArenaRepository
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
 import com.safemode.safekeepingforffx.data.repository.SphereGridRepository
+import com.safemode.safekeepingforffx.ui.screens.spheregrid.SphereGridSession
 
 /**
  * A settings file that can't be parsed is replaced with defaults rather than left to throw: every
@@ -73,9 +74,16 @@ class AppContainer(context: Context) {
             database.sphereGridNodeDao(),
             database.sphereGridActivationDao(),
             database.sphereGridRouteDao(),
+            database.pointRouteDao(),
             settingsRepository
         )
     }
+
+    /**
+     * Where the player was in the Sphere Grid Planner. App-scoped so it outlives the screen's
+     * ViewModel, which is cleared when the player backs out - see [SphereGridSession].
+     */
+    val sphereGridSession by lazy { SphereGridSession() }
 
     /**
      * Spans every store the player writes to, so it is built here from the DAOs directly rather
@@ -90,6 +98,7 @@ class AppContainer(context: Context) {
             nodeDao = database.sphereGridNodeDao(),
             activationDao = database.sphereGridActivationDao(),
             routeDao = database.sphereGridRouteDao(),
+            pointRouteDao = database.pointRouteDao(),
             favoriteDao = database.favoriteDao(),
             settingsRepository = settingsRepository,
             appVersion = BuildConfig.VERSION_NAME,

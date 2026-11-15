@@ -139,7 +139,7 @@ private data class ConfirmAction(
  * player left their own grid and switching away and back returns there rather than leaving the view
  * over whoever was on screen last. Transform is screen = world * [scale] + [offset].
  */
-private data class GridView(val scale: Float, val offset: Offset)
+internal data class GridView(val scale: Float, val offset: Offset)
 
 /**
  * The slot one character's view of one grid is remembered under.
@@ -179,6 +179,13 @@ fun SphereGridScreen(
     val charactersOnGrid by viewModel.charactersOnGrid.collectAsStateWithLifecycle()
     val hasAnyPath by viewModel.hasAnyPath.collectAsStateWithLifecycle()
     val pathPlan by viewModel.pathPlan.collectAsStateWithLifecycle()
+    // Point-to-point routes library + stepping through one.
+    val pointView by viewModel.pointView.collectAsStateWithLifecycle()
+    val pointRoutes by viewModel.pointRoutes.collectAsStateWithLifecycle()
+    var showPointRoutesSheet by remember { mutableStateOf(false) }
+    // Which path the save dialog is naming: the planned one, or the unsaved one being stepped through.
+    var savePointFromView by remember { mutableStateOf<Boolean?>(null) }
+    var pointRouteToRename by remember { mutableStateOf<SphereGridRepository.PointRoute?>(null) }
     var showRoutesSheet by remember { mutableStateOf(false) }
     var showSaveRouteDialog by remember { mutableStateOf(false) }
     var showImportRouteDialog by rememberSaveable { mutableStateOf(false) }
@@ -190,10 +197,11 @@ fun SphereGridScreen(
     var focusTarget by remember { mutableStateOf<String?>(null) }
     var focusSignal by remember { mutableIntStateOf(0) }
 
-    // Per-grid pan/zoom memory: each grid keeps its own view when the player switches away and back.
-    // resetSignal nudges the canvas to re-fit; canResetView drives the overlay reset button, which
-    // only shows once the current grid's view has been moved off its default fit.
-    val savedGridViews = remember { mutableMapOf<String, GridView>() }
+    // Per-grid pan/zoom memory: each grid keeps its own view when the player switches away and back,
+    // held by the ViewModel's session so it also survives backing out of the screen. resetSignal
+    // nudges the canvas to re-fit; canResetView drives the overlay reset button, which only shows
+    // once the current grid's view has been moved off its default fit.
+    val savedGridViews = viewModel.savedGridViews
     var resetSignal by remember { mutableIntStateOf(0) }
     var canResetView by remember { mutableStateOf(false) }
 
@@ -244,8 +252,23 @@ fun SphereGridScreen(
     val labelCache = remember { mutableMapOf<String, TextLayoutResult>() }
 
     val activeRoute = routeView
+    val activePoint = pointView
+    // Stepping through a point-to-point route opens on its start. Keyed by the route and its path, so
+    // stepping doesn't re-trigger it, but coming back to the screen mid-way returns to the node reached.
+    LaunchedEffect(activePoint?.routeId, activePoint?.path) {
+        activePoint?.let {
+            focusTarget = it.currentNodeId
+            focusSignal++
+        }
+    }
     Column(modifier = modifier.fillMaxSize()) {
-        if (activeRoute != null) {
+        if (activePoint != null) {
+            PointRouteBar(
+                view = activePoint,
+                onExit = viewModel::exitPointView,
+                onSave = { savePointFromView = true }
+            )
+        } else if (activeRoute != null) {
             RouteReplayBar(
                 route = activeRoute,
                 onSelectCharacter = viewModel::setRouteCharacter,
@@ -309,19 +332,20 @@ fun SphereGridScreen(
                 onImportBuild = { showImportDialog = true },
                 onOpenRoutes = { showRoutesSheet = true },
                 canSaveRoute = state.hasAnythingToShare,
-                onSaveRoute = { showSaveRouteDialog = true }
+                onSaveRoute = { showSaveRouteDialog = true },
+                onOpenPointRoutes = { showPointRoutesSheet = true }
             )
             CharacterRow(selected = state.character, onSelect = viewModel::setCharacter)
         }
         HorizontalDivider()
 
-        if (activeRoute == null && state.showHelp) {
+        if (activeRoute == null && activePoint == null && state.showHelp) {
             val tapHint = if (state.tapActivates) {
                 "Tap a node to activate it for ${state.character.displayName}; long-press for its " +
-                    "content and editor."
+                    "content, its editor, and paths to or from it."
             } else {
-                "Tap a node for its content, to activate it for ${state.character.displayName}, or " +
-                    "to edit it."
+                "Tap a node for its content, to activate it for ${state.character.displayName}, to " +
+                    "edit it, or to plan a path to or from it."
             }
             Banner(
                 icon = Icons.Outlined.Info,
@@ -342,6 +366,39 @@ fun SphereGridScreen(
                     onShowStandard = { viewModel.setGridType(GridType.STANDARD) }
                 )
                 state.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                // Same for a point-to-point route opened on the other grid.
+                activePoint != null && state.gridType != activePoint.gridType ->
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                activePoint != null -> GridCanvas(
+                    grid = state.grid,
+                    gridType = state.gridType,
+                    savedViews = savedGridViews,
+                    resetSignal = resetSignal,
+                    onCanResetChange = { canResetView = it },
+                    overrides = state.overrides,
+                    // The live path with the walked part of this one on top, so the route is seen
+                    // against where the character already is.
+                    activated = state.activated + activePoint.walked,
+                    characterColor = activePoint.character.activationColor(),
+                    selectedId = selectedNodeId,
+                    tapActivates = false,
+                    readOnly = true,
+                    orderLabels = activePoint.orderLabels,
+                    focusNodeId = focusTarget,
+                    focusSignal = focusSignal,
+                    homeNodeId = activePoint.currentNodeId,
+                    plannedPath = activePoint.remaining,
+                    plannedEnds = listOf(activePoint.path.nodeIds.first(), activePoint.path.nodeIds.last()),
+                    plannedLocks = activePoint.locksAhead,
+                    viewKey = pointViewKey(state.gridType),
+                    icons = sphereIcons,
+                    textMeasurer = textMeasurer,
+                    labelCache = labelCache,
+                    labelStyle = labelStyle,
+                    onActivate = {},
+                    onDetails = { selectedNodeId = it },
+                    modifier = Modifier.fillMaxSize()
+                )
                 // Entering a route on a different grid: wait for that grid to load before overlaying
                 // the route, so live progress never flashes under the replay for a frame.
                 activeRoute != null && state.gridType != activeRoute.gridType ->
@@ -386,7 +443,7 @@ fun SphereGridScreen(
                     homeNodeId = state.homeNodeId,
                     plannedPath = pathPlan?.path?.nodeIds.orEmpty(),
                     plannedEnds = listOfNotNull(pathPlan?.fromId, pathPlan?.request?.toId),
-                    plannedLocks = pathPlan?.locksToOpen.orEmpty(),
+                    plannedLocks = pathPlan?.lockIds.orEmpty(),
                     viewKey = gridViewKey(state.gridType, state.character),
                     icons = sphereIcons,
                     textMeasurer = textMeasurer,
@@ -411,7 +468,7 @@ fun SphereGridScreen(
             ) {
                 // Save the current work as a route - the same action as the overflow menu's "Save
                 // current as route". Hidden during a replay and when there is nothing built to save.
-                if (activeRoute == null && gridShown && state.hasAnythingToShare) {
+                if (activeRoute == null && activePoint == null && gridShown && state.hasAnythingToShare) {
                     FilledTonalIconButton(onClick = { showSaveRouteDialog = true }) {
                         Icon(
                             imageVector = Icons.Filled.Save,
@@ -422,7 +479,7 @@ fun SphereGridScreen(
                 // Back to where this character is: the node they last activated on this grid, or - with
                 // no path here yet - where the game starts them. Hidden during a route replay, where
                 // the live path is not what is on screen and the replay bar drives the view instead.
-                if (activeRoute == null && gridShown && homeNodeId != null) {
+                if (activeRoute == null && activePoint == null && gridShown && homeNodeId != null) {
                     FilledTonalIconButton(
                         onClick = {
                             focusTarget = homeNodeId
@@ -477,9 +534,33 @@ fun SphereGridScreen(
             )
         }
 
-        // The path planner works on live progress only, so it steps aside during a route replay.
+        if (activePoint != null) {
+            val reached = nodesById[activePoint.currentNodeId]
+            val caption = when {
+                reached == null -> null
+                activePoint.stepIndex == 0 -> "Start: ${state.current(reached).endpointLabel()}"
+                else -> pointStepCaption(
+                    content = state.current(reached),
+                    alreadyActivated = state.isActivated(reached.id)
+                )
+            }
+            StepBar(
+                stepIndex = activePoint.stepIndex,
+                stepCount = activePoint.stepCount,
+                emptyText = "This path has no steps.",
+                currentStepText = caption,
+                onStep = { newIndex ->
+                    val clamped = newIndex.coerceIn(0, activePoint.stepCount)
+                    viewModel.setPointStep(clamped)
+                    focusTarget = activePoint.path.nodeIds.getOrNull(clamped)
+                    focusSignal++
+                }
+            )
+        }
+
+        // The path planner works on live progress only, so it steps aside during either replay.
         val plan = pathPlan
-        if (activeRoute == null && plan != null) {
+        if (activeRoute == null && activePoint == null && plan != null) {
             HorizontalDivider()
             PathPlanBar(
                 plan = plan,
@@ -488,27 +569,8 @@ fun SphereGridScreen(
                 toLabel = plan.request.toId?.let { nodesById[it] }?.let { state.current(it).endpointLabel() },
                 onModeChange = viewModel::setPathMode,
                 onStartFromCharacter = viewModel::planPathFromCharacter,
-                onWalk = {
-                    val name = state.character.displayName
-                    val nodes = plan.nodesToActivate.size
-                    val locks = plan.path?.takeIf { it.locks.isNotEmpty() }
-                    confirm = ConfirmAction(
-                        title = "Activate this path for $name?",
-                        message = buildString {
-                            append("Adds ${nodeCount(nodes)} to $name's path, in order. ")
-                            if (locks != null) {
-                                append(
-                                    "Opens ${if (locks.locks.size == 1) "1 lock" else "${locks.locks.size} locks"} " +
-                                        "on the way (${locks.keySummary()}), which opens them for every " +
-                                        "character. "
-                                )
-                            }
-                            append("Nodes already on the path are left as they are.")
-                        },
-                        confirmLabel = "Activate path",
-                        onConfirm = viewModel::walkPlannedPath
-                    )
-                },
+                onStepThrough = viewModel::stepThroughPlannedPath,
+                onSave = { savePointFromView = false },
                 onClose = viewModel::clearPath
             )
         }
@@ -521,14 +583,29 @@ fun SphereGridScreen(
             onDismissRequest = { selectedNodeId = null },
             sheetState = sheetState
         ) {
-            if (activeRoute != null) {
+            if (activePoint != null) {
+                val step = activePoint.stepOf(selected.id)
+                RouteNodeDetail(
+                    node = selected,
+                    current = state.current(selected),
+                    description = when (step) {
+                        null -> "Not on this path."
+                        0 -> "Where the path starts."
+                        else -> "Step $step of ${activePoint.stepCount} on this path."
+                    }
+                )
+            } else if (activeRoute != null) {
                 // Read-only inspection during replay: the route's content for this node and its step.
+                val step = activeRoute.activationStepOf(selected.id)
+                val who = activeRoute.character.displayName
                 RouteNodeDetail(
                     node = selected,
                     current = activeRoute.contentAt(selected.id, selected.original),
-                    routeName = activeRoute.name,
-                    characterName = activeRoute.character.displayName,
-                    step = activeRoute.activationStepOf(selected.id)
+                    description = if (step != null) {
+                        "Step $step on $who's path in \"${activeRoute.name}\"."
+                    } else {
+                        "Not on $who's path in this route."
+                    }
                 )
             } else {
                 NodeDetail(
@@ -710,6 +787,55 @@ fun SphereGridScreen(
         )
     }
 
+    if (showPointRoutesSheet) {
+        PointRoutesSheet(
+            routes = pointRoutes,
+            onDismiss = { showPointRoutesSheet = false },
+            onView = { id ->
+                showPointRoutesSheet = false
+                viewModel.viewPointRoute(id)
+            },
+            onRename = { pointRouteToRename = it },
+            onDelete = { route ->
+                confirm = ConfirmAction(
+                    title = "Delete \"${route.name}\"?",
+                    message = "This removes the point-to-point route from your library. This can't " +
+                        "be undone.",
+                    confirmLabel = "Delete",
+                    onConfirm = { viewModel.deletePointRoute(route.id) }
+                )
+            }
+        )
+    }
+
+    savePointFromView?.let { fromView ->
+        val plan = pathPlan
+        val suggested = if (fromView) {
+            activePoint?.let { pointRouteName(it.character.displayName, it.path, nodesById, state) }
+        } else {
+            plan?.path?.let { pointRouteName(state.character.displayName, it, nodesById, state) }
+        }
+        SavePointRouteDialog(
+            suggestedName = suggested.orEmpty(),
+            onDismiss = { savePointFromView = null },
+            onSave = { name ->
+                savePointFromView = null
+                if (fromView) viewModel.saveViewedPointRoute(name) else viewModel.savePlannedPath(name)
+            }
+        )
+    }
+
+    pointRouteToRename?.let { route ->
+        RenameRouteDialog(
+            currentName = route.name,
+            onDismiss = { pointRouteToRename = null },
+            onRename = { name ->
+                viewModel.renamePointRoute(route.id, name)
+                pointRouteToRename = null
+            }
+        )
+    }
+
     routeToRename?.let { route ->
         RenameRouteDialog(
             currentName = route.name,
@@ -767,7 +893,8 @@ private fun SelectorBar(
     onImportBuild: () -> Unit,
     onOpenRoutes: () -> Unit,
     canSaveRoute: Boolean,
-    onSaveRoute: () -> Unit
+    onSaveRoute: () -> Unit,
+    onOpenPointRoutes: () -> Unit
 ) {
     var gridMenu by remember { mutableStateOf(false) }
     var overflow by remember { mutableStateOf(false) }
@@ -850,6 +977,13 @@ private fun SelectorBar(
                     onClick = {
                         overflow = false
                         onSaveRoute()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Point-to-Point Routes") },
+                    onClick = {
+                        overflow = false
+                        onOpenPointRoutes()
                     }
                 )
                 HorizontalDivider()
@@ -1556,10 +1690,31 @@ private fun RouteReplayBar(
 /** The replay scrubber: step through the route one event at a time, or drag to any point. */
 @Composable
 private fun RouteStepBar(route: RouteViewState, currentStepText: String?, onStep: (Int) -> Unit) {
+    StepBar(
+        stepIndex = route.stepIndex,
+        stepCount = route.stepCount,
+        emptyText = "${route.character.displayName} has no steps in this route.",
+        currentStepText = currentStepText,
+        onStep = onStep
+    )
+}
+
+/**
+ * A step-by-step scrubber: first/previous/next/last buttons around a slider, under a "Step N of M"
+ * line with a caption for the step just reached. Shared by route replay and point-to-point routes.
+ */
+@Composable
+internal fun StepBar(
+    stepIndex: Int,
+    stepCount: Int,
+    emptyText: String,
+    currentStepText: String?,
+    onStep: (Int) -> Unit
+) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        if (route.stepCount == 0) {
+        if (stepCount == 0) {
             Text(
-                "${route.character.displayName} has no steps in this route.",
+                emptyText,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1567,7 +1722,7 @@ private fun RouteStepBar(route: RouteViewState, currentStepText: String?, onStep
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "Step ${route.stepIndex} of ${route.stepCount}",
+                "Step ${stepIndex} of ${stepCount}",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1576,33 +1731,33 @@ private fun RouteStepBar(route: RouteViewState, currentStepText: String?, onStep
                     "  ·  $currentStepText",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
+                    maxLines = 2
                 )
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(
                 onClick = { onStep(0) },
-                enabled = route.stepIndex > 0
+                enabled = stepIndex > 0
             ) { Icon(Icons.Filled.FirstPage, contentDescription = "Jump to start") }
             IconButton(
-                onClick = { onStep(route.stepIndex - 1) },
-                enabled = route.stepIndex > 0
+                onClick = { onStep(stepIndex - 1) },
+                enabled = stepIndex > 0
             ) { Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous step") }
             Slider(
-                value = route.stepIndex.toFloat(),
+                value = stepIndex.toFloat(),
                 onValueChange = { onStep(it.roundToInt()) },
-                valueRange = 0f..route.stepCount.toFloat(),
-                steps = (route.stepCount - 1).coerceAtLeast(0),
+                valueRange = 0f..stepCount.toFloat(),
+                steps = (stepCount - 1).coerceAtLeast(0),
                 modifier = Modifier.weight(1f)
             )
             IconButton(
-                onClick = { onStep(route.stepIndex + 1) },
-                enabled = route.stepIndex < route.stepCount
+                onClick = { onStep(stepIndex + 1) },
+                enabled = stepIndex < stepCount
             ) { Icon(Icons.Filled.ChevronRight, contentDescription = "Next step") }
             IconButton(
-                onClick = { onStep(route.stepCount) },
-                enabled = route.stepIndex < route.stepCount
+                onClick = { onStep(stepCount) },
+                enabled = stepIndex < stepCount
             ) { Icon(Icons.AutoMirrored.Filled.LastPage, contentDescription = "Jump to end") }
         }
     }
@@ -1672,7 +1827,7 @@ private fun RoutesSheet(
  * A saved route's last-updated stamp, e.g. "Sep 29, 2026 · 2:03 PM". Uses the platform's locale
  * formats so it reads naturally wherever the player is.
  */
-private fun formatRouteTimestamp(millis: Long): String {
+internal fun formatRouteTimestamp(millis: Long): String {
     val date = Date(millis)
     val day = DateFormat.getDateInstance(DateFormat.MEDIUM).format(date)
     val time = DateFormat.getTimeInstance(DateFormat.SHORT).format(date)
@@ -1917,9 +2072,8 @@ private fun RenameRouteDialog(
 private fun RouteNodeDetail(
     node: SphereGridNode,
     current: NodeContent,
-    routeName: String,
-    characterName: String,
-    step: Int?
+    /** Where the node falls in what is being replayed, already worded for the player. */
+    description: String
 ) {
     Column(
         modifier = Modifier
@@ -1932,11 +2086,7 @@ private fun RouteNodeDetail(
         ContentCard(heading = "Content", content = current, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.size(16.dp))
         Text(
-            text = if (step != null) {
-                "Step $step on $characterName's path in \"$routeName\"."
-            } else {
-                "Not on $characterName's path in this route."
-            },
+            text = description,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
