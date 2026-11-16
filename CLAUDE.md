@@ -10,9 +10,10 @@ and inlines small methods, so exact source lines need that build's mapping. Ever
 build (Android Studio's "Generate Signed Bundle / APK") writes
 `release-mappings/safekeeping-for-ffx-<version>-mapping.zip`; unsigned `assembleRelease` runs, like
 CI, leave it alone.
-When publishing a GitHub release, attach that zip alongside the APK so a crash log from that build can
-be retraced to exact lines (Play gets its mapping from the .aab automatically):
-gh release upload v<version> release-mappings/safekeeping-for-ffx-<version>-mapping.zip
+The zip is kept private, not attached to GitHub releases: users never need it, and only the
+maintainer retraces crash logs. `release-mappings/` is gitignored, so keep a backup of it, one zip per
+released version, since a crash log can only be retraced with the mapping from its exact build. Play
+gets its mapping from the .aab automatically.
 
 ## Run Tests
 ./gradlew test
