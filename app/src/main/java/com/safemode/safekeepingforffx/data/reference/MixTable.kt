@@ -1,5 +1,7 @@
 package com.safemode.safekeepingforffx.data.reference
 
+import java.util.concurrent.ConcurrentHashMap
+
 /**
  * One item Rikku can Mix.
  *
@@ -53,7 +55,12 @@ class MixTable(
 ) {
     private val ingredientsById: Map<String, MixIngredient> = ingredients.associateBy { it.id }
 
-    private val combinationCache = HashMap<String, List<MixCombination>>()
+    /**
+     * Filled from background threads, and two reverse lookups can be grouping at once, so this has to
+     * be safe to share. Two lookups of the same result may both do the grouping; the answer is the
+     * same either way, so that costs only time.
+     */
+    private val combinationCache = ConcurrentHashMap<String, List<MixCombination>>()
 
     /** Null when this pair has no row in the source data. Never guesses. */
     fun resultFor(a: String, b: String): MixResult? = byPair[pairKey(a, b)]

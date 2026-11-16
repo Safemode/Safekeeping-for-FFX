@@ -87,9 +87,15 @@ fun AppScaffold() {
     val screenHelp = remember { mutableStateMapOf<String, List<HelpTip>>() }
     val showHelp by drawerViewModel.showHelp.collectAsStateWithLifecycle()
     val currentHelp = screenHelp[currentDestination.route]?.takeIf { showHelp }
-    var helpOpen by rememberSaveable { mutableStateOf(false) }
-    // Help belongs to the screen it was opened on, so moving to another screen closes it.
-    LaunchedEffect(currentDestination.route) { helpOpen = false }
+    // The screen whose help is open, or null. Saved by screen rather than as a plain flag, so a
+    // rotation reopens it on the same screen while moving to another screen closes it. Right after a
+    // rotation the back stack hasn't been restored yet and the route reads as null (which would
+    // otherwise resolve to Home), so nothing is closed until the real screen is known.
+    var helpOpenFor by rememberSaveable { mutableStateOf<String?>(null) }
+    val helpOpen = helpOpenFor == currentDestination.route
+    LaunchedEffect(currentRoute) {
+        if (currentRoute != null && helpOpenFor != currentDestination.route) helpOpenFor = null
+    }
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -121,7 +127,7 @@ fun AppScaffold() {
                     },
                     actions = {
                         if (currentHelp != null) {
-                            IconButton(onClick = { helpOpen = true }) {
+                            IconButton(onClick = { helpOpenFor = currentDestination.route }) {
                                 Icon(
                                     Icons.AutoMirrored.Outlined.HelpOutline,
                                     contentDescription = "Help for ${currentDestination.label}"
@@ -151,7 +157,7 @@ fun AppScaffold() {
                 HelpDialog(
                     title = currentDestination.label,
                     tips = currentHelp,
-                    onDismiss = { helpOpen = false }
+                    onDismiss = { helpOpenFor = null }
                 )
             }
 

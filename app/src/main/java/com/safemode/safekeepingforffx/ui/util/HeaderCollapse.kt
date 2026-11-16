@@ -22,7 +22,7 @@ private const val DIRECTION_THRESHOLD = 8
  * below to take up the slack, so the content shifts back down and the first visible item's offset
  * *decreases*. That reads as an upward scroll, which re-expands the header, which shifts the
  * content again - a loop that settles on whichever emission happened to come last. A fast fling
- * that ends exactly at the bottom tended to settle expanded, leaving the banners on screen.
+ * that ends exactly at the bottom tended to settle expanded, leaving the header on screen.
  */
 @Composable
 fun rememberHeaderExpanded(listState: LazyListState): Boolean {

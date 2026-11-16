@@ -17,7 +17,6 @@ import com.safemode.safekeepingforffx.data.reference.creationKind
 import com.safemode.safekeepingforffx.data.reference.matchesSearch
 import com.safemode.safekeepingforffx.data.repository.FavoritesRepository
 import com.safemode.safekeepingforffx.data.repository.MonsterArenaRepository
-import com.safemode.safekeepingforffx.data.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
@@ -91,7 +90,6 @@ data class MonsterArenaUiState(
 
 class MonsterArenaViewModel(
     private val repository: MonsterArenaRepository,
-    settingsRepository: SettingsRepository,
     private val favoritesRepository: FavoritesRepository
 ) : ViewModel() {
 
@@ -109,10 +107,7 @@ class MonsterArenaViewModel(
 
     private val filters = combine(_query, _itemFilter) { query, item -> Filters(query, item) }
 
-    /**
-     * Counts and stars are both per fiend and both stored, so they travel together and the main
-     * combine stays at the five flows it has overloads for.
-     */
+    /** Counts and stars are both per fiend and both stored, so they travel together. */
     private val progress = combine(
         repository.observeCaptures(),
         favoritesRepository.observeCategory(MONSTER_ARENA_ID)
@@ -221,7 +216,6 @@ class MonsterArenaViewModel(
                         as FfxApplication
                 MonsterArenaViewModel(
                     app.container.monsterArenaRepository,
-                    app.container.settingsRepository,
                     app.container.favoritesRepository
                 )
             }

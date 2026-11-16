@@ -113,8 +113,9 @@ class HomeViewModel(
         initialValue = emptyList()
     )
 
+    /** The same fields a list's own search covers, so a word finds an item from either place. */
     private fun ReferenceItem.matches(needle: String): Boolean =
-        sequenceOf(title, location, detail, section, tag)
+        sequenceOf(title, location, detail, section, tag, stageNote)
             .any { it?.contains(needle, ignoreCase = true) == true }
 
     fun setQuery(value: String) {

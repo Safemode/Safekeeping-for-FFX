@@ -91,10 +91,11 @@ class MissablesTimelineViewModel(
     /**
      * Every source category's live progress, folded into one flat list tagged with its origin. The
      * per-category flows are combined rather than read once so a check ticked anywhere updates here.
+     * A per-character list counts an item collected only once every character has it.
      */
     private val sourcedItems: Flow<List<TimelineItem>> = combine(
         categories.map { category ->
-            checklistRepository.observeCategory(category.id, category.items).map { items ->
+            checklistRepository.observeCategoryEverywhere(category).map { items ->
                 items.map { TimelineItem(category.id, category.label, it) }
             }
         }
