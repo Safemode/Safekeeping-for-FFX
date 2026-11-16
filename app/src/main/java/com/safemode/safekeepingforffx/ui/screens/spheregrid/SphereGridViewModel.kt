@@ -739,6 +739,7 @@ class SphereGridViewModel(
                 return@launch
             }
             exitPointView()
+            if (_routeView.value == null) session.beforeRouteView = gridType.value
             openRouteBuild = build
             openRouteId = id
             gridType.value = build.gridType
@@ -798,10 +799,21 @@ class SphereGridViewModel(
         _routeView.value = current.copy(stepIndex = step.coerceIn(0, current.stepCount))
     }
 
-    fun exitRouteView() {
+    /** Closes the route replay and goes back to the grid it was opened from. */
+    fun exitRouteView() = closeRouteView(restoreGrid = true)
+
+    /**
+     * Ends the replay. [restoreGrid] puts back the grid the player was on before it opened; adopting
+     * the route passes false, since the adopted path is on the route's grid and should be on screen.
+     */
+    private fun closeRouteView(restoreGrid: Boolean) {
+        val wasOpen = _routeView.value != null
         openRouteBuild = null
         openRouteId = null
         _routeView.value = null
+        val before = session.beforeRouteView
+        session.beforeRouteView = null
+        if (wasOpen && restoreGrid && before != null) gridType.value = before
     }
 
     /**
@@ -825,7 +837,7 @@ class SphereGridViewModel(
             repository.applyBuild(toApply, build.gridType)
                 .onSuccess {
                     viewedCharacter?.let { character.value = it }
-                    exitRouteView()
+                    closeRouteView(restoreGrid = false)
                     repository.setActiveRouteId(adoptedRouteId)
                     eventChannel.send(SphereGridEvent.Notice("Route applied to your grid."))
                 }

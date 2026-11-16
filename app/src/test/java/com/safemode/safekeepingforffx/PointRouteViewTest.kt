@@ -111,4 +111,16 @@ class PointRouteViewTest {
         assertEquals(ids, SphereGridRepository.decodeNodeIds(SphereGridRepository.encodeNodeIds(ids)))
         assertTrue(SphereGridRepository.decodeNodeIds("").isEmpty())
     }
+
+    @Test
+    fun aLockOpenedSinceSavingNeedsNoKey() {
+        val opened = view().withLocksStillClosed { it != "L" }
+        assertTrue(opened.path.locks.isEmpty())
+        assertTrue(opened.locksAhead.isEmpty())
+        assertEquals("3 steps, 3 Sphere Levels · no locks", opened.path.costSummary())
+        // Only the locks are narrowed: the path and its cost stay as planned.
+        assertEquals(path.nodeIds, opened.path.nodeIds)
+        assertEquals(path.moveQuarters, opened.path.moveQuarters)
+        assertEquals(view().path, view().withLocksStillClosed { true }.path)
+    }
 }

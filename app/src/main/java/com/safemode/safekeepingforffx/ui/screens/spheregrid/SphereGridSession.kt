@@ -32,6 +32,9 @@ class SphereGridSession {
     var openRouteBuild: SphereGridBuild? = null
     var openRouteId: Long? = null
 
+    /** The grid on screen before [routeView] opened, put back when it closes. */
+    var beforeRouteView: GridType? = null
+
     /** The point-to-point route being stepped through, if any. */
     val pointView = MutableStateFlow<PointRouteViewState?>(null)
 

@@ -134,4 +134,16 @@ class ResetProgressTest {
         assertEquals(0, repository.restore(backup).getOrThrow().pointRoutes)
         assertTrue(database.pointRouteDao().snapshot().isEmpty())
     }
+
+    @Test
+    fun aRestoreDropsLocksWrittenAsEdits() = runBlocking {
+        val backup = repository.snapshot().copy(
+            sphereGridEdits = listOf(
+                com.safemode.safekeepingforffx.data.backup.BackupSphereGridEdit("n10", "L|3", 1),
+                com.safemode.safekeepingforffx.data.backup.BackupSphereGridEdit("n11", "A|STRENGTH|4", 2)
+            )
+        )
+        assertEquals(1, repository.restore(backup).getOrThrow().gridEdits)
+        assertEquals(listOf("n11"), database.sphereGridNodeDao().snapshot().map { it.nodeId })
+    }
 }

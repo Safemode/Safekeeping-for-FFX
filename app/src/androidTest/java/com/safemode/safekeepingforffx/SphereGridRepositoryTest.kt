@@ -205,4 +205,13 @@ class SphereGridRepositoryTest {
         )
         assertTrue(repository.observePointRoutes().first().isEmpty())
     }
+
+    @Test
+    fun aLockStoredAsAnEditIsIgnored() = runBlocking {
+        val node = stat(GridType.STANDARD)
+        database.sphereGridNodeDao().upsert(
+            com.safemode.safekeepingforffx.data.local.SphereGridNodeEntity(node.id, "L|2", 1)
+        )
+        assertTrue(node.id !in repository.observeOverrides().first())
+    }
 }

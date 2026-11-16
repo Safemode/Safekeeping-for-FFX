@@ -75,6 +75,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
@@ -119,6 +120,13 @@ import kotlin.math.roundToInt
  * the node arrives in context rather than filling the viewport on its own.
  */
 private const val FOCUS_WORLD_SPAN = 520f
+
+/**
+ * Frames a reveal waits for the layout to settle before checking whether its node is in view: at
+ * least the minimum, so a panel still on its way in is accounted for, and never past the maximum.
+ */
+private const val REVEAL_MIN_FRAMES = 4
+private const val REVEAL_MAX_FRAMES = 12
 
 private val GridBackground = Color(0xFF161824)
 
@@ -202,6 +210,10 @@ fun SphereGridScreen(
     // stepping a route replay, or tapping an ability in the character status sheet.
     var focusTarget by remember { mutableStateOf<String?>(null) }
     var focusSignal by remember { mutableIntStateOf(0) }
+    // A node to keep in view once the path bar has opened under the grid: the one just picked as a
+    // path's start or destination, which the bar would otherwise cover.
+    var revealTarget by remember { mutableStateOf<String?>(null) }
+    var revealSignal by remember { mutableIntStateOf(0) }
 
     // Per-grid pan/zoom memory: each grid keeps its own view when the player switches away and back,
     // held by the ViewModel's session so it also survives backing out of the screen. resetSignal
@@ -258,17 +270,27 @@ fun SphereGridScreen(
     val labelCache = remember { mutableMapOf<String, TextLayoutResult>() }
 
     val activeRoute = routeView
-    val activePoint = pointView
-    // Back closes a point-to-point step-through and returns to the grid as it was, rather than
-    // leaving the planner.
-    val steppingThrough = activePoint != null
-    DisposableEffect(steppingThrough) {
-        onBackHandlerChange(if (steppingThrough) viewModel::exitPointView else null)
+    // Locks opened since a saved route was planned no longer need a key. A node the grid hasn't
+    // loaded yet is assumed still closed, so the route's keys don't blink away while it loads.
+    val activePoint = pointView?.withLocksStillClosed { id ->
+        nodesById[id]?.let(state::isLockedGate) ?: true
+    }
+    // Back closes a replay - a point-to-point step-through or a saved route - and returns to the grid
+    // as it was, rather than leaving the planner.
+    val replaying = activePoint != null || activeRoute != null
+    DisposableEffect(replaying) {
+        onBackHandlerChange(
+            if (replaying) {
+                { if (viewModel.pointView.value != null) viewModel.exitPointView() else viewModel.exitRouteView() }
+            } else {
+                null
+            }
+        )
         onDispose { onBackHandlerChange(null) }
     }
-    // Stepping through a point-to-point route opens on its start. Keyed by the route and its path, so
+    // Stepping through a point-to-point route opens on its start. Keyed by the route and its nodes, so
     // stepping doesn't re-trigger it, but coming back to the screen mid-way returns to the node reached.
-    LaunchedEffect(activePoint?.routeId, activePoint?.path) {
+    LaunchedEffect(activePoint?.routeId, activePoint?.path?.nodeIds) {
         activePoint?.let {
             focusTarget = it.currentNodeId
             focusSignal++
@@ -457,6 +479,8 @@ fun SphereGridScreen(
                     plannedPath = pathPlan?.path?.nodeIds.orEmpty(),
                     plannedEnds = listOfNotNull(pathPlan?.fromId, pathPlan?.request?.toId),
                     plannedLocks = pathPlan?.lockIds.orEmpty(),
+                    revealNodeId = revealTarget,
+                    revealSignal = revealSignal,
                     viewKey = gridViewKey(state.gridType, state.character),
                     icons = sphereIcons,
                     textMeasurer = textMeasurer,
@@ -639,10 +663,14 @@ fun SphereGridScreen(
                     onPathTo = {
                         viewModel.planPathTo(selected)
                         selectedNodeId = null
+                        revealTarget = selected.id
+                        revealSignal++
                     },
                     onPathFrom = {
                         viewModel.planPathFrom(selected)
                         selectedNodeId = null
+                        revealTarget = selected.id
+                        revealSignal++
                     }
                 )
             }
@@ -2162,6 +2190,10 @@ private fun GridCanvas(
     plannedEnds: List<String> = emptyList(),
     /** Unopened locks on the planned path, ringed to show they need a key. */
     plannedLocks: Set<String> = emptySet(),
+    /** A node to bring into view, without zooming, when [revealSignal] changes. */
+    revealNodeId: String? = null,
+    /** Bumped by the caller each time [revealNodeId] should be brought into view. */
+    revealSignal: Int = 0,
     /** Which slot of [savedViews] this canvas owns: one view per grid and character. */
     viewKey: String
 ) {
@@ -2293,6 +2325,38 @@ private fun GridCanvas(
                 x = startOffset.x + (endOffset.x - startOffset.x) * t,
                 y = startOffset.y + (endOffset.y - startOffset.y) * t
             )
+        }
+        savedViews[viewKey] = GridView(scale, offset)
+    }
+
+    // Keep a node the player just picked on screen. Picking a path's end opens the path bar under the
+    // grid, which shrinks the canvas and can cover the very node that was picked. Waits for that
+    // layout to settle, then pans - never zooms - and only if the node ended up out of view.
+    LaunchedEffect(revealSignal) {
+        if (revealSignal == 0) return@LaunchedEffect
+        var settledSize = canvasSize
+        var stableFrames = 0
+        var frames = 0
+        while (frames < REVEAL_MAX_FRAMES && (frames < REVEAL_MIN_FRAMES || stableFrames < 2)) {
+            withFrameNanos { }
+            frames++
+            if (canvasSize == settledSize) stableFrames++ else {
+                settledSize = canvasSize
+                stableFrames = 0
+            }
+        }
+        val target = nodes.firstOrNull { it.id == revealNodeId } ?: return@LaunchedEffect
+        val width = canvasSize.width.toFloat()
+        val height = canvasSize.height.toFloat()
+        if (width == 0f || height == 0f) return@LaunchedEffect
+        val margin = minOf(width, height) * 0.12f
+        val sx = target.x * scale + offset.x
+        val sy = target.y * scale + offset.y
+        if (sx in margin..(width - margin) && sy in margin..(height - margin)) return@LaunchedEffect
+        val start = offset
+        val end = Offset(width / 2f - target.x * scale, height / 2f - target.y * scale)
+        animate(initialValue = 0f, targetValue = 1f, animationSpec = tween(durationMillis = 300)) { t, _ ->
+            offset = Offset(start.x + (end.x - start.x) * t, start.y + (end.y - start.y) * t)
         }
         savedViews[viewKey] = GridView(scale, offset)
     }
@@ -2546,7 +2610,9 @@ private fun GridCanvas(
         // outside the node, clear of the activation rim and the selection highlight.
         (plannedEnds.asSequence() + plannedLocks.asSequence()).distinct().forEach { id ->
             val node = grid.nodesById[id] ?: return@forEach
-            val content = overrides[node.id] ?: node.original
+            // Read the same way the node itself is drawn, so a lock a replay has walked through is
+            // ringed at the size of the blank it is shown as.
+            val content = overrides[node.id] ?: routeUnlockedOriginal(node, readOnly, activated)
             val r = (content.displayType.nodeRadius() * scale).coerceAtLeast(1.5f)
             val cx = node.x * scale + offset.x
             val cy = node.y * scale + offset.y

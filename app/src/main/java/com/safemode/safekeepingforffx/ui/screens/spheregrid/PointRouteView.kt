@@ -48,6 +48,14 @@ data class PointRouteViewState(
 
     /** Where [nodeId] falls on the path (0 for the start), or null if the path doesn't touch it. */
     fun stepOf(nodeId: String): Int? = path.nodeIds.indexOf(nodeId).takeIf { it >= 0 }
+
+    /**
+     * This view with its locks narrowed to the ones [isClosed] says are still shut. A saved route
+     * keeps the locks that were closed when it was planned; one opened since needs no key any more,
+     * so it shouldn't be ringed or counted as one.
+     */
+    fun withLocksStillClosed(isClosed: (String) -> Boolean): PointRouteViewState =
+        copy(path = path.copy(locks = path.locks.filter { isClosed(it.nodeId) }))
 }
 
 /** The pan/zoom slot a point-to-point view of one grid is kept under, apart from the live views. */

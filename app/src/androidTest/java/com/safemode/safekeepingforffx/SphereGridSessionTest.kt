@@ -8,7 +8,11 @@ import com.safemode.safekeepingforffx.data.local.FfxDatabase
 import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.GridPath
 import com.safemode.safekeepingforffx.data.reference.GridType
+import com.safemode.safekeepingforffx.data.local.SphereGridRouteEntity
 import com.safemode.safekeepingforffx.data.reference.PathMode
+import com.safemode.safekeepingforffx.data.reference.RouteEvent
+import com.safemode.safekeepingforffx.data.reference.SphereGridBuild
+import com.safemode.safekeepingforffx.data.reference.SphereGridBuildCodec
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
 import com.safemode.safekeepingforffx.data.repository.SphereGridRepository
 import com.safemode.safekeepingforffx.ui.screens.spheregrid.SphereGridSession
@@ -117,5 +121,53 @@ class SphereGridSessionTest {
         assertEquals(null, vm.pointView.value)
         assertEquals(GridType.EXPERT, session.gridType.value)
         assertEquals(GridCharacter.YUNA, session.character.value)
+    }
+
+    private suspend fun saveStandardRoute(): Long {
+        val first = repository.grid(GridType.STANDARD).nodes.first().id
+        val build = SphereGridBuild(
+            GridType.STANDARD,
+            events = listOf(RouteEvent.Activate(GridCharacter.TIDUS, first)),
+            name = "Opener"
+        )
+        return database.sphereGridRouteDao().insert(
+            SphereGridRouteEntity(
+                name = "Opener", gridType = "STANDARD", createdAt = 1, updatedAt = 1,
+                payload = SphereGridBuildCodec.encode(build)
+            )
+        )
+    }
+
+    @Test
+    fun closingARouteReplayReturnsToTheGridItWasOpenedFrom() = runBlocking {
+        val id = saveStandardRoute()
+        val session = SphereGridSession()
+        val vm = SphereGridViewModel(repository, settings, session)
+        vm.setGridType(GridType.EXPERT)
+
+        vm.enterRouteView(id)
+        withTimeout(10_000) { vm.routeView.first { it != null } }
+        assertEquals(GridType.STANDARD, session.gridType.value)
+
+        vm.exitRouteView()
+
+        assertEquals(null, vm.routeView.value)
+        assertEquals(GridType.EXPERT, session.gridType.value)
+    }
+
+    @Test
+    fun adoptingARouteStaysOnItsGrid() = runBlocking {
+        val id = saveStandardRoute()
+        val session = SphereGridSession()
+        val vm = SphereGridViewModel(repository, settings, session)
+        vm.setGridType(GridType.EXPERT)
+        vm.enterRouteView(id)
+        withTimeout(10_000) { vm.routeView.first { it != null } }
+
+        vm.applyRouteToProgress()
+        withTimeout(10_000) { vm.routeView.first { it == null } }
+
+        // The adopted path is on the Standard grid, so that is where the player is left.
+        assertEquals(GridType.STANDARD, session.gridType.value)
     }
 }

@@ -90,9 +90,15 @@ class SphereGridRepository(
 
     // --- Node content edits (shared across characters, keyed by grid-namespaced node id) ---
 
+    /**
+     * Every node edit, keyed by node id. A lock written as an edit by an older build's import is left
+     * out: edits never place locks, so the node reads as it does without that edit.
+     */
     fun observeOverrides(): Flow<Map<String, NodeContent>> =
         nodeDao.observeAll().map { rows ->
-            rows.mapNotNull { row -> NodeContent.decode(row.content)?.let { row.nodeId to it } }.toMap()
+            rows.mapNotNull { row ->
+                NodeContent.decode(row.content)?.takeIf { it !is NodeContent.Lock }?.let { row.nodeId to it }
+            }.toMap()
         }
 
     suspend fun setContent(nodeId: String, content: NodeContent?, original: NodeContent) {

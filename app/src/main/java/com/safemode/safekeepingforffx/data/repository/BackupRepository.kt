@@ -31,6 +31,7 @@ import com.safemode.safekeepingforffx.data.local.SphereGridRouteEntity
 import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.GridType
 import com.safemode.safekeepingforffx.data.reference.MAX_CAPTURES
+import com.safemode.safekeepingforffx.data.reference.NodeContent
 
 /**
  * Writes and reads the whole-app backup file, and wipes the player's progress for "Reset all
@@ -169,7 +170,9 @@ class BackupRepository(
                 MonsterCaptureEntity(it.monsterId, it.count.coerceIn(1, MAX_CAPTURES), it.updatedAt)
             }
         val edits = backup.sphereGridEdits
-            .filter { it.nodeId.isNotBlank() }
+            // A lock is never written by an edit (see SphereGridBuildCodec), so one in a file is
+            // dropped rather than restored as a gate the planner doesn't know is there.
+            .filter { it.nodeId.isNotBlank() && NodeContent.decode(it.content) !is NodeContent.Lock }
             .map { SphereGridNodeEntity(it.nodeId, it.content, it.seq) }
         val knownCharacters = GridCharacter.entries.mapTo(HashSet()) { it.name }
         val activations = backup.sphereGridActivations
