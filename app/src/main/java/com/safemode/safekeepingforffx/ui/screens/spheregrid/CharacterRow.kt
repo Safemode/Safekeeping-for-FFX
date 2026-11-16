@@ -1,6 +1,7 @@
 package com.safemode.safekeepingforffx.ui.screens.spheregrid
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +43,12 @@ private val SLOT_HEIGHT = 48.dp
 
 /** The coloured circle, and the height of the selected character's pill. */
 private val BADGE_SIZE = 32.dp
+
+/** Outline on every badge, so a pale one (Yuna's white, Wakka's yellow) still shows on a light theme. */
+private val BADGE_BORDER = 1.dp
+
+/** A heavier outline on the selected pill, so the selection reads at a glance as well as by shape. */
+private val SELECTED_BORDER = 2.dp
 
 /**
  * The characters in one row, each one tap away. The selected one is a pill in their colour with their
@@ -97,6 +104,7 @@ private fun SelectedPill(character: GridCharacter) {
         modifier = Modifier
             .height(BADGE_SIZE)
             .background(color, CircleShape)
+            .border(SELECTED_BORDER, MaterialTheme.colorScheme.onSurface, CircleShape)
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -123,7 +131,10 @@ private fun InitialCircle(character: GridCharacter, modifier: Modifier) {
     ) {
         Box(modifier = modifier.size(SLOT_WIDTH, SLOT_HEIGHT), contentAlignment = Alignment.Center) {
             Box(
-                modifier = Modifier.size(BADGE_SIZE).background(color, CircleShape),
+                modifier = Modifier
+                    .size(BADGE_SIZE)
+                    .background(color, CircleShape)
+                    .border(BADGE_BORDER, MaterialTheme.colorScheme.outline, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(

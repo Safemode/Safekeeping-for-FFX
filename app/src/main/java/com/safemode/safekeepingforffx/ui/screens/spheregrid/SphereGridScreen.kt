@@ -74,7 +74,6 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.LocalTextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -84,6 +83,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -156,6 +156,49 @@ private data class ConfirmAction(
 )
 
 /**
+ * Which confirmation is open, as plain data. A [ConfirmAction] holds a callback and can't be saved,
+ * so this is what is kept across a rotation and the dialog is rebuilt from it each time it shows.
+ */
+private sealed interface PendingConfirm {
+    data object RevertEdits : PendingConfirm
+    data object ClearAllPaths : PendingConfirm
+    data object ActivateAll : PendingConfirm
+    data object DeleteAllRoutes : PendingConfirm
+    data class ApplyRoute(val scope: RouteApplyScope) : PendingConfirm
+    data class DeleteRoute(val id: Long) : PendingConfirm
+    data class DeletePointRoute(val id: Long) : PendingConfirm
+}
+
+private val PendingConfirmSaver = Saver<PendingConfirm?, String>(
+    save = { pending ->
+        when (pending) {
+            null -> null
+            PendingConfirm.RevertEdits -> "revert"
+            PendingConfirm.ClearAllPaths -> "clearAll"
+            PendingConfirm.ActivateAll -> "activateAll"
+            PendingConfirm.DeleteAllRoutes -> "deleteAllRoutes"
+            is PendingConfirm.ApplyRoute -> "apply:${pending.scope.name}"
+            is PendingConfirm.DeleteRoute -> "deleteRoute:${pending.id}"
+            is PendingConfirm.DeletePointRoute -> "deletePoint:${pending.id}"
+        }
+    },
+    restore = { saved ->
+        val kind = saved.substringBefore(':')
+        val arg = saved.substringAfter(':', "")
+        when (kind) {
+            "revert" -> PendingConfirm.RevertEdits
+            "clearAll" -> PendingConfirm.ClearAllPaths
+            "activateAll" -> PendingConfirm.ActivateAll
+            "deleteAllRoutes" -> PendingConfirm.DeleteAllRoutes
+            "apply" -> RouteApplyScope.entries.firstOrNull { it.name == arg }?.let(PendingConfirm::ApplyRoute)
+            "deleteRoute" -> arg.toLongOrNull()?.let(PendingConfirm::DeleteRoute)
+            "deletePoint" -> arg.toLongOrNull()?.let(PendingConfirm::DeletePointRoute)
+            else -> null
+        }
+    }
+)
+
+/**
  * A saved pan/zoom transform. Kept per grid *and* character, so each character remembers where the
  * player left their own grid and switching away and back returns there rather than leaving the view
  * over whoever was on screen last. Transform is screen = world * [scale] + [offset].
@@ -184,6 +227,13 @@ internal fun routeViewKey(gridType: GridType): String = "ROUTE/${gridType.name}"
  * beside the grid. A phone on its side falls under it; a tablet on its side has room to stack them.
  */
 private val SIDE_PANEL_BELOW_HEIGHT = 480.dp
+
+/**
+ * The narrowest window that gets the side panel: the panel plus at least 240dp of grid. A narrower
+ * one, such as half a phone's width in split screen, would leave the grid too thin to use, so it keeps
+ * the stacked layout, where the bars under the grid are capped and the grid always keeps some height.
+ */
+private val SIDE_PANEL_MIN_WIDTH = 600.dp
 
 /** How wide the side panel is: room for the pickers and the path bar's buttons on one line each. */
 private val SIDE_PANEL_WIDTH = 360.dp
@@ -238,8 +288,10 @@ fun SphereGridScreen(
     )
     var selectedNodeId by rememberSaveable { mutableStateOf<String?>(null) }
     var editingNodeId by rememberSaveable { mutableStateOf<String?>(null) }
-    var confirm by remember { mutableStateOf<ConfirmAction?>(null) }
-    var showShareDialog by remember { mutableStateOf(false) }
+    // Every dialog and sheet that can be open is remembered across a rotation, so turning the phone
+    // never closes one or loses what was typed into it.
+    var pendingConfirm by rememberSaveable(stateSaver = PendingConfirmSaver) { mutableStateOf<PendingConfirm?>(null) }
+    var showShareDialog by rememberSaveable { mutableStateOf(false) }
     var showImportDialog by rememberSaveable { mutableStateOf(false) }
     var showStatusSheet by rememberSaveable { mutableStateOf(false) }
     var showLegend by rememberSaveable { mutableStateOf(false) }
@@ -254,15 +306,16 @@ fun SphereGridScreen(
     // Point-to-point routes library + stepping through one.
     val pointView by viewModel.pointView.collectAsStateWithLifecycle()
     val pointRoutes by viewModel.pointRoutes.collectAsStateWithLifecycle()
-    var showPointRoutesSheet by remember { mutableStateOf(false) }
+    var showPointRoutesSheet by rememberSaveable { mutableStateOf(false) }
     // Which path the save dialog is naming: the planned one, or the unsaved one being stepped through.
-    var savePointFromView by remember { mutableStateOf<Boolean?>(null) }
-    var pointRouteToRename by remember { mutableStateOf<SphereGridRepository.PointRoute?>(null) }
-    var showRoutesSheet by remember { mutableStateOf(false) }
-    var showSaveRouteDialog by remember { mutableStateOf(false) }
+    var savePointFromView by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    // Routes being renamed are remembered by id and looked up, since the routes themselves can't be saved.
+    var pointRouteToRenameId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var showRoutesSheet by rememberSaveable { mutableStateOf(false) }
+    var showSaveRouteDialog by rememberSaveable { mutableStateOf(false) }
     var showImportRouteDialog by rememberSaveable { mutableStateOf(false) }
-    var routeToRename by remember { mutableStateOf<SphereGridRepository.SavedRoute?>(null) }
-    var showRouteApplyScope by remember { mutableStateOf(false) }
+    var routeToRenameId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var showRouteApplyScope by rememberSaveable { mutableStateOf(false) }
     var showClearPathDialog by rememberSaveable { mutableStateOf(false) }
     // Which node the canvas should ease to, bumped each time something asks to be taken there:
     // stepping a route replay, or tapping an ability in the character status sheet.
@@ -341,8 +394,6 @@ fun SphereGridScreen(
             focusSignal++
         }
     }
-    // On a short, wide window - a phone on its side - the controls move into a panel beside the grid,
-    // so the grid keeps the full height instead of being squeezed out by the bars above and below it.
     val selected = selectedNodeId?.let { nodesById[it] }
 
     // What a node holds and what can be done with it: read-only during a replay, the full set of
@@ -404,8 +455,11 @@ fun SphereGridScreen(
         }
     }
 
+    // On a short, wide window - a phone on its side - the controls move into a panel beside the grid,
+    // so the grid keeps the full height instead of being squeezed out by the bars above and below it.
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val sidePanel = maxWidth > maxHeight && maxHeight < SIDE_PANEL_BELOW_HEIGHT
+        val sidePanel = maxWidth > maxHeight && maxHeight < SIDE_PANEL_BELOW_HEIGHT &&
+            maxWidth >= SIDE_PANEL_MIN_WIDTH
         val windowHeight = maxHeight
         // A node opened on a short, wide screen shows in the side panel rather than a bottom sheet,
         // which would be too short there to reach its buttons.
@@ -451,9 +505,7 @@ fun SphereGridScreen(
                         if (activeRoute.availableCharacters.size > 1) {
                             showRouteApplyScope = true
                         } else {
-                            confirm = applyRouteConfirm(activeRoute, RouteApplyScope.ALL_CHARACTERS) {
-                                viewModel.applyRouteToProgress(RouteApplyScope.ALL_CHARACTERS)
-                            }
+                            pendingConfirm = PendingConfirm.ApplyRoute(RouteApplyScope.ALL_CHARACTERS)
                         }
                     }
                 )
@@ -465,40 +517,12 @@ fun SphereGridScreen(
                     hasEdits = state.hasEdits,
                     characterHasPath = state.characterHasPath,
                     characterName = state.character.displayName,
-                    onRevertEdits = {
-                        confirm = ConfirmAction(
-                            title = "Revert all edits?",
-                            message = "Every node's content goes back to vanilla on both grids. Opened " +
-                                "locks close again and come off any path that ran through them. This " +
-                                "can't be undone.",
-                            confirmLabel = "Revert all",
-                            onConfirm = viewModel::revertEdits
-                        )
-                    },
+                    onRevertEdits = { pendingConfirm = PendingConfirm.RevertEdits },
                     onClearPath = { showClearPathDialog = true },
                     anyCharacterHasPath = hasAnyPath,
-                    onClearAllPaths = {
-                        confirm = ConfirmAction(
-                            title = "Clear all paths?",
-                            message = "Every character's activated path on both grids will be cleared. " +
-                                "Grid edits are kept. This can't be undone.",
-                            confirmLabel = "Clear all paths",
-                            onConfirm = viewModel::clearAllPaths
-                        )
-                    },
+                    onClearAllPaths = { pendingConfirm = PendingConfirm.ClearAllPaths },
                     canActivateAll = state.gridAvailable && !state.isLoading,
-                    onActivateAll = {
-                        confirm = ConfirmAction(
-                            title = "Activate everything for ${state.character.displayName}?",
-                            message = "Every attribute and ability node on the ${state.gridType.label} " +
-                                "grid joins ${state.character.displayName}'s path, so Character Status " +
-                                "shows their totals with the whole grid taken. Locks and blank nodes are " +
-                                "left alone. The path they have now can't be brought back afterwards - " +
-                                "only cleared and rebuilt.",
-                            confirmLabel = "Activate all",
-                            onConfirm = viewModel::activateAllContentNodes
-                        )
-                    },
+                    onActivateAll = { pendingConfirm = PendingConfirm.ActivateAll },
                     canShare = state.hasAnythingToShare,
                     onShareBuild = { showShareDialog = true },
                     onImportBuild = { showImportDialog = true },
@@ -906,25 +930,9 @@ fun SphereGridScreen(
                 viewModel.enterRouteView(id)
             },
             onShare = viewModel::shareRoute,
-            onRename = { routeToRename = it },
-            onDelete = { route ->
-                confirm = ConfirmAction(
-                    title = "Delete \"${route.name}\"?",
-                    message = "This removes the saved route from your library. This can't be undone.",
-                    confirmLabel = "Delete",
-                    onConfirm = { viewModel.deleteRoute(route.id) }
-                )
-            },
-            onDeleteAll = {
-                val count = routes.size
-                confirm = ConfirmAction(
-                    title = "Delete all saved routes?",
-                    message = "This removes all $count saved ${if (count == 1) "route" else "routes"} " +
-                        "from your library. This can't be undone.",
-                    confirmLabel = "Delete all",
-                    onConfirm = { viewModel.clearAllRoutes() }
-                )
-            },
+            onRename = { routeToRenameId = it.id },
+            onDelete = { route -> pendingConfirm = PendingConfirm.DeleteRoute(route.id) },
+            onDeleteAll = { pendingConfirm = PendingConfirm.DeleteAllRoutes },
             onImportRoute = { showImportRouteDialog = true }
         )
     }
@@ -966,9 +974,7 @@ fun SphereGridScreen(
             onDismiss = { showRouteApplyScope = false },
             onPick = { scope ->
                 showRouteApplyScope = false
-                confirm = applyRouteConfirm(activeRoute, scope) {
-                    viewModel.applyRouteToProgress(scope)
-                }
+                pendingConfirm = PendingConfirm.ApplyRoute(scope)
             }
         )
     }
@@ -996,16 +1002,8 @@ fun SphereGridScreen(
                 showPointRoutesSheet = false
                 viewModel.viewPointRoute(id)
             },
-            onRename = { pointRouteToRename = it },
-            onDelete = { route ->
-                confirm = ConfirmAction(
-                    title = "Delete \"${route.name}\"?",
-                    message = "This removes the point-to-point route from your library. This can't " +
-                        "be undone.",
-                    confirmLabel = "Delete",
-                    onConfirm = { viewModel.deletePointRoute(route.id) }
-                )
-            }
+            onRename = { pointRouteToRenameId = it.id },
+            onDelete = { route -> pendingConfirm = PendingConfirm.DeletePointRoute(route.id) }
         )
     }
 
@@ -1026,45 +1024,103 @@ fun SphereGridScreen(
         )
     }
 
-    pointRouteToRename?.let { route ->
+    // Looked up rather than held, so it waits for the library to load again after a rotation.
+    pointRouteToRenameId?.let { id -> pointRoutes.firstOrNull { it.id == id } }?.let { route ->
         RenameRouteDialog(
             currentName = route.name,
-            onDismiss = { pointRouteToRename = null },
+            onDismiss = { pointRouteToRenameId = null },
             onRename = { name ->
                 viewModel.renamePointRoute(route.id, name)
-                pointRouteToRename = null
+                pointRouteToRenameId = null
             }
         )
     }
 
-    routeToRename?.let { route ->
+    routeToRenameId?.let { id -> routes.firstOrNull { it.id == id } }?.let { route ->
         RenameRouteDialog(
             currentName = route.name,
-            onDismiss = { routeToRename = null },
+            onDismiss = { routeToRenameId = null },
             onRename = { name ->
                 viewModel.renameRoute(route.id, name)
-                routeToRename = null
+                routeToRenameId = null
             }
         )
+    }
+
+    // The open confirmation, rebuilt from what was asked for. One that names a route waits for the
+    // library to load after a rotation, rather than showing with nothing to name.
+    val confirm: ConfirmAction? = when (val pending = pendingConfirm) {
+        null -> null
+        PendingConfirm.RevertEdits -> ConfirmAction(
+            title = "Revert all edits?",
+            message = "Every node's content goes back to vanilla on both grids. Opened locks close " +
+                "again and come off any path that ran through them. This can't be undone.",
+            confirmLabel = "Revert all",
+            onConfirm = viewModel::revertEdits
+        )
+        PendingConfirm.ClearAllPaths -> ConfirmAction(
+            title = "Clear all paths?",
+            message = "Every character's activated path on both grids will be cleared. Grid edits are " +
+                "kept. This can't be undone.",
+            confirmLabel = "Clear all paths",
+            onConfirm = viewModel::clearAllPaths
+        )
+        PendingConfirm.ActivateAll -> ConfirmAction(
+            title = "Activate everything for ${state.character.displayName}?",
+            message = "Every attribute and ability node on the ${state.gridType.label} grid joins " +
+                "${state.character.displayName}'s path, so Character Status shows their totals with " +
+                "the whole grid taken. Locks and blank nodes are left alone. The path they have now " +
+                "can't be brought back afterwards - only cleared and rebuilt.",
+            confirmLabel = "Activate all",
+            onConfirm = viewModel::activateAllContentNodes
+        )
+        PendingConfirm.DeleteAllRoutes -> routes.size.takeIf { it > 0 }?.let { count ->
+            ConfirmAction(
+                title = "Delete all saved routes?",
+                message = "This removes all $count saved ${if (count == 1) "route" else "routes"} from " +
+                    "your library. This can't be undone.",
+                confirmLabel = "Delete all",
+                onConfirm = { viewModel.clearAllRoutes() }
+            )
+        }
+        is PendingConfirm.ApplyRoute -> activeRoute?.let { route ->
+            applyRouteConfirm(route, pending.scope) { viewModel.applyRouteToProgress(pending.scope) }
+        }
+        is PendingConfirm.DeleteRoute -> routes.firstOrNull { it.id == pending.id }?.let { route ->
+            ConfirmAction(
+                title = "Delete \"${route.name}\"?",
+                message = "This removes the saved route from your library. This can't be undone.",
+                confirmLabel = "Delete",
+                onConfirm = { viewModel.deleteRoute(route.id) }
+            )
+        }
+        is PendingConfirm.DeletePointRoute -> pointRoutes.firstOrNull { it.id == pending.id }?.let { route ->
+            ConfirmAction(
+                title = "Delete \"${route.name}\"?",
+                message = "This removes the point-to-point route from your library. This can't be undone.",
+                confirmLabel = "Delete",
+                onConfirm = { viewModel.deletePointRoute(route.id) }
+            )
+        }
     }
 
     confirm?.let { action ->
         AlertDialog(
-            onDismissRequest = { confirm = null },
+            onDismissRequest = { pendingConfirm = null },
             title = { Text(action.title) },
             text = { Text(action.message) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         action.onConfirm()
-                        confirm = null
+                        pendingConfirm = null
                     }
                 ) {
                     Text(action.confirmLabel, color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { confirm = null }) { Text("Cancel") }
+                TextButton(onClick = { pendingConfirm = null }) { Text("Cancel") }
             }
         )
     }
@@ -1104,7 +1160,9 @@ private fun SelectorBar(
 
     // In the side panel both buttons share one row: each takes half of it, with a smaller label and
     // tighter padding, so neither has to wrap onto a line of its own.
-    val labelStyle = if (compact) MaterialTheme.typography.labelMedium else LocalTextStyle.current
+    // A button's own label style is labelLarge; it is named here because this is read outside the
+    // button, where the ambient text style would be the larger body style.
+    val labelStyle = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge
     val buttonPadding = if (compact) {
         PaddingValues(horizontal = 10.dp, vertical = 8.dp)
     } else {
