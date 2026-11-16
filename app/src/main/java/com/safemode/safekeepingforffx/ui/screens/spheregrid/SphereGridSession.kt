@@ -35,6 +35,9 @@ class SphereGridSession {
     /** The point-to-point route being stepped through, if any. */
     val pointView = MutableStateFlow<PointRouteViewState?>(null)
 
+    /** The grid and character on screen before [pointView] opened, put back when it closes. */
+    var beforePointView: Pair<GridType, GridCharacter>? = null
+
     /** Each view's pan and zoom, by the keys [gridViewKey], [routeViewKey] and [pointViewKey]. */
     internal val gridViews: MutableMap<String, GridView> = HashMap()
 }

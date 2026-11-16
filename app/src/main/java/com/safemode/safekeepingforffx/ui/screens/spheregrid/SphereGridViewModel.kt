@@ -506,10 +506,14 @@ class SphereGridViewModel(
     /**
      * Shows [view], switching to its grid and character so the live path under it is theirs. Any route
      * replay is closed first, since only one overlay can be on screen. The view always opens on the
-     * path's start rather than wherever the last one was left.
+     * path's start rather than wherever the last one was left. The grid and character it replaced are
+     * remembered, so closing it returns the player to what they were looking at.
      */
     private fun openPointView(view: PointRouteViewState) {
         exitRouteView()
+        if (session.pointView.value == null) {
+            session.beforePointView = gridType.value to character.value
+        }
         gridType.value = view.gridType
         character.value = view.character
         session.gridViews.remove(pointViewKey(view.gridType))
@@ -522,8 +526,15 @@ class SphereGridViewModel(
         session.pointView.value = current.copy(stepIndex = step.coerceIn(0, current.stepCount))
     }
 
+    /** Closes the point-to-point view and goes back to the grid and character it was opened from. */
     fun exitPointView() {
+        if (session.pointView.value == null) return
         session.pointView.value = null
+        session.beforePointView?.let { (type, who) ->
+            gridType.value = type
+            character.value = who
+        }
+        session.beforePointView = null
     }
 
     fun renamePointRoute(id: Long, name: String) {

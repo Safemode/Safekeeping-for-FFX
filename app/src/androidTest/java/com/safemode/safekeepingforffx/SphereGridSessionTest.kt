@@ -96,4 +96,26 @@ class SphereGridSessionTest {
         assertEquals(1, view.stepIndex)
         assertEquals(GridCharacter.AURON, withTimeout(10_000) { after.uiState.first { !it.isLoading } }.character)
     }
+
+    @Test
+    fun closingAStepThroughReturnsToTheGridItWasOpenedFrom() = runBlocking {
+        val session = SphereGridSession()
+        val nodes = repository.grid(GridType.STANDARD).nodes
+        val path = GridPath(listOf(nodes[0].id, nodes[1].id), 4, emptyList())
+        val id = repository.savePointRoute("Short", GridType.STANDARD, GridCharacter.AURON, PathMode.SHORTEST, path)
+
+        val vm = SphereGridViewModel(repository, settings, session)
+        vm.setGridType(GridType.EXPERT)
+        vm.setCharacter(GridCharacter.YUNA)
+        vm.viewPointRoute(id)
+        withTimeout(10_000) { vm.pointView.first { it != null } }
+        assertEquals(GridType.STANDARD, session.gridType.value)
+        assertEquals(GridCharacter.AURON, session.character.value)
+
+        vm.exitPointView()
+
+        assertEquals(null, vm.pointView.value)
+        assertEquals(GridType.EXPERT, session.gridType.value)
+        assertEquals(GridCharacter.YUNA, session.character.value)
+    }
 }

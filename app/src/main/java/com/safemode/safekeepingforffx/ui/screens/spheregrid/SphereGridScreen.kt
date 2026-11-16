@@ -66,6 +66,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -162,6 +163,11 @@ internal fun routeViewKey(gridType: GridType): String = "ROUTE/${gridType.name}"
 @Composable
 fun SphereGridScreen(
     modifier: Modifier = Modifier,
+    /**
+     * Claims the back press while there is something on screen to close first. Handled by the app
+     * scaffold rather than a BackHandler here, which the scaffold's own handler would pre-empt.
+     */
+    onBackHandlerChange: ((() -> Unit)?) -> Unit = {},
     viewModel: SphereGridViewModel = viewModel(factory = SphereGridViewModel.Factory)
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -253,6 +259,13 @@ fun SphereGridScreen(
 
     val activeRoute = routeView
     val activePoint = pointView
+    // Back closes a point-to-point step-through and returns to the grid as it was, rather than
+    // leaving the planner.
+    val steppingThrough = activePoint != null
+    DisposableEffect(steppingThrough) {
+        onBackHandlerChange(if (steppingThrough) viewModel::exitPointView else null)
+        onDispose { onBackHandlerChange(null) }
+    }
     // Stepping through a point-to-point route opens on its start. Keyed by the route and its path, so
     // stepping doesn't re-trigger it, but coming back to the screen mid-way returns to the node reached.
     LaunchedEffect(activePoint?.routeId, activePoint?.path) {
