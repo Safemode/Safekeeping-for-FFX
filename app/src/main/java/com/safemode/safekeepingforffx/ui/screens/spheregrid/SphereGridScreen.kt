@@ -329,22 +329,6 @@ fun SphereGridScreen(
     val activePoint = pointView?.withLocksStillClosed { id ->
         nodesById[id]?.let(state::isLockedGate) ?: true
     }
-    // Back closes a replay - a point-to-point step-through or a saved route - and returns to the grid
-    // as it was, rather than leaving the planner. Failing that, it closes the planned path's bar.
-    val replaying = activePoint != null || activeRoute != null
-    val planning = pathPlan != null
-    DisposableEffect(replaying, planning) {
-        onBackHandlerChange(
-            when {
-                replaying -> {
-                    { if (viewModel.pointView.value != null) viewModel.exitPointView() else viewModel.exitRouteView() }
-                }
-                planning -> viewModel::clearPath
-                else -> null
-            }
-        )
-        onDispose { onBackHandlerChange(null) }
-    }
     // Stepping through a point-to-point route opens on its start. Keyed by the route and its nodes, so
     // stepping doesn't re-trigger it, but coming back to the screen mid-way returns to the node reached.
     LaunchedEffect(activePoint?.routeId, activePoint?.path?.nodeIds) {
@@ -355,9 +339,94 @@ fun SphereGridScreen(
     }
     // On a short, wide window - a phone on its side - the controls move into a panel beside the grid,
     // so the grid keeps the full height instead of being squeezed out by the bars above and below it.
+    val selected = selectedNodeId?.let { nodesById[it] }
+
+    // What a node holds and what can be done with it: read-only during a replay, the full set of
+    // actions otherwise. Shown in a bottom sheet, or in the side panel when there is one.
+    val nodeDetails: @Composable (SphereGridNode) -> Unit = { node ->
+        if (activePoint != null) {
+            val step = activePoint.stepOf(node.id)
+            RouteNodeDetail(
+                node = node,
+                current = state.current(node),
+                description = when (step) {
+                    null -> "Not on this path."
+                    0 -> "Where the path starts."
+                    else -> "Step $step of ${activePoint.stepCount} on this path."
+                }
+            )
+        } else if (activeRoute != null) {
+            // Read-only inspection during replay: the route's content for this node and its step.
+            val step = activeRoute.activationStepOf(node.id)
+            val who = activeRoute.character.displayName
+            RouteNodeDetail(
+                node = node,
+                current = activeRoute.contentAt(node.id, node.original),
+                description = if (step != null) {
+                    "Step $step on $who's path in \"${activeRoute.name}\"."
+                } else {
+                    "Not on $who's path in this route."
+                }
+            )
+        } else {
+            NodeDetail(
+                node = node,
+                current = state.current(node),
+                characterName = state.character.displayName,
+                isActivated = state.isActivated(node.id),
+                canEdit = state.canEdit(node),
+                onToggleActivation = { viewModel.toggleActivation(node) },
+                onEdit = {
+                    editingNodeId = node.id
+                    selectedNodeId = null
+                },
+                onRevert = {
+                    viewModel.setContent(node, null)
+                    selectedNodeId = null
+                },
+                onPathTo = {
+                    viewModel.planPathTo(node)
+                    selectedNodeId = null
+                    revealTarget = node.id
+                    revealSignal++
+                },
+                onPathFrom = {
+                    viewModel.planPathFrom(node)
+                    selectedNodeId = null
+                    revealTarget = node.id
+                    revealSignal++
+                }
+            )
+        }
+    }
+
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val sidePanel = maxWidth > maxHeight && maxHeight < SIDE_PANEL_BELOW_HEIGHT
         val windowHeight = maxHeight
+        // A node opened on a short, wide screen shows in the side panel rather than a bottom sheet,
+        // which would be too short there to reach its buttons.
+        val nodeInPanel = sidePanel && selected != null
+
+        // Back closes what is open, innermost first: a node in the side panel, then a replay - a
+        // point-to-point step-through or a saved route, returning to the grid as it was - then the
+        // planned path's bar, rather than leaving the planner. A node in a bottom sheet closes itself.
+        val replaying = activePoint != null || activeRoute != null
+        val planning = pathPlan != null
+        DisposableEffect(nodeInPanel, replaying, planning) {
+            onBackHandlerChange(
+                when {
+                    nodeInPanel -> {
+                        { selectedNodeId = null }
+                    }
+                    replaying -> {
+                        { if (viewModel.pointView.value != null) viewModel.exitPointView() else viewModel.exitRouteView() }
+                    }
+                    planning -> viewModel::clearPath
+                    else -> null
+                }
+            )
+            onDispose { onBackHandlerChange(null) }
+        }
 
         // The pickers above the grid, or a replay's header while one is open.
         val header: @Composable () -> Unit = {
@@ -677,7 +746,7 @@ fun SphereGridScreen(
             // and the pickers follow. A replay keeps its header on top, above its step controls.
             val planFirst = activeRoute == null && activePoint == null && pathPlan != null
             val panelScroll = rememberScrollState()
-            LaunchedEffect(planFirst) { panelScroll.scrollTo(0) }
+            LaunchedEffect(planFirst, selectedNodeId) { panelScroll.scrollTo(0) }
             Row(modifier = Modifier.fillMaxSize()) {
                 grid(Modifier.weight(1f).fillMaxHeight())
                 VerticalDivider()
@@ -687,7 +756,10 @@ fun SphereGridScreen(
                         .fillMaxHeight()
                         .verticalScroll(panelScroll)
                 ) {
-                    if (planFirst) {
+                    if (selected != null) {
+                        NodePanelHeader(onClose = { selectedNodeId = null })
+                        nodeDetails(selected)
+                    } else if (planFirst) {
                         footer()
                         HorizontalDivider()
                         header()
@@ -713,74 +785,20 @@ fun SphereGridScreen(
                 }
             }
         }
+
+        if (selected != null && !sidePanel) {
+            val sheetState = rememberModalBottomSheetState()
+            ModalBottomSheet(
+                onDismissRequest = { selectedNodeId = null },
+                sheetState = sheetState
+            ) {
+                nodeDetails(selected)
+            }
+        }
     }
 
     if (showLegend) {
         LegendDialog(icons = legendIcons, onDismiss = { showLegend = false })
-    }
-
-    val selected = selectedNodeId?.let { nodesById[it] }
-    if (selected != null) {
-        val sheetState = rememberModalBottomSheetState()
-        ModalBottomSheet(
-            onDismissRequest = { selectedNodeId = null },
-            sheetState = sheetState
-        ) {
-            if (activePoint != null) {
-                val step = activePoint.stepOf(selected.id)
-                RouteNodeDetail(
-                    node = selected,
-                    current = state.current(selected),
-                    description = when (step) {
-                        null -> "Not on this path."
-                        0 -> "Where the path starts."
-                        else -> "Step $step of ${activePoint.stepCount} on this path."
-                    }
-                )
-            } else if (activeRoute != null) {
-                // Read-only inspection during replay: the route's content for this node and its step.
-                val step = activeRoute.activationStepOf(selected.id)
-                val who = activeRoute.character.displayName
-                RouteNodeDetail(
-                    node = selected,
-                    current = activeRoute.contentAt(selected.id, selected.original),
-                    description = if (step != null) {
-                        "Step $step on $who's path in \"${activeRoute.name}\"."
-                    } else {
-                        "Not on $who's path in this route."
-                    }
-                )
-            } else {
-                NodeDetail(
-                    node = selected,
-                    current = state.current(selected),
-                    characterName = state.character.displayName,
-                    isActivated = state.isActivated(selected.id),
-                    canEdit = state.canEdit(selected),
-                    onToggleActivation = { viewModel.toggleActivation(selected) },
-                    onEdit = {
-                        editingNodeId = selected.id
-                        selectedNodeId = null
-                    },
-                    onRevert = {
-                        viewModel.setContent(selected, null)
-                        selectedNodeId = null
-                    },
-                    onPathTo = {
-                        viewModel.planPathTo(selected)
-                        selectedNodeId = null
-                        revealTarget = selected.id
-                        revealSignal++
-                    },
-                    onPathFrom = {
-                        viewModel.planPathFrom(selected)
-                        selectedNodeId = null
-                        revealTarget = selected.id
-                        revealSignal++
-                    }
-                )
-            }
-        }
     }
 
     val editing = editingNodeId?.let { nodesById[it] }
@@ -1468,6 +1486,29 @@ private fun ExpertPlaceholder(onShowStandard: () -> Unit) {
         )
         Spacer(Modifier.size(12.dp))
         OutlinedButton(onClick = onShowStandard) { Text("Show Standard grid") }
+    }
+}
+
+/** The top of the side panel while it shows a node: a label and a way back to the panel's controls. */
+@Composable
+private fun NodePanelHeader(onClose: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 4.dp, top = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            "Node",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        IconButton(onClick = onClose) {
+            Icon(
+                Icons.Filled.Close,
+                contentDescription = "Close node",
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+        }
     }
 }
 
