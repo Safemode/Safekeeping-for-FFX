@@ -344,6 +344,7 @@ private fun BackupCounts.summary(): String {
         if (gridEdits > 0) add("$gridEdits grid ${"edit".plural(gridEdits)}")
         if (gridActivations > 0) add("$gridActivations activated ${"node".plural(gridActivations)}")
         if (savedRoutes > 0) add("$savedRoutes saved ${"route".plural(savedRoutes)}")
+        if (pointRoutes > 0) add("$pointRoutes point-to-point ${"route".plural(pointRoutes)}")
     }.joinToString(separator = "\n", prefix = "Restored:\n") { "- $it" }
 }
 

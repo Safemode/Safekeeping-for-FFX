@@ -25,8 +25,8 @@ private val SUPPORTED_BACKUP_VERSIONS = setOf(1)
 
 /**
  * Everything the player has done, as one plain-JSON document: their settings, every checklist tick,
- * every Monster Arena count, and the whole Sphere Grid Planner - node edits, per-character paths and
- * the saved routes library.
+ * every Monster Arena count, and the whole Sphere Grid Planner - node edits, per-character paths,
+ * the saved routes library and the point-to-point routes library.
  *
  * Rows are carried close to how the database stores them (ids, counts, `seq` ordering) rather than
  * as a prettied-up view, because a restore has to reproduce the state exactly - including the
@@ -50,7 +50,9 @@ data class BackupFile(
     val monsterCaptures: List<BackupMonsterCapture> = emptyList(),
     val sphereGridEdits: List<BackupSphereGridEdit> = emptyList(),
     val sphereGridActivations: List<BackupSphereGridActivation> = emptyList(),
-    val sphereGridRoutes: List<BackupSphereGridRoute> = emptyList()
+    val sphereGridRoutes: List<BackupSphereGridRoute> = emptyList(),
+    /** Missing from files written before 1.1.0, which decodes as an empty library. */
+    val pointRoutes: List<BackupPointRoute> = emptyList()
 ) {
     /** How many rows of each kind, for the "restored X, Y, Z" confirmation. */
     val counts: BackupCounts
@@ -60,7 +62,8 @@ data class BackupFile(
             capturedFiends = monsterCaptures.count { it.count > 0 },
             gridEdits = sphereGridEdits.size,
             gridActivations = sphereGridActivations.size,
-            savedRoutes = sphereGridRoutes.size
+            savedRoutes = sphereGridRoutes.size,
+            pointRoutes = pointRoutes.size
         )
 }
 
@@ -149,6 +152,27 @@ data class BackupSphereGridRoute(
     val payload: String
 )
 
+/**
+ * A saved point-to-point route. Like [BackupSphereGridRoute], the row id is left out so a restore
+ * inserts fresh rows. The path is carried as lists rather than the database's comma-joined strings,
+ * so the file reads plainly.
+ */
+@JsonClass(generateAdapter = true)
+data class BackupPointRoute(
+    val name: String,
+    val gridType: String,
+    val character: String,
+    val mode: String,
+    /** The path in walking order, start first. */
+    val nodeIds: List<String>,
+    /** The locks on it that were unopened when it was planned. */
+    val lockIds: List<String> = emptyList(),
+    /** Movement cost when it was planned, in quarter Sphere Levels. */
+    val moveQuarters: Int = 0,
+    val createdAt: Long,
+    val updatedAt: Long = 0
+)
+
 /** Row counts for a summary message. */
 data class BackupCounts(
     val checkedItems: Int,
@@ -156,11 +180,12 @@ data class BackupCounts(
     val capturedFiends: Int,
     val gridEdits: Int,
     val gridActivations: Int,
-    val savedRoutes: Int
+    val savedRoutes: Int,
+    val pointRoutes: Int = 0
 ) {
     val isEmpty: Boolean
         get() = checkedItems == 0 && favorites == 0 && capturedFiends == 0 && gridEdits == 0 &&
-            gridActivations == 0 && savedRoutes == 0
+            gridActivations == 0 && savedRoutes == 0 && pointRoutes == 0
 }
 
 /**

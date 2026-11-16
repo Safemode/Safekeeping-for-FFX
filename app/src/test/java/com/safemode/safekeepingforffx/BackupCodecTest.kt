@@ -7,6 +7,7 @@ import com.safemode.safekeepingforffx.data.backup.BackupCodec
 import com.safemode.safekeepingforffx.data.backup.BackupFavorite
 import com.safemode.safekeepingforffx.data.backup.BackupFile
 import com.safemode.safekeepingforffx.data.backup.BackupMonsterCapture
+import com.safemode.safekeepingforffx.data.backup.BackupPointRoute
 import com.safemode.safekeepingforffx.data.backup.BackupSettings
 import com.safemode.safekeepingforffx.data.backup.BackupSphereGridActivation
 import com.safemode.safekeepingforffx.data.backup.BackupSphereGridEdit
@@ -59,6 +60,19 @@ class BackupCodecTest {
         ),
         sphereGridRoutes = listOf(
             BackupSphereGridRoute("Tidus opener", "STANDARD", 1_700_000_000_003, 1_700_000_000_009, "{\"v\":2}")
+        ),
+        pointRoutes = listOf(
+            BackupPointRoute(
+                name = "Tidus to MP +20",
+                gridType = "STANDARD",
+                character = "TIDUS",
+                mode = "SHORTEST",
+                nodeIds = listOf("n479", "n480", "n481"),
+                lockIds = listOf("n480"),
+                moveQuarters = 8,
+                createdAt = 1_700_000_000_010,
+                updatedAt = 1_700_000_000_011
+            )
         )
     )
 
@@ -101,7 +115,31 @@ class BackupCodecTest {
         assertEquals(1, counts.gridEdits)
         assertEquals(2, counts.gridActivations)
         assertEquals(1, counts.savedRoutes)
+        assertEquals(1, counts.pointRoutes)
         assertFalse(counts.isEmpty)
+    }
+
+    @Test
+    fun aFileFromBeforePointRoutesDecodesWithNone() {
+        val decoded = BackupCodec.decode(
+            """{"format":"$BACKUP_FORMAT","version":$BACKUP_VERSION,"sphereGridRoutes":[]}"""
+        ).getOrThrow()
+        assertTrue(decoded.pointRoutes.isEmpty())
+        assertEquals(0, decoded.counts.pointRoutes)
+    }
+
+    @Test
+    fun aPointRouteWithOnlyItsRequiredFieldsDecodes() {
+        val decoded = BackupCodec.decode(
+            """{"format":"$BACKUP_FORMAT","version":$BACKUP_VERSION,"pointRoutes":[
+                {"name":"A","gridType":"EXPERT","character":"LULU","mode":"NO_LOCKS",
+                 "nodeIds":["x1","x2"],"createdAt":5}]}"""
+        ).getOrThrow()
+        val route = decoded.pointRoutes.single()
+        assertEquals(listOf("x1", "x2"), route.nodeIds)
+        assertTrue(route.lockIds.isEmpty())
+        assertEquals(0, route.moveQuarters)
+        assertEquals(0L, route.updatedAt)
     }
 
     @Test

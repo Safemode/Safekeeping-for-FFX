@@ -10,6 +10,7 @@ import com.safemode.safekeepingforffx.data.backup.BackupMonsterCapture
 import com.safemode.safekeepingforffx.data.backup.BackupSettings
 import com.safemode.safekeepingforffx.data.backup.BackupSphereGridActivation
 import com.safemode.safekeepingforffx.data.backup.BackupSphereGridEdit
+import com.safemode.safekeepingforffx.data.backup.BackupPointRoute
 import com.safemode.safekeepingforffx.data.backup.BackupSphereGridRoute
 import com.safemode.safekeepingforffx.data.backup.backupTimestamp
 import com.safemode.safekeepingforffx.data.local.ChecklistProgressDao
@@ -23,10 +24,14 @@ import com.safemode.safekeepingforffx.data.local.SphereGridActivationDao
 import com.safemode.safekeepingforffx.data.local.SphereGridActivationEntity
 import com.safemode.safekeepingforffx.data.local.SphereGridNodeDao
 import com.safemode.safekeepingforffx.data.local.SphereGridNodeEntity
+import com.safemode.safekeepingforffx.data.local.PointRouteDao
+import com.safemode.safekeepingforffx.data.local.PointRouteEntity
 import com.safemode.safekeepingforffx.data.local.SphereGridRouteDao
 import com.safemode.safekeepingforffx.data.local.SphereGridRouteEntity
 import com.safemode.safekeepingforffx.data.reference.GridCharacter
+import com.safemode.safekeepingforffx.data.reference.GridType
 import com.safemode.safekeepingforffx.data.reference.MAX_CAPTURES
+import com.safemode.safekeepingforffx.data.reference.NodeContent
 
 /**
  * Writes and reads the whole-app backup file, and wipes the player's progress for "Reset all
@@ -48,6 +53,7 @@ class BackupRepository(
     private val nodeDao: SphereGridNodeDao,
     private val activationDao: SphereGridActivationDao,
     private val routeDao: SphereGridRouteDao,
+    private val pointRouteDao: PointRouteDao,
     private val favoriteDao: FavoriteDao,
     private val settingsRepository: SettingsRepository,
     private val appVersion: String,
@@ -57,7 +63,7 @@ class BackupRepository(
     /**
      * "Reset all progress": every checklist tick, star, capture count, grid edit and path, cleared in
      * one transaction so a failure partway can't leave some lists reset and others not. Saved routes
-     * and settings are kept - they are a library and preferences, not progress. The live grid no
+     * (both libraries) and settings are kept - they are a library and preferences, not progress. The live grid no
      * longer descends from a saved route afterwards, so the loaded-route link is cleared too, or a
      * later save would offer to overwrite that route with the emptied grid.
      */
@@ -109,13 +115,27 @@ class BackupRepository(
             },
             sphereGridRoutes = routeDao.snapshot().map {
                 BackupSphereGridRoute(it.name, it.gridType, it.createdAt, it.updatedAt, it.payload)
+            },
+            pointRoutes = pointRouteDao.snapshot().map {
+                BackupPointRoute(
+                    name = it.name,
+                    gridType = it.gridType,
+                    character = it.character,
+                    mode = it.mode,
+                    nodeIds = SphereGridRepository.decodeNodeIds(it.nodeIds),
+                    lockIds = SphereGridRepository.decodeNodeIds(it.lockIds),
+                    moveQuarters = it.moveQuarters,
+                    createdAt = it.createdAt,
+                    updatedAt = it.updatedAt
+                )
             }
         )
     }
 
     /**
      * Replaces everything with the contents of [json]. This is a restore, not a merge: every
-     * checklist tick, capture count, grid edit, path and saved route currently in the app is dropped
+     * checklist tick, capture count, grid edit, path and saved route (of either kind) currently in the
+     * app is dropped
      * first, so what the player ends up with is exactly what the file holds.
      *
      * The database half runs in a single transaction, so a file that fails partway through leaves
@@ -150,7 +170,9 @@ class BackupRepository(
                 MonsterCaptureEntity(it.monsterId, it.count.coerceIn(1, MAX_CAPTURES), it.updatedAt)
             }
         val edits = backup.sphereGridEdits
-            .filter { it.nodeId.isNotBlank() }
+            // A lock is never written by an edit (see SphereGridBuildCodec), so one in a file is
+            // dropped rather than restored as a gate the planner doesn't know is there.
+            .filter { it.nodeId.isNotBlank() && NodeContent.decode(it.content) !is NodeContent.Lock }
             .map { SphereGridNodeEntity(it.nodeId, it.content, it.seq) }
         val knownCharacters = GridCharacter.entries.mapTo(HashSet()) { it.name }
         val activations = backup.sphereGridActivations
@@ -165,6 +187,30 @@ class BackupRepository(
                 SphereGridRouteEntity(0, it.name, it.gridType, it.createdAt, updatedAt, it.payload)
             }
 
+        // A point-to-point route needs a grid and character this build knows and at least one node to
+        // stand on; the loader would hide anything else, so it isn't stored. Commas would split a
+        // node id when the path is joined for the database, so an id carrying one is refused too.
+        val knownGrids = GridType.entries.mapTo(HashSet()) { it.name }
+        val pointRoutes = backup.pointRoutes
+            .filter { route ->
+                route.gridType in knownGrids && route.character in knownCharacters &&
+                    route.nodeIds.isNotEmpty() &&
+                    (route.nodeIds + route.lockIds).none { it.isBlank() || ',' in it }
+            }
+            .map {
+                PointRouteEntity(
+                    name = it.name,
+                    gridType = it.gridType,
+                    character = it.character,
+                    mode = it.mode,
+                    nodeIds = SphereGridRepository.encodeNodeIds(it.nodeIds),
+                    lockIds = SphereGridRepository.encodeNodeIds(it.lockIds),
+                    moveQuarters = it.moveQuarters.coerceAtLeast(0),
+                    createdAt = it.createdAt,
+                    updatedAt = if (it.updatedAt > 0) it.updatedAt else it.createdAt
+                )
+            }
+
         runCatching {
             database.withTransaction {
                 checklistDao.clearAll()
@@ -173,6 +219,7 @@ class BackupRepository(
                 nodeDao.clearAll()
                 activationDao.clearAll()
                 routeDao.clearAll()
+                pointRouteDao.clearAll()
 
                 if (checklists.isNotEmpty()) checklistDao.upsertAll(checklists)
                 if (favorites.isNotEmpty()) favoriteDao.upsertAll(favorites)
@@ -180,6 +227,7 @@ class BackupRepository(
                 if (edits.isNotEmpty()) nodeDao.upsertAll(edits)
                 if (activations.isNotEmpty()) activationDao.upsertAll(activations)
                 if (routes.isNotEmpty()) routeDao.insertAll(routes)
+                if (pointRoutes.isNotEmpty()) pointRouteDao.insertAll(pointRoutes)
             }
         }.onFailure { return Result.failure(it) }
 
@@ -205,7 +253,8 @@ class BackupRepository(
                 capturedFiends = captures.size,
                 gridEdits = edits.size,
                 gridActivations = activations.size,
-                savedRoutes = routes.size
+                savedRoutes = routes.size,
+                pointRoutes = pointRoutes.size
             )
         )
     }

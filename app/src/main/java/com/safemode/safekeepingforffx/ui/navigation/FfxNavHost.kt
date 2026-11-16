@@ -149,7 +149,13 @@ fun FfxNavHost(
 
         composable(FfxDestination.MixCalculator.route) { MixCalculatorScreen() }
 
-        composable(FfxDestination.SphereGrid.route) { SphereGridScreen() }
+        composable(FfxDestination.SphereGrid.route) {
+            SphereGridScreen(
+                onBackHandlerChange = { handler ->
+                    onScreenBackHandlerChange(FfxDestination.SphereGrid.route, handler)
+                }
+            )
+        }
 
         // Two optional arguments, and they arrive from different places: the item is how an item
         // list row hands over the item it wants the fiends for, the focus is how a favorite asks for

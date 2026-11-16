@@ -125,4 +125,18 @@ class SphereGridBuildCodecTest {
             build.events
         )
     }
+
+    @Test
+    fun aLockWrittenAsAnEditIsDropped() {
+        // The editor never places a lock, so a hand-made code that does is not let plant one.
+        val build = SphereGridBuild(
+            GridType.STANDARD,
+            events = listOf(
+                RouteEvent.Edit("n7", NodeContent.Lock(3)),
+                RouteEvent.Edit("n8", NodeContent.Empty),
+                RouteEvent.Activate(GridCharacter.TIDUS, "n8")
+            )
+        )
+        assertEquals(build.events.drop(1), roundTrip(build).events)
+    }
 }

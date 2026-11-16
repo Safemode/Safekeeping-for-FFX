@@ -3,6 +3,8 @@ package com.safemode.safekeepingforffx.data.repository
 import android.content.res.AssetManager
 import androidx.room.withTransaction
 import com.safemode.safekeepingforffx.data.local.FfxDatabase
+import com.safemode.safekeepingforffx.data.local.PointRouteDao
+import com.safemode.safekeepingforffx.data.local.PointRouteEntity
 import com.safemode.safekeepingforffx.data.local.SphereGridActivationDao
 import com.safemode.safekeepingforffx.data.local.SphereGridActivationEntity
 import com.safemode.safekeepingforffx.data.local.SphereGridNodeDao
@@ -15,8 +17,11 @@ import com.safemode.safekeepingforffx.data.reference.BaseStatsCsvParser
 import com.safemode.safekeepingforffx.data.reference.BuildScope
 import com.safemode.safekeepingforffx.data.reference.GridCharacter
 import com.safemode.safekeepingforffx.data.reference.GridData
+import com.safemode.safekeepingforffx.data.reference.GridPath
 import com.safemode.safekeepingforffx.data.reference.GridType
+import com.safemode.safekeepingforffx.data.reference.LockOnPath
 import com.safemode.safekeepingforffx.data.reference.NodeContent
+import com.safemode.safekeepingforffx.data.reference.PathMode
 import com.safemode.safekeepingforffx.data.reference.RouteEvent
 import com.safemode.safekeepingforffx.data.reference.SphereGridBuild
 import com.safemode.safekeepingforffx.data.reference.SphereGridBuildCodec
@@ -41,6 +46,7 @@ class SphereGridRepository(
     private val nodeDao: SphereGridNodeDao,
     private val activationDao: SphereGridActivationDao,
     private val routeDao: SphereGridRouteDao,
+    private val pointRouteDao: PointRouteDao,
     private val settingsRepository: SettingsRepository
 ) {
     private val cache = ConcurrentHashMap<GridType, GridData>()
@@ -84,9 +90,15 @@ class SphereGridRepository(
 
     // --- Node content edits (shared across characters, keyed by grid-namespaced node id) ---
 
+    /**
+     * Every node edit, keyed by node id. A lock written as an edit by an older build's import is left
+     * out: edits never place locks, so the node reads as it does without that edit.
+     */
     fun observeOverrides(): Flow<Map<String, NodeContent>> =
         nodeDao.observeAll().map { rows ->
-            rows.mapNotNull { row -> NodeContent.decode(row.content)?.let { row.nodeId to it } }.toMap()
+            rows.mapNotNull { row ->
+                NodeContent.decode(row.content)?.takeIf { it !is NodeContent.Lock }?.let { row.nodeId to it }
+            }.toMap()
         }
 
     suspend fun setContent(nodeId: String, content: NodeContent?, original: NodeContent) {
@@ -482,6 +494,72 @@ class SphereGridRepository(
         )
     }
 
+    // --- Point-to-point routes: planned paths between two nodes, saved to step through ---
+
+    /** The point-to-point library, newest first. Rows that no longer make sense are left out. */
+    fun observePointRoutes(): Flow<List<PointRoute>> =
+        pointRouteDao.observeAll().map { rows -> rows.mapNotNull { it.toPointRoute() } }
+
+    /** One saved point-to-point route, or null if it is gone or no longer readable. */
+    suspend fun pointRoute(id: Long): PointRoute? = pointRouteDao.get(id)?.toPointRoute()
+
+    /** Saves [path] as a named point-to-point route for [character] on [gridType]. Returns its id. */
+    suspend fun savePointRoute(
+        name: String,
+        gridType: GridType,
+        character: GridCharacter,
+        mode: PathMode,
+        path: GridPath
+    ): Long {
+        val now = System.currentTimeMillis()
+        return pointRouteDao.insert(
+            PointRouteEntity(
+                name = name,
+                gridType = gridType.name,
+                character = character.name,
+                mode = mode.name,
+                nodeIds = encodeNodeIds(path.nodeIds),
+                lockIds = encodeNodeIds(path.locks.map { it.nodeId }),
+                moveQuarters = path.moveQuarters,
+                createdAt = now,
+                updatedAt = now
+            )
+        )
+    }
+
+    suspend fun renamePointRoute(id: Long, name: String) =
+        pointRouteDao.rename(id, name, System.currentTimeMillis())
+
+    suspend fun deletePointRoute(id: Long) = pointRouteDao.delete(id)
+
+    /**
+     * Reads a stored row back against its grid. Null when it names a grid or character this build
+     * doesn't have, or a node that isn't on its grid: there is no path to show for those. An unknown
+     * mode only labels the route, so it falls back to the default rather than hiding the route.
+     */
+    private suspend fun PointRouteEntity.toPointRoute(): PointRoute? {
+        val type = GridType.entries.firstOrNull { it.name == gridType } ?: return null
+        val who = GridCharacter.entries.firstOrNull { it.name == character } ?: return null
+        val nodes = grid(type).nodesById
+        val path = decodeNodeIds(nodeIds)
+        if (path.isEmpty() || path.any { it !in nodes }) return null
+        val unopened = decodeNodeIds(lockIds).toSet()
+        val locks = path.mapNotNull { id ->
+            val level = (nodes[id]?.original as? NodeContent.Lock)?.level
+            if (level != null && id in unopened) LockOnPath(id, level) else null
+        }
+        return PointRoute(
+            id = id,
+            name = name,
+            gridType = type,
+            character = who,
+            mode = PathMode.entries.firstOrNull { it.name == mode } ?: PathMode.DEFAULT,
+            path = GridPath(path, moveQuarters.coerceAtLeast(0), locks),
+            createdAt = createdAt,
+            updatedAt = updatedAt
+        )
+    }
+
     private fun readAsset(name: String): String =
         assets.open(name).bufferedReader().use { it.readText() }
 
@@ -501,4 +579,22 @@ class SphereGridRepository(
         val editCount: Int,
         val pathCounts: Map<GridCharacter, Int>
     )
+    /** A saved point-to-point route, read back against its grid and ready to step through. */
+    data class PointRoute(
+        val id: Long,
+        val name: String,
+        val gridType: GridType,
+        val character: GridCharacter,
+        val mode: PathMode,
+        val path: GridPath,
+        val createdAt: Long,
+        val updatedAt: Long
+    )
+
+    companion object {
+        /** Node ids never contain a comma, so a path stores as one comma-separated string. */
+        fun encodeNodeIds(ids: List<String>): String = ids.joinToString(",")
+
+        fun decodeNodeIds(raw: String): List<String> = raw.split(',').filter { it.isNotBlank() }
+    }
 }

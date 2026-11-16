@@ -131,7 +131,7 @@ object SphereGridBuildCodec {
             val nodeId = tokens.getOrNull(1)
             val encoded = tokens.getOrNull(2)
             if (nodeId != null && encoded != null) {
-                NodeContent.decode(encoded)?.let { RouteEvent.Edit(nodeId, it) }
+                editableContent(encoded)?.let { RouteEvent.Edit(nodeId, it) }
             } else {
                 null
             }
@@ -144,10 +144,18 @@ object SphereGridBuildCodec {
         else -> null
     }
 
+    /**
+     * Content an edit may write, or null. A lock is never written by an edit - locks are the grid's
+     * own gates, and the planner's editor can't place one - so a hand-made code carrying one is
+     * dropped rather than planting a gate the rest of the planner doesn't know is there.
+     */
+    private fun editableContent(encoded: String): NodeContent? =
+        NodeContent.decode(encoded)?.takeIf { it !is NodeContent.Lock }
+
     /** A v1 code had no timeline: fold its edits then its paths into events, order unknown. */
     private fun legacyEvents(raw: RawBuild): List<RouteEvent> {
         val edits = raw.edits.orEmpty().mapNotNull { (nodeId, encoded) ->
-            NodeContent.decode(encoded)?.let { RouteEvent.Edit(nodeId, it) }
+            editableContent(encoded)?.let { RouteEvent.Edit(nodeId, it) }
         }
         val activations = raw.paths.orEmpty().flatMap { (name, ids) ->
             val character = GridCharacter.entries.firstOrNull { it.name == name }
