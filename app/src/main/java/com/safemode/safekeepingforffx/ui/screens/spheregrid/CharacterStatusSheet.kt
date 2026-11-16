@@ -341,7 +341,7 @@ private fun AbilityRow(
 
 /** The node's own sphere, drawn small - the same fill and icon the grid and legend use. */
 @Composable
-private fun NodeSwatch(type: NodeType, icons: SphereIcons, dimmed: Boolean = false) {
+internal fun NodeSwatch(type: NodeType, icons: SphereIcons, dimmed: Boolean = false) {
     Canvas(modifier = Modifier.size(20.dp)) {
         val center = Offset(size.width / 2f, size.height / 2f)
         val radius = size.minDimension / 2f
