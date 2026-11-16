@@ -778,10 +778,11 @@ fun SphereGridScreen(
             Row(modifier = Modifier.fillMaxSize()) {
                 grid(Modifier.weight(1f).fillMaxHeight())
                 VerticalDivider()
-                Box(modifier = Modifier.width(SIDE_PANEL_WIDTH).fillMaxHeight()) {
+                Column(modifier = Modifier.width(SIDE_PANEL_WIDTH).fillMaxHeight()) {
                     Column(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .weight(1f)
+                            .fillMaxWidth()
                             .verticalScroll(panelScroll)
                     ) {
                         if (selected != null) {
@@ -802,7 +803,7 @@ fun SphereGridScreen(
                             }
                         }
                     }
-                    MoreBelowHint(panelScroll)
+                    MoreBelowBar(panelScroll)
                 }
             }
         } else {

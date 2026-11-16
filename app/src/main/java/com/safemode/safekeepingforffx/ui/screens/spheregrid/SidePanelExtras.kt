@@ -1,20 +1,19 @@
 package com.safemode.safekeepingforffx.ui.screens.spheregrid
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -28,8 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.safemode.safekeepingforffx.data.reference.CharacterStatus
@@ -132,34 +129,23 @@ internal fun PanelShortcuts(
 }
 
 /**
- * A "More below" pill over the bottom of the side panel while there is more to scroll to, such as
- * the shortcut buttons under the stats. The panel fades into it so the cut-off reads as deliberate,
- * and tapping it scrolls to the end. It goes once the end is in view.
+ * A slim "More below" bar pinned under the side panel's scrolling area while there is more to scroll
+ * to, such as the shortcut buttons under the stats. It sits below the content rather than over it,
+ * so it never hides anything, and it slides away once the end is in view. Tapping it scrolls there.
  */
 @Composable
-internal fun BoxScope.MoreBelowHint(scroll: ScrollState) {
+internal fun MoreBelowBar(scroll: ScrollState) {
     val scope = rememberCoroutineScope()
     AnimatedVisibility(
         visible = scroll.canScrollForward,
-        enter = fadeIn(),
-        exit = fadeOut(),
-        modifier = Modifier.align(Alignment.BottomCenter)
+        enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+        exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color.Transparent, MaterialTheme.colorScheme.background)
-                    )
-                )
-                .padding(top = 28.dp, bottom = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            FilledTonalButton(
+        Column(modifier = Modifier.fillMaxWidth()) {
+            HorizontalDivider()
+            TextButton(
                 onClick = { scope.launch { scroll.animateScrollTo(scroll.maxValue) } },
-                contentPadding = PaddingValues(start = 14.dp, end = 10.dp),
-                modifier = Modifier.height(32.dp)
+                modifier = Modifier.fillMaxWidth().height(36.dp)
             ) {
                 Text("More below", style = MaterialTheme.typography.labelMedium)
                 Spacer(Modifier.width(4.dp))
