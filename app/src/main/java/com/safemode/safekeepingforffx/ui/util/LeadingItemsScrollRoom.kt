@@ -15,11 +15,11 @@ import androidx.compose.ui.unit.Dp
 data class ItemSpan(val index: Int, val offset: Int, val size: Int)
 
 /**
- * How tall a spacer after the last row has to be for a list's leading items - a search field, advice
- * banners - to scroll fully out of view.
+ * How tall a spacer after the last row has to be for a list's leading items - such as a search
+ * field - to scroll fully out of view.
  *
  * A list that overflows the screen by less than those leading items are tall runs out of scroll while
- * part of them is still showing, which leaves the bottom of a banner stuck at the top of the screen.
+ * part of them is still showing, which leaves the bottom of one stuck at the top of the screen.
  * The room makes up exactly that shortfall. It is zero on a list long enough not to need it, and zero
  * on a list short enough to fit, where there is nothing to scroll for in the first place.
  *

@@ -45,8 +45,6 @@ data class ChecklistUiState(
     val foundCount: Int = 0,
     val totalCount: Int = 0,
     val note: String? = null,
-    /** False hides the advice banners at the top of the list. */
-    val showHelp: Boolean = true,
     val sort: ChecklistSort = ChecklistSort.DEFAULT,
     /** False for the categories that have only one sensible order, which hides the picker. */
     val canSort: Boolean = false,
@@ -66,13 +64,18 @@ class ChecklistViewModel(
     private val repository: ChecklistRepository,
     private val settingsRepository: SettingsRepository,
     private val favoritesRepository: FavoritesRepository,
-    private val category: ChecklistCategory
+    private val category: ChecklistCategory,
+    /**
+     * Where the selected character is kept. App-scoped, like the Sphere Grid Planner's session, so
+     * leaving a per-character list and coming back finds the same character on screen.
+     */
+    characterMemory: ChecklistCharacterMemory = ChecklistCharacterMemory()
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
 
     /** Whose progress is on screen. Only ever read for a [ChecklistCategory.perCharacter] list. */
-    private val character = MutableStateFlow(GridCharacter.DEFAULT)
+    private val character = characterMemory.forCategory(category.id)
 
     /** Looked up once: the per-character figures never change, only which one is showing. */
     private val countsById = category.items.associate { it.id to it.characterCounts }
@@ -102,8 +105,7 @@ class ChecklistViewModel(
     /**
      * Progress and stars are stored apart - one is "have I got this", the other is "keep this where
      * I can find it" - and are merged here rather than in [ChecklistRepository], which would other-
-     * wise have to know about a feature that has nothing to do with reference data. Folded together
-     * before the main combine because that one is already at the five flows it has overloads for.
+     * wise have to know about a feature that has nothing to do with reference data.
      */
     private val listing = combine(
         progress,
@@ -137,9 +139,8 @@ class ChecklistViewModel(
         listing,
         settingsRepository.gameVersion,
         _query,
-        settingsRepository.showHelp,
         sort
-    ) { (items, selected), version, query, showHelp, sort ->
+    ) { (items, selected), version, query, sort ->
         val adjusted = items.map { it.forVersion(version) }.inOrder(sort)
         ChecklistUiState(
             items = adjusted,
@@ -151,7 +152,6 @@ class ChecklistViewModel(
             foundCount = adjusted.count { it.isChecked },
             totalCount = adjusted.size,
             note = noteFor(version),
-            showHelp = showHelp,
             sort = sort,
             canSort = category.hasStoryOrder,
             character = selected,
@@ -165,7 +165,7 @@ class ChecklistViewModel(
             // Settled up front so the picker doesn't pop in a frame after the list.
             canSort = category.hasStoryOrder,
             // Also settled up front, so the character picker is there from the first frame.
-            character = if (category.perCharacter) GridCharacter.DEFAULT else null
+            character = if (category.perCharacter) character.value else null
         )
     )
 
@@ -255,7 +255,8 @@ class ChecklistViewModel(
                     app.container.checklistRepository,
                     app.container.settingsRepository,
                     app.container.favoritesRepository,
-                    category
+                    category,
+                    app.container.checklistCharacterMemory
                 )
             }
         }

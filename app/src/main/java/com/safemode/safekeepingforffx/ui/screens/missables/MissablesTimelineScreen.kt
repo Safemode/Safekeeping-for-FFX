@@ -18,7 +18,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.safemode.safekeepingforffx.data.reference.ChecklistCategory
-import com.safemode.safekeepingforffx.ui.components.Banner
+import com.safemode.safekeepingforffx.ui.components.HelpTip
+import com.safemode.safekeepingforffx.ui.components.ScreenHelpEffect
 import com.safemode.safekeepingforffx.ui.components.ChecklistItemRow
 import com.safemode.safekeepingforffx.ui.components.SectionHeader
 
@@ -53,6 +54,8 @@ fun MissablesTimelineScreen(
     /** Opens the flagged item in the list that owns it, scrolled to it. */
     onOpen: (categoryId: String, itemId: String) -> Unit,
     modifier: Modifier = Modifier,
+    /** Offers this screen's tips to the top bar's help button. */
+    onHelpChange: (List<HelpTip>?) -> Unit = {},
     viewModel: MissablesTimelineViewModel = viewModel(
         factory = MissablesTimelineViewModel.factory(categories)
     )
@@ -60,14 +63,18 @@ fun MissablesTimelineScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val rows = remember(state.stages) { timelineRows(state.stages) }
 
-    Column(modifier = modifier.fillMaxSize()) {
-        if (state.showHelp) {
-            Banner(
+    ScreenHelpEffect(
+        tips = listOf(
+            HelpTip(
                 Icons.Outlined.Info,
                 "Everything that can be lost or blocked, in the order you reach it. Tap a row to open " +
                     "it in its own list. Collected items show struck through."
             )
-        }
+        ),
+        onHelpChange = onHelpChange
+    )
+
+    Column(modifier = modifier.fillMaxSize()) {
 
         if (!state.isLoading) {
             Text(

@@ -7,7 +7,7 @@ import org.junit.Test
 
 class LeadingItemsScrollRoomTest {
 
-    /** A search field, a banner and a divider - the shape ChecklistScreen leads with. */
+    /** Three leading items of mixed heights, ahead of the rows: a tall one between two short ones. */
     private val leading = listOf(100, 300, 2)
 
     /** Lays [sizes] out top to bottom, scrolled by [scroll], keeping only what the viewport shows. */

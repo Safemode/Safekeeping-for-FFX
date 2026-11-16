@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.safemode.safekeepingforffx.ui.components.HelpTip
 import com.safemode.safekeepingforffx.ui.screens.checklist.ChecklistScreen
 import com.safemode.safekeepingforffx.ui.screens.checklist.ItemAction
 
@@ -34,6 +35,7 @@ fun ItemListScreen(
      */
     onFindInArena: (String) -> Unit = {},
     onSearchDismissChange: ((() -> Unit)?) -> Unit = {},
+    onHelpChange: (List<HelpTip>?) -> Unit = {},
     viewModel: ItemListViewModel = viewModel(factory = ItemListViewModel.Factory)
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -59,6 +61,7 @@ fun ItemListScreen(
             modifier = modifier,
             focusItemId = focusItemId,
             onSearchDismissChange = onSearchDismissChange,
+            onHelpChange = onHelpChange,
             // Only the items some fiend actually carries are tappable; the rest - key items, the
             // spheres nothing drops - stay inert rather than opening an empty search.
             itemAction = { item ->

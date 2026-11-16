@@ -16,6 +16,7 @@ import com.safemode.safekeepingforffx.data.repository.MixRepository
 import com.safemode.safekeepingforffx.data.repository.MonsterArenaRepository
 import com.safemode.safekeepingforffx.data.repository.SettingsRepository
 import com.safemode.safekeepingforffx.data.repository.SphereGridRepository
+import com.safemode.safekeepingforffx.ui.screens.checklist.ChecklistCharacterMemory
 import com.safemode.safekeepingforffx.ui.screens.spheregrid.SphereGridSession
 
 /**
@@ -84,6 +85,9 @@ class AppContainer(context: Context) {
      * ViewModel, which is cleared when the player backs out - see [SphereGridSession].
      */
     val sphereGridSession by lazy { SphereGridSession() }
+
+    /** Which character each per-character list was showing, kept while the app runs. */
+    val checklistCharacterMemory by lazy { ChecklistCharacterMemory() }
 
     /**
      * Spans every store the player writes to, so it is built here from the DAOs directly rather

@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -52,6 +53,9 @@ class MixViewModel(private val repository: MixRepository) : ViewModel() {
 
     private var table: MixTable = MixTable.EMPTY
 
+    /** The reverse lookup in flight, cancelled when another starts so an older one can't land last. */
+    private var browseJob: Job? = null
+
     init {
         viewModelScope.launch {
             table = runCatching { repository.load() }.getOrDefault(MixTable.EMPTY)
@@ -67,10 +71,12 @@ class MixViewModel(private val repository: MixRepository) : ViewModel() {
 
     /**
      * Reverse lookup. Grouping runs off the main thread: the busiest result covers several hundred
-     * pairs, which is quick but not free.
+     * pairs, which is quick but not free. A new lookup cancels the one before it, so two quick taps
+     * always end on the result tapped last rather than whichever grouping happened to finish last.
      */
     fun browse(result: MixResult) {
-        viewModelScope.launch {
+        browseJob?.cancel()
+        browseJob = viewModelScope.launch {
             val combinations = withContext(Dispatchers.Default) {
                 table.combinationsFor(result.id)
             }
@@ -79,6 +85,7 @@ class MixViewModel(private val repository: MixRepository) : ViewModel() {
     }
 
     fun stopBrowsing() {
+        browseJob?.cancel()
         _uiState.update { it.copy(browsedResult = null, combinations = emptyList()) }
     }
 

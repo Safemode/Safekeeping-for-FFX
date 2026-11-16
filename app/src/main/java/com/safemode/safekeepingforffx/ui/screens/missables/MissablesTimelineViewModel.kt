@@ -35,7 +35,6 @@ data class MissablesTimelineUiState(
     val stages: List<TimelineStage> = emptyList(),
     val totalCount: Int = 0,
     val collectedCount: Int = 0,
-    val showHelp: Boolean = true,
     val isLoading: Boolean = true
 ) {
     /** Nothing flagged for this version - the whole list is empty rather than mid-load. */
@@ -92,10 +91,11 @@ class MissablesTimelineViewModel(
     /**
      * Every source category's live progress, folded into one flat list tagged with its origin. The
      * per-category flows are combined rather than read once so a check ticked anywhere updates here.
+     * A per-character list counts an item collected only once every character has it.
      */
     private val sourcedItems: Flow<List<TimelineItem>> = combine(
         categories.map { category ->
-            checklistRepository.observeCategory(category.id, category.items).map { items ->
+            checklistRepository.observeCategoryEverywhere(category).map { items ->
                 items.map { TimelineItem(category.id, category.label, it) }
             }
         }
@@ -103,15 +103,13 @@ class MissablesTimelineViewModel(
 
     val uiState = combine(
         sourcedItems,
-        settingsRepository.gameVersion,
-        settingsRepository.showHelp
-    ) { items, version, showHelp ->
+        settingsRepository.gameVersion
+    ) { items, version ->
         val stages = buildTimelineStages(items, version)
         MissablesTimelineUiState(
             stages = stages,
             totalCount = stages.sumOf { it.items.size },
             collectedCount = stages.sumOf { stage -> stage.items.count { it.item.isChecked } },
-            showHelp = showHelp,
             isLoading = false
         )
     }.stateIn(

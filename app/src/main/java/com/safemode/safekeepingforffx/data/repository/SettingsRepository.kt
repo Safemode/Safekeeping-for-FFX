@@ -33,8 +33,9 @@ class SettingsRepository(private val dataStore: DataStore<Preferences>) {
     }
 
     /**
-     * Defaults to true, so the guidance is there the first time a list is opened. Turning it off
-     * hides the advice banners at the top of every category.
+     * Whether the top bar shows a help button on screens that have tips. Defaults to true, so the
+     * guidance is a tap away the first time a list is opened. Turning it off hides the button on
+     * every screen.
      */
     val showHelp: Flow<Boolean> = dataStore.data.map { preferences ->
         preferences[SHOW_HELP] ?: true

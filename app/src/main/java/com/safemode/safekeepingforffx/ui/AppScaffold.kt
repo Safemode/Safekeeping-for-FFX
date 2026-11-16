@@ -6,6 +6,7 @@ import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -17,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -31,6 +33,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.safemode.safekeepingforffx.ui.components.HelpDialog
+import com.safemode.safekeepingforffx.ui.components.HelpTip
 import com.safemode.safekeepingforffx.ui.navigation.AppDrawerContent
 import com.safemode.safekeepingforffx.ui.navigation.DrawerViewModel
 import com.safemode.safekeepingforffx.ui.navigation.FfxNavHost
@@ -77,6 +81,22 @@ fun AppScaffold() {
     val screenBackHandlers = remember { mutableStateMapOf<String, () -> Unit>() }
     val screenBackHandler = screenBackHandlers[currentDestination.route]
 
+    // Each screen's tips, offered for the help button in the top bar rather than shown as banners
+    // that take room from the screen itself. Keyed by screen, for the same mid-transition reason as
+    // the back handlers above. The Settings switch hides the button everywhere.
+    val screenHelp = remember { mutableStateMapOf<String, List<HelpTip>>() }
+    val showHelp by drawerViewModel.showHelp.collectAsStateWithLifecycle()
+    val currentHelp = screenHelp[currentDestination.route]?.takeIf { showHelp }
+    // The screen whose help is open, or null. Saved by screen rather than as a plain flag, so a
+    // rotation reopens it on the same screen while moving to another screen closes it. Right after a
+    // rotation the back stack hasn't been restored yet and the route reads as null (which would
+    // otherwise resolve to Home), so nothing is closed until the real screen is known.
+    var helpOpenFor by rememberSaveable { mutableStateOf<String?>(null) }
+    val helpOpen = helpOpenFor == currentDestination.route
+    LaunchedEffect(currentRoute) {
+        if (currentRoute != null && helpOpenFor != currentDestination.route) helpOpenFor = null
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -104,6 +124,16 @@ fun AppScaffold() {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Filled.Menu, contentDescription = "Open navigation menu")
                         }
+                    },
+                    actions = {
+                        if (currentHelp != null) {
+                            IconButton(onClick = { helpOpenFor = currentDestination.route }) {
+                                Icon(
+                                    Icons.AutoMirrored.Outlined.HelpOutline,
+                                    contentDescription = "Help for ${currentDestination.label}"
+                                )
+                            }
+                        }
                     }
                 )
             }
@@ -117,8 +147,19 @@ fun AppScaffold() {
                         screenBackHandlers[key] = handler
                     }
                 },
+                onScreenHelpChange = { key, tips ->
+                    if (tips == null) screenHelp.remove(key) else screenHelp[key] = tips
+                },
                 modifier = Modifier.padding(innerPadding)
             )
+
+            if (helpOpen && currentHelp != null) {
+                HelpDialog(
+                    title = currentDestination.label,
+                    tips = currentHelp,
+                    onDismiss = { helpOpenFor = null }
+                )
+            }
 
             // Declared after the NavHost so this callback is registered later and therefore wins
             // over the NavHost's own back handling. That keeps the three cases in one place and in

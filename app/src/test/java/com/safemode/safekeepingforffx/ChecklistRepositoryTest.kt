@@ -399,4 +399,31 @@ class ChecklistRepositoryTest {
         assertEquals("albhed_01", ids.first())
         assertEquals("albhed_26", ids.last())
     }
+
+    @Test
+    fun `a per-character list counts an item done only once every character has it`() = runTest {
+        val overdrives = com.safemode.safekeepingforffx.data.reference.OverdriveModes.category
+        val first = overdrives.items.first().id
+        val second = overdrives.items[1].id
+        val keys = overdrives.progressKeys
+        val rows = keys.map { ChecklistProgressEntity(it, first, true, 0) } +
+            ChecklistProgressEntity(keys.first(), second, true, 0)
+        val repository = ChecklistRepository(FakeDao(rows))
+
+        val items = repository.observeCategoryEverywhere(overdrives).first().associateBy { it.id }
+
+        assertTrue("Every character has it", items.getValue(first).isChecked)
+        assertFalse("Only one character has it", items.getValue(second).isChecked)
+    }
+
+    @Test
+    fun `any other list reads its own ticks everywhere`() = runTest {
+        val primers = AlBhedPrimers.category
+        val ticked = primers.items.first().id
+        val repository = ChecklistRepository(FakeDao(listOf(ChecklistProgressEntity(primers.id, ticked, true, 0))))
+
+        val items = repository.observeCategoryEverywhere(primers).first()
+
+        assertEquals(listOf(ticked), items.filter { it.isChecked }.map { it.id })
+    }
 }

@@ -4,8 +4,8 @@ package com.safemode.safekeepingforffx.data.reference
  * One trackable list - Al Bhed Primers, Jecht Spheres, Celestial Weapons.
  *
  * [id] is written to the progress table as `categoryId` and must never change once shipped.
- * [note] is optional advice shown above the list, for categories where *when* you collect things
- * matters as much as where.
+ * [note] is optional advice, for categories where *when* you collect things matters as much as
+ * where. It is one of the list's tips behind the help button in the top bar.
  */
 data class ChecklistCategory(
     val id: String,

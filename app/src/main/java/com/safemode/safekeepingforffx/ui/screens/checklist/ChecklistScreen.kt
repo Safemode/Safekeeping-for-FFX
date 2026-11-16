@@ -42,7 +42,8 @@ import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.safemode.safekeepingforffx.data.reference.ChecklistCategory
-import com.safemode.safekeepingforffx.ui.components.Banner
+import com.safemode.safekeepingforffx.ui.components.HelpTip
+import com.safemode.safekeepingforffx.ui.components.ScreenHelpEffect
 import com.safemode.safekeepingforffx.ui.components.ChecklistItemRow
 import com.safemode.safekeepingforffx.ui.components.ChecklistProgressHeader
 import com.safemode.safekeepingforffx.ui.components.ScreenshotDialog
@@ -101,6 +102,8 @@ fun ChecklistScreen(
      * something no fiend carries. Ignored by tracked lists, where a tap already ticks the box.
      */
     itemAction: (ChecklistItem) -> ItemAction? = { null },
+    /** Offers this list's tips to the top bar's help button. */
+    onHelpChange: (List<HelpTip>?) -> Unit = {},
     viewModel: ChecklistViewModel = viewModel(
         // Keyed by category, otherwise navigating between two checklists would reuse the first
         // one's ViewModel and show the wrong list.
@@ -121,18 +124,29 @@ fun ChecklistScreen(
     // a given item without guessing how many headers sit above it.
     val rows = remember(state.visibleItems) { checklistRows(state.visibleItems) }
 
-    // The search field and the advice banners are the first items *inside* the list, so they scroll
+    // The search field is the first item *inside* the list, so it scrolls
     // away with the content instead of being pinned chrome. That is deliberate: a pinned header sits
     // in its own box above the list, and collapsing it hands its height back to the list, which on a
     // short list is enough to refit the content and bounce it back to the top - a loop that could
     // leave a barely-overflowing list frozen, unable to scroll at all. As list items they just
     // scroll off. The trade is that scroll-to-item has to count them, hence [leadingItemCount].
-    // Counts the search field and the divider (both always present) plus whichever banners show.
+    // Counts the search field and the divider, both always present.
     // The no-matches row is excluded on purpose: it only exists while searching, and the focus
     // scroll that reads this never runs then.
-    val leadingItemCount = 2 +
-        (if (state.showHelp && state.note != null) 1 else 0) +
-        (if (state.showHelp && hasScreenshots) 1 else 0)
+    val leadingItemCount = 2
+
+    // The list's note and the screenshot hint live behind the top bar's help button rather than at
+    // the head of the list, so they take no room from the entries.
+    ScreenHelpEffect(
+        tips = buildList {
+            state.note?.let { add(HelpTip(Icons.Outlined.Info, it)) }
+            // Only advertise the long-press where there is actually something to show.
+            if (hasScreenshots) {
+                add(HelpTip(Icons.Outlined.Image, "Long-press an entry to see a screenshot of its location."))
+            }
+        },
+        onHelpChange = onHelpChange
+    )
 
     // The other trade: a list only a little taller than the screen, like Destruction Spheres, runs
     // out of scroll before its leading items have cleared, leaving the bottom of the note stuck
@@ -185,7 +199,7 @@ fun ChecklistScreen(
         val index = rows.indexOfFirst { it is ChecklistRow.Entry && it.item.id == target }
         if (index < 0) return@LaunchedEffect
 
-        // Offset past the search field and banners that now lead the list.
+        // Offset past the search field and divider that lead the list.
         listState.scrollToItem(leadingItemCount + index)
         highlightedId = target
         delay(HIGHLIGHT_DURATION_MS)
@@ -245,20 +259,6 @@ fun ChecklistScreen(
                     onQueryChange = viewModel::setQuery,
                     placeholder = "Search ${category.label}"
                 )
-            }
-            if (state.showHelp) {
-                state.note?.let { note ->
-                    item(key = "banner_note") { Banner(Icons.Outlined.Info, note) }
-                }
-                // Only advertise the long-press where there is actually something to show.
-                if (hasScreenshots) {
-                    item(key = "banner_screenshot") {
-                        Banner(
-                            Icons.Outlined.Image,
-                            "Long-press an entry to see a screenshot of its location."
-                        )
-                    }
-                }
             }
             item(key = "leading_divider") { HorizontalDivider() }
 

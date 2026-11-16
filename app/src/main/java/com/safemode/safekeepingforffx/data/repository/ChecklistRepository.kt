@@ -40,6 +40,20 @@ class ChecklistRepository(private val dao: ChecklistProgressDao) {
         }
 
     /**
+     * The list with an item ticked only when it is ticked under every one of the list's progress
+     * keys. For a per-character list that means every character has it; any other list has one key,
+     * so this is just its own ticks. For views that show a list once rather than per character, such
+     * as the Missables Timeline - the same rule Favorites uses for a starred entry.
+     */
+    fun observeCategoryEverywhere(category: ChecklistCategory): Flow<List<ChecklistItem>> =
+        combine(category.progressKeys.map { key -> observeCategory(key, category.items) }) { perKey ->
+            // Every key's list is built from the same reference items, in the same order.
+            perKey.first().mapIndexed { index, item ->
+                item.copy(isChecked = perKey.all { it[index].isChecked })
+            }
+        }
+
+    /**
      * Found and total for a whole list, across every key its progress is spread over - so a
      * per-character list counts each character's ticks against each character's copy of it, and
      * Overdrive Modes reads out of 7 x 17. Shared by Home and the drawer so the two can't drift.
