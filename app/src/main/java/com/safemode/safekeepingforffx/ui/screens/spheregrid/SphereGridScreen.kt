@@ -14,11 +14,13 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -28,11 +30,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
@@ -66,6 +70,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -170,6 +175,18 @@ internal fun gridViewKey(gridType: GridType, character: GridCharacter): String =
  */
 internal fun routeViewKey(gridType: GridType): String = "ROUTE/${gridType.name}"
 
+/**
+ * Below this much height, on a window wider than it is tall, the planner's controls move into a panel
+ * beside the grid. A phone on its side falls under it; a tablet on its side has room to stack them.
+ */
+private val SIDE_PANEL_BELOW_HEIGHT = 480.dp
+
+/** How wide the side panel is: room for the pickers and the path bar's buttons on one line each. */
+private val SIDE_PANEL_WIDTH = 360.dp
+
+/** The most of the screen's height the bars under the grid may take before they scroll. */
+private const val FOOTER_MAX_FRACTION = 0.45f
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SphereGridScreen(
@@ -202,7 +219,8 @@ fun SphereGridScreen(
                 Icons.Outlined.Info,
                 "Node edits are shared across everyone; each character tracks their own path. " +
                     "Activated nodes and the links between them are drawn in the character's own " +
-                    "colour; edited nodes carry a gold dot."
+                    "colour; edited nodes carry a gold dot. The Legend button beside the grid shows " +
+                    "what each node's colour and icon mean."
             ),
             HelpTip(
                 Icons.Outlined.Route,
@@ -220,6 +238,7 @@ fun SphereGridScreen(
     var showShareDialog by remember { mutableStateOf(false) }
     var showImportDialog by rememberSaveable { mutableStateOf(false) }
     var showStatusSheet by rememberSaveable { mutableStateOf(false) }
+    var showLegend by rememberSaveable { mutableStateOf(false) }
 
     // Saved routes library + read-only replay of a route.
     val routeView by viewModel.routeView.collectAsStateWithLifecycle()
@@ -334,308 +353,374 @@ fun SphereGridScreen(
             focusSignal++
         }
     }
-    Column(modifier = modifier.fillMaxSize()) {
-        if (activePoint != null) {
-            PointRouteBar(
-                view = activePoint,
-                onExit = viewModel::exitPointView,
-                onSave = { savePointFromView = true }
-            )
-        } else if (activeRoute != null) {
-            RouteReplayBar(
-                route = activeRoute,
-                onSelectCharacter = viewModel::setRouteCharacter,
-                onExit = viewModel::exitRouteView,
-                onApply = {
-                    // A route carrying several paths asks how much of it to take before the
-                    // overwrite warning, so the warning can name what is actually at stake.
-                    if (activeRoute.availableCharacters.size > 1) {
-                        showRouteApplyScope = true
-                    } else {
-                        confirm = applyRouteConfirm(activeRoute, RouteApplyScope.ALL_CHARACTERS) {
-                            viewModel.applyRouteToProgress(RouteApplyScope.ALL_CHARACTERS)
-                        }
-                    }
-                }
-            )
-        } else {
-            SelectorBar(
-                gridType = state.gridType,
-                onGridTypeChange = viewModel::setGridType,
-                onOpenStatus = { showStatusSheet = true },
-                hasEdits = state.hasEdits,
-                characterHasPath = state.characterHasPath,
-                characterName = state.character.displayName,
-                onRevertEdits = {
-                    confirm = ConfirmAction(
-                        title = "Revert all edits?",
-                        message = "Every node's content goes back to vanilla on both grids. Opened " +
-                            "locks close again and come off any path that ran through them. This " +
-                            "can't be undone.",
-                        confirmLabel = "Revert all",
-                        onConfirm = viewModel::revertEdits
-                    )
-                },
-                onClearPath = { showClearPathDialog = true },
-                anyCharacterHasPath = hasAnyPath,
-                onClearAllPaths = {
-                    confirm = ConfirmAction(
-                        title = "Clear all paths?",
-                        message = "Every character's activated path on both grids will be cleared. " +
-                            "Grid edits are kept. This can't be undone.",
-                        confirmLabel = "Clear all paths",
-                        onConfirm = viewModel::clearAllPaths
-                    )
-                },
-                canActivateAll = state.gridAvailable && !state.isLoading,
-                onActivateAll = {
-                    confirm = ConfirmAction(
-                        title = "Activate everything for ${state.character.displayName}?",
-                        message = "Every attribute and ability node on the ${state.gridType.label} " +
-                            "grid joins ${state.character.displayName}'s path, so Character Status " +
-                            "shows their totals with the whole grid taken. Locks and blank nodes are " +
-                            "left alone. The path they have now can't be brought back afterwards - " +
-                            "only cleared and rebuilt.",
-                        confirmLabel = "Activate all",
-                        onConfirm = viewModel::activateAllContentNodes
-                    )
-                },
-                canShare = state.hasAnythingToShare,
-                onShareBuild = { showShareDialog = true },
-                onImportBuild = { showImportDialog = true },
-                onOpenRoutes = { showRoutesSheet = true },
-                canSaveRoute = state.hasAnythingToShare,
-                onSaveRoute = { showSaveRouteDialog = true },
-                onOpenPointRoutes = { showPointRoutesSheet = true }
-            )
-            CharacterRow(selected = state.character, onSelect = viewModel::setCharacter)
-        }
-        HorizontalDivider()
+    // On a short, wide window - a phone on its side - the controls move into a panel beside the grid,
+    // so the grid keeps the full height instead of being squeezed out by the bars above and below it.
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val sidePanel = maxWidth > maxHeight && maxHeight < SIDE_PANEL_BELOW_HEIGHT
+        val windowHeight = maxHeight
 
-        Legend(icons = legendIcons)
-        HorizontalDivider()
-
-        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-            when {
-                !state.gridType.isAvailable -> ExpertPlaceholder(
-                    onShowStandard = { viewModel.setGridType(GridType.STANDARD) }
+        // The pickers above the grid, or a replay's header while one is open.
+        val header: @Composable () -> Unit = {
+            if (activePoint != null) {
+                PointRouteBar(
+                    view = activePoint,
+                    onExit = viewModel::exitPointView,
+                    onSave = { savePointFromView = true }
                 )
-                state.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                // Same for a point-to-point route opened on the other grid.
-                activePoint != null && state.gridType != activePoint.gridType ->
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                activePoint != null -> GridCanvas(
-                    grid = state.grid,
-                    gridType = state.gridType,
-                    savedViews = savedGridViews,
-                    resetSignal = resetSignal,
-                    onCanResetChange = { canResetView = it },
-                    overrides = state.overrides,
-                    // The live path with the walked part of this one on top, so the route is seen
-                    // against where the character already is.
-                    activated = state.activated + activePoint.walked,
-                    characterColor = activePoint.character.activationColor(),
-                    selectedId = selectedNodeId,
-                    tapActivates = false,
-                    readOnly = true,
-                    orderLabels = activePoint.orderLabels,
-                    focusNodeId = focusTarget,
-                    focusSignal = focusSignal,
-                    homeNodeId = activePoint.currentNodeId,
-                    plannedPath = activePoint.remaining,
-                    plannedEnds = listOf(activePoint.path.nodeIds.first(), activePoint.path.nodeIds.last()),
-                    plannedLocks = activePoint.locksAhead,
-                    viewKey = pointViewKey(state.gridType),
-                    icons = sphereIcons,
-                    textMeasurer = textMeasurer,
-                    labelCache = labelCache,
-                    labelStyle = labelStyle,
-                    onActivate = {},
-                    onDetails = { selectedNodeId = it },
-                    modifier = Modifier.fillMaxSize()
-                )
-                // Entering a route on a different grid: wait for that grid to load before overlaying
-                // the route, so live progress never flashes under the replay for a frame.
-                activeRoute != null && state.gridType != activeRoute.gridType ->
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                activeRoute != null -> GridCanvas(
-                    grid = state.grid,
-                    gridType = state.gridType,
-                    savedViews = savedGridViews,
-                    resetSignal = resetSignal,
-                    onCanResetChange = { canResetView = it },
-                    overrides = activeRoute.overrides,
-                    activated = activeRoute.activated,
-                    characterColor = activeRoute.character.activationColor(),
-                    selectedId = selectedNodeId,
-                    tapActivates = false,
-                    readOnly = true,
-                    orderLabels = activeRoute.orderLabels,
-                    focusNodeId = focusTarget,
-                    focusSignal = focusSignal,
-                    viewKey = routeViewKey(state.gridType),
-                    icons = sphereIcons,
-                    textMeasurer = textMeasurer,
-                    labelCache = labelCache,
-                    labelStyle = labelStyle,
-                    onActivate = {},
-                    onDetails = { selectedNodeId = it },
-                    modifier = Modifier.fillMaxSize()
-                )
-                else -> GridCanvas(
-                    grid = state.grid,
-                    gridType = state.gridType,
-                    savedViews = savedGridViews,
-                    resetSignal = resetSignal,
-                    onCanResetChange = { canResetView = it },
-                    overrides = state.overrides,
-                    activated = state.activated,
-                    characterColor = state.character.activationColor(),
-                    selectedId = selectedNodeId,
-                    tapActivates = state.tapActivates,
-                    focusNodeId = focusTarget,
-                    focusSignal = focusSignal,
-                    homeNodeId = state.homeNodeId,
-                    plannedPath = pathPlan?.path?.nodeIds.orEmpty(),
-                    plannedEnds = listOfNotNull(pathPlan?.fromId, pathPlan?.request?.toId),
-                    plannedLocks = pathPlan?.lockIds.orEmpty(),
-                    onPickDestination = if (pathPlan?.tapPicksDestination == true) {
-                        { id -> nodesById[id]?.let(viewModel::planPathTo) }
-                    } else {
-                        null
-                    },
-                    revealNodeId = revealTarget,
-                    revealSignal = revealSignal,
-                    viewKey = gridViewKey(state.gridType, state.character),
-                    icons = sphereIcons,
-                    textMeasurer = textMeasurer,
-                    labelCache = labelCache,
-                    labelStyle = labelStyle,
-                    onActivate = { id -> nodesById[id]?.let(viewModel::toggleActivation) },
-                    onDetails = { selectedNodeId = it },
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            // Actions stacked bottom-right: save the current work as a route, go back to this
-            // character, and zoom out to the whole grid. Each appears only when it applies, so the
-            // stack shows just the buttons that currently do something.
-            val gridShown = state.gridAvailable && !state.isLoading
-            val homeNodeId = state.homeNodeId
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Save the current work as a route - the same action as the overflow menu's "Save
-                // current as route". Hidden during a replay and when there is nothing built to save.
-                if (activeRoute == null && activePoint == null && gridShown && state.hasAnythingToShare) {
-                    FilledTonalIconButton(onClick = { showSaveRouteDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Filled.Save,
-                            contentDescription = "Save current work as a route"
-                        )
-                    }
-                }
-                // Back to where this character is: the node they last activated on this grid, or - with
-                // no path here yet - where the game starts them. Hidden during a route replay, where
-                // the live path is not what is on screen and the replay bar drives the view instead.
-                if (activeRoute == null && activePoint == null && gridShown && homeNodeId != null) {
-                    FilledTonalIconButton(
-                        onClick = {
-                            focusTarget = homeNodeId
-                            focusSignal++
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.MyLocation,
-                            contentDescription = if (state.lastActivatedNodeId != null) {
-                                "Go to ${state.character.displayName}'s last activated node"
-                            } else {
-                                "Go to ${state.character.displayName}'s starting position"
+            } else if (activeRoute != null) {
+                RouteReplayBar(
+                    route = activeRoute,
+                    onSelectCharacter = viewModel::setRouteCharacter,
+                    onExit = viewModel::exitRouteView,
+                    onApply = {
+                        // A route carrying several paths asks how much of it to take before the
+                        // overwrite warning, so the warning can name what is actually at stake.
+                        if (activeRoute.availableCharacters.size > 1) {
+                            showRouteApplyScope = true
+                        } else {
+                            confirm = applyRouteConfirm(activeRoute, RouteApplyScope.ALL_CHARACTERS) {
+                                viewModel.applyRouteToProgress(RouteApplyScope.ALL_CHARACTERS)
                             }
-                        )
+                        }
                     }
-                }
-                // Reset view: only once the view has been moved off the default fit.
-                if (canResetView && gridShown) {
-                    FilledTonalIconButton(onClick = { resetSignal++ }) {
-                        Icon(
-                            imageVector = Icons.Filled.CenterFocusStrong,
-                            contentDescription = "Reset view to fit the whole grid"
+                )
+            } else {
+                SelectorBar(
+                    gridType = state.gridType,
+                    onGridTypeChange = viewModel::setGridType,
+                    onOpenStatus = { showStatusSheet = true },
+                    hasEdits = state.hasEdits,
+                    characterHasPath = state.characterHasPath,
+                    characterName = state.character.displayName,
+                    onRevertEdits = {
+                        confirm = ConfirmAction(
+                            title = "Revert all edits?",
+                            message = "Every node's content goes back to vanilla on both grids. Opened " +
+                                "locks close again and come off any path that ran through them. This " +
+                                "can't be undone.",
+                            confirmLabel = "Revert all",
+                            onConfirm = viewModel::revertEdits
                         )
-                    }
-                }
+                    },
+                    onClearPath = { showClearPathDialog = true },
+                    anyCharacterHasPath = hasAnyPath,
+                    onClearAllPaths = {
+                        confirm = ConfirmAction(
+                            title = "Clear all paths?",
+                            message = "Every character's activated path on both grids will be cleared. " +
+                                "Grid edits are kept. This can't be undone.",
+                            confirmLabel = "Clear all paths",
+                            onConfirm = viewModel::clearAllPaths
+                        )
+                    },
+                    canActivateAll = state.gridAvailable && !state.isLoading,
+                    onActivateAll = {
+                        confirm = ConfirmAction(
+                            title = "Activate everything for ${state.character.displayName}?",
+                            message = "Every attribute and ability node on the ${state.gridType.label} " +
+                                "grid joins ${state.character.displayName}'s path, so Character Status " +
+                                "shows their totals with the whole grid taken. Locks and blank nodes are " +
+                                "left alone. The path they have now can't be brought back afterwards - " +
+                                "only cleared and rebuilt.",
+                            confirmLabel = "Activate all",
+                            onConfirm = viewModel::activateAllContentNodes
+                        )
+                    },
+                    canShare = state.hasAnythingToShare,
+                    onShareBuild = { showShareDialog = true },
+                    onImportBuild = { showImportDialog = true },
+                    onOpenRoutes = { showRoutesSheet = true },
+                    canSaveRoute = state.hasAnythingToShare,
+                    onSaveRoute = { showSaveRouteDialog = true },
+                    onOpenPointRoutes = { showPointRoutesSheet = true },
+                    wrap = sidePanel
+                )
+                CharacterRow(
+                        selected = state.character,
+                        onSelect = viewModel::setCharacter,
+                        wrap = sidePanel
+                    )
             }
         }
 
-        if (activeRoute != null) {
-            // A short caption for the step just reached, so an edit reads as clearly as an activation.
-            val stepText = activeRoute.currentStep?.let { step ->
-                when (step) {
-                    is RouteStep.Edit ->
-                        if (step.content is NodeContent.Empty) "Cleared node" else "Set to ${step.content.label()}"
-                    is RouteStep.Activate -> {
-                        val original = nodesById[step.nodeId]?.original ?: NodeContent.Empty
-                        val content = activeRoute.contentAt(step.nodeId, original)
-                        if (content is NodeContent.Empty) "Activated blank node" else "Activated ${content.label()}"
+        val grid: @Composable (Modifier) -> Unit = { gridModifier ->
+            Box(modifier = gridModifier) {
+                    when {
+                        !state.gridType.isAvailable -> ExpertPlaceholder(
+                            onShowStandard = { viewModel.setGridType(GridType.STANDARD) }
+                        )
+                        state.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                        // Same for a point-to-point route opened on the other grid.
+                        activePoint != null && state.gridType != activePoint.gridType ->
+                            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                        activePoint != null -> GridCanvas(
+                            grid = state.grid,
+                            gridType = state.gridType,
+                            savedViews = savedGridViews,
+                            resetSignal = resetSignal,
+                            onCanResetChange = { canResetView = it },
+                            overrides = state.overrides,
+                            // The live path with the walked part of this one on top, so the route is seen
+                            // against where the character already is.
+                            activated = state.activated + activePoint.walked,
+                            characterColor = activePoint.character.activationColor(),
+                            selectedId = selectedNodeId,
+                            tapActivates = false,
+                            readOnly = true,
+                            orderLabels = activePoint.orderLabels,
+                            focusNodeId = focusTarget,
+                            focusSignal = focusSignal,
+                            homeNodeId = activePoint.currentNodeId,
+                            plannedPath = activePoint.remaining,
+                            plannedEnds = listOf(activePoint.path.nodeIds.first(), activePoint.path.nodeIds.last()),
+                            plannedLocks = activePoint.locksAhead,
+                            viewKey = pointViewKey(state.gridType),
+                            icons = sphereIcons,
+                            textMeasurer = textMeasurer,
+                            labelCache = labelCache,
+                            labelStyle = labelStyle,
+                            onActivate = {},
+                            onDetails = { selectedNodeId = it },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        // Entering a route on a different grid: wait for that grid to load before overlaying
+                        // the route, so live progress never flashes under the replay for a frame.
+                        activeRoute != null && state.gridType != activeRoute.gridType ->
+                            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                        activeRoute != null -> GridCanvas(
+                            grid = state.grid,
+                            gridType = state.gridType,
+                            savedViews = savedGridViews,
+                            resetSignal = resetSignal,
+                            onCanResetChange = { canResetView = it },
+                            overrides = activeRoute.overrides,
+                            activated = activeRoute.activated,
+                            characterColor = activeRoute.character.activationColor(),
+                            selectedId = selectedNodeId,
+                            tapActivates = false,
+                            readOnly = true,
+                            orderLabels = activeRoute.orderLabels,
+                            focusNodeId = focusTarget,
+                            focusSignal = focusSignal,
+                            viewKey = routeViewKey(state.gridType),
+                            icons = sphereIcons,
+                            textMeasurer = textMeasurer,
+                            labelCache = labelCache,
+                            labelStyle = labelStyle,
+                            onActivate = {},
+                            onDetails = { selectedNodeId = it },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        else -> GridCanvas(
+                            grid = state.grid,
+                            gridType = state.gridType,
+                            savedViews = savedGridViews,
+                            resetSignal = resetSignal,
+                            onCanResetChange = { canResetView = it },
+                            overrides = state.overrides,
+                            activated = state.activated,
+                            characterColor = state.character.activationColor(),
+                            selectedId = selectedNodeId,
+                            tapActivates = state.tapActivates,
+                            focusNodeId = focusTarget,
+                            focusSignal = focusSignal,
+                            homeNodeId = state.homeNodeId,
+                            plannedPath = pathPlan?.path?.nodeIds.orEmpty(),
+                            plannedEnds = listOfNotNull(pathPlan?.fromId, pathPlan?.request?.toId),
+                            plannedLocks = pathPlan?.lockIds.orEmpty(),
+                            onPickDestination = if (pathPlan?.tapPicksDestination == true) {
+                                { id -> nodesById[id]?.let(viewModel::planPathTo) }
+                            } else {
+                                null
+                            },
+                            revealNodeId = revealTarget,
+                            revealSignal = revealSignal,
+                            viewKey = gridViewKey(state.gridType, state.character),
+                            icons = sphereIcons,
+                            textMeasurer = textMeasurer,
+                            labelCache = labelCache,
+                            labelStyle = labelStyle,
+                            onActivate = { id -> nodesById[id]?.let(viewModel::toggleActivation) },
+                            onDetails = { selectedNodeId = it },
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
-                }
+                    // Actions stacked bottom-right: save the current work as a route, go back to this
+                    // character, and zoom out to the whole grid. Each appears only when it applies, so the
+                    // stack shows just the buttons that currently do something.
+                    val gridShown = state.gridAvailable && !state.isLoading
+                    val homeNodeId = state.homeNodeId
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // What each node's colour and icon means. Kept off screen until asked for, so
+                        // the grid gets the room a permanent legend row would take.
+                        FilledTonalIconButton(onClick = { showLegend = true }) {
+                            Icon(imageVector = Icons.Filled.Category, contentDescription = "Legend")
+                        }
+                        // Save the current work as a route - the same action as the overflow menu's "Save
+                        // current as route". Hidden during a replay and when there is nothing built to save.
+                        if (activeRoute == null && activePoint == null && gridShown && state.hasAnythingToShare) {
+                            FilledTonalIconButton(onClick = { showSaveRouteDialog = true }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Save,
+                                    contentDescription = "Save current work as a route"
+                                )
+                            }
+                        }
+                        // Back to where this character is: the node they last activated on this grid, or - with
+                        // no path here yet - where the game starts them. Hidden during a route replay, where
+                        // the live path is not what is on screen and the replay bar drives the view instead.
+                        if (activeRoute == null && activePoint == null && gridShown && homeNodeId != null) {
+                            FilledTonalIconButton(
+                                onClick = {
+                                    focusTarget = homeNodeId
+                                    focusSignal++
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.MyLocation,
+                                    contentDescription = if (state.lastActivatedNodeId != null) {
+                                        "Go to ${state.character.displayName}'s last activated node"
+                                    } else {
+                                        "Go to ${state.character.displayName}'s starting position"
+                                    }
+                                )
+                            }
+                        }
+                        // Reset view: only once the view has been moved off the default fit.
+                        if (canResetView && gridShown) {
+                            FilledTonalIconButton(onClick = { resetSignal++ }) {
+                                Icon(
+                                    imageVector = Icons.Filled.CenterFocusStrong,
+                                    contentDescription = "Reset view to fit the whole grid"
+                                )
+                            }
+                        }
+                    }
             }
-            RouteStepBar(
-                route = activeRoute,
-                currentStepText = stepText,
-                onStep = { newIndex ->
-                    val clamped = newIndex.coerceIn(0, activeRoute.stepCount)
-                    viewModel.setRouteStep(clamped)
-                    // Focus the node this step lands on; step 0 has none, so the view stays put.
-                    focusTarget = activeRoute.steps.getOrNull(clamped - 1)?.nodeId
-                    focusSignal++
-                }
-            )
         }
 
-        if (activePoint != null) {
-            val reached = nodesById[activePoint.currentNodeId]
-            val caption = when {
-                reached == null -> null
-                activePoint.stepIndex == 0 -> "Start: ${state.current(reached).endpointLabel()}"
-                else -> pointStepCaption(
-                    content = state.current(reached),
-                    alreadyActivated = state.isActivated(reached.id)
+        // The bars under the grid: a replay's step controls, or the planned path.
+        val footer: @Composable () -> Unit = {
+            if (activeRoute != null) {
+                // A short caption for the step just reached, so an edit reads as clearly as an activation.
+                val stepText = activeRoute.currentStep?.let { step ->
+                    when (step) {
+                        is RouteStep.Edit ->
+                            if (step.content is NodeContent.Empty) "Cleared node" else "Set to ${step.content.label()}"
+                        is RouteStep.Activate -> {
+                            val original = nodesById[step.nodeId]?.original ?: NodeContent.Empty
+                            val content = activeRoute.contentAt(step.nodeId, original)
+                            if (content is NodeContent.Empty) "Activated blank node" else "Activated ${content.label()}"
+                        }
+                    }
+                }
+                RouteStepBar(
+                    route = activeRoute,
+                    currentStepText = stepText,
+                    onStep = { newIndex ->
+                        val clamped = newIndex.coerceIn(0, activeRoute.stepCount)
+                        viewModel.setRouteStep(clamped)
+                        // Focus the node this step lands on; step 0 has none, so the view stays put.
+                        focusTarget = activeRoute.steps.getOrNull(clamped - 1)?.nodeId
+                        focusSignal++
+                    }
                 )
             }
-            StepBar(
-                stepIndex = activePoint.stepIndex,
-                stepCount = activePoint.stepCount,
-                emptyText = "This path has no steps.",
-                currentStepText = caption,
-                onStep = { newIndex ->
-                    val clamped = newIndex.coerceIn(0, activePoint.stepCount)
-                    viewModel.setPointStep(clamped)
-                    focusTarget = activePoint.path.nodeIds.getOrNull(clamped)
-                    focusSignal++
+
+            if (activePoint != null) {
+                val reached = nodesById[activePoint.currentNodeId]
+                val caption = when {
+                    reached == null -> null
+                    activePoint.stepIndex == 0 -> "Start: ${state.current(reached).endpointLabel()}"
+                    else -> pointStepCaption(
+                        content = state.current(reached),
+                        alreadyActivated = state.isActivated(reached.id)
+                    )
                 }
-            )
+                StepBar(
+                    stepIndex = activePoint.stepIndex,
+                    stepCount = activePoint.stepCount,
+                    emptyText = "This path has no steps.",
+                    currentStepText = caption,
+                    onStep = { newIndex ->
+                        val clamped = newIndex.coerceIn(0, activePoint.stepCount)
+                        viewModel.setPointStep(clamped)
+                        focusTarget = activePoint.path.nodeIds.getOrNull(clamped)
+                        focusSignal++
+                    }
+                )
+            }
+
+            // The path planner works on live progress only, so it steps aside during either replay.
+            val plan = pathPlan
+            if (activeRoute == null && activePoint == null && plan != null) {
+                // The side panel puts its own divider between the bar and the pickers.
+                if (!sidePanel) HorizontalDivider()
+                PathPlanBar(
+                    plan = plan,
+                    characterName = state.character.displayName,
+                    fromLabel = plan.fromId?.let { nodesById[it] }?.let { state.current(it).endpointLabel() },
+                    toLabel = plan.request.toId?.let { nodesById[it] }?.let { state.current(it).endpointLabel() },
+                    onModeChange = viewModel::setPathMode,
+                    onStartFromCharacter = viewModel::planPathFromCharacter,
+                    onStepThrough = viewModel::stepThroughPlannedPath,
+                    onSave = { savePointFromView = false },
+                    onClose = viewModel::clearPath
+                )
+            }
         }
 
-        // The path planner works on live progress only, so it steps aside during either replay.
-        val plan = pathPlan
-        if (activeRoute == null && activePoint == null && plan != null) {
-            HorizontalDivider()
-            PathPlanBar(
-                plan = plan,
-                characterName = state.character.displayName,
-                fromLabel = plan.fromId?.let { nodesById[it] }?.let { state.current(it).endpointLabel() },
-                toLabel = plan.request.toId?.let { nodesById[it] }?.let { state.current(it).endpointLabel() },
-                onModeChange = viewModel::setPathMode,
-                onStartFromCharacter = viewModel::planPathFromCharacter,
-                onStepThrough = viewModel::stepThroughPlannedPath,
-                onSave = { savePointFromView = false },
-                onClose = viewModel::clearPath
-            )
+        if (sidePanel) {
+            // While a path is planned it is what the player is working on, so its bar leads the panel
+            // and the pickers follow. A replay keeps its header on top, above its step controls.
+            val planFirst = activeRoute == null && activePoint == null && pathPlan != null
+            val panelScroll = rememberScrollState()
+            LaunchedEffect(planFirst) { panelScroll.scrollTo(0) }
+            Row(modifier = Modifier.fillMaxSize()) {
+                grid(Modifier.weight(1f).fillMaxHeight())
+                VerticalDivider()
+                Column(
+                    modifier = Modifier
+                        .width(SIDE_PANEL_WIDTH)
+                        .fillMaxHeight()
+                        .verticalScroll(panelScroll)
+                ) {
+                    if (planFirst) {
+                        footer()
+                        HorizontalDivider()
+                        header()
+                    } else {
+                        header()
+                        HorizontalDivider()
+                        footer()
+                    }
+                }
+            }
+        } else {
+            Column(modifier = Modifier.fillMaxSize()) {
+                header()
+                HorizontalDivider()
+                grid(Modifier.fillMaxWidth().weight(1f))
+                // Capped and scrollable, so a tall bar can never squeeze the grid out entirely.
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = windowHeight * FOOTER_MAX_FRACTION)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    footer()
+                }
+            }
         }
+    }
+
+    if (showLegend) {
+        LegendDialog(icons = legendIcons, onDismiss = { showLegend = false })
     }
 
     val selected = selectedNodeId?.let { nodesById[it] }
@@ -938,8 +1023,9 @@ fun SphereGridScreen(
 /**
  * The grid picker and the character status button on the left, an overflow menu of destructive
  * actions on the right. The two buttons share a scrolling strip so a narrow screen slides them
- * rather than squashing their labels.
+ * rather than squashing their labels, or wrap onto a second line in the side panel.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SelectorBar(
     gridType: GridType,
@@ -960,24 +1046,14 @@ private fun SelectorBar(
     onOpenRoutes: () -> Unit,
     canSaveRoute: Boolean,
     onSaveRoute: () -> Unit,
-    onOpenPointRoutes: () -> Unit
+    onOpenPointRoutes: () -> Unit,
+    /** Wraps the two buttons onto a second line instead of scrolling them, for a narrow panel. */
+    wrap: Boolean = false
 ) {
     var gridMenu by remember { mutableStateOf(false) }
     var overflow by remember { mutableStateOf(false) }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 12.dp, end = 4.dp, top = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    val pickers: @Composable () -> Unit = {
             Box {
                 OutlinedButton(onClick = { gridMenu = true }) {
                     Text("${gridType.label} Grid")
@@ -1007,6 +1083,27 @@ private fun SelectorBar(
                 Spacer(Modifier.width(6.dp))
                 Text("Character Status", maxLines = 1)
             }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 12.dp, end = 4.dp, top = 8.dp),
+        verticalAlignment = if (wrap) Alignment.Top else Alignment.CenterVertically
+    ) {
+        if (wrap) {
+            FlowRow(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) { pickers() }
+        } else {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) { pickers() }
         }
 
         Box {
@@ -1366,20 +1463,16 @@ private fun SphereGridRepository.ImportSummary.message(): String {
  * with the character status sheet, which offers the same switch over the same selection - so picking
  * a character there has already moved the grid by the time the sheet is dismissed.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CharacterRow(
     selected: GridCharacter,
     onSelect: (GridCharacter) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** Wraps the chips onto more lines instead of scrolling them sideways, for a narrow panel. */
+    wrap: Boolean = false
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    val chips: @Composable () -> Unit = {
         GridCharacter.entries.forEach { character ->
             FilterChip(
                 selected = character == selected,
@@ -1388,6 +1481,21 @@ fun CharacterRow(
                 leadingIcon = { ColorDot(character.activationColor()) }
             )
         }
+    }
+    if (wrap) {
+        FlowRow(
+            modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) { chips() }
+    } else {
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) { chips() }
     }
 }
 
@@ -2740,11 +2848,9 @@ private fun segmentVisible(ax: Float, ay: Float, bx: Float, by: Float, w: Float,
     return true
 }
 
+/** What each kind of node looks like, two to a row, opened from the grid's legend button. */
 @Composable
-private fun Legend(
-    icons: SphereIcons,
-    modifier: Modifier = Modifier
-) {
+private fun LegendDialog(icons: SphereIcons, onDismiss: () -> Unit) {
     val entries = remember {
         listOf(
             NodeType.HP, NodeType.MP, NodeType.STRENGTH, NodeType.DEFENSE, NodeType.MAGIC,
@@ -2753,26 +2859,37 @@ private fun Legend(
             NodeType.SPECIAL, NodeType.LOCK, NodeType.EMPTY
         )
     }
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        entries.forEach { type ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                LegendSwatch(type = type, icons = icons)
-                Spacer(modifier = Modifier.width(5.dp))
-                Text(
-                    text = type.legendLabel(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Legend") },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                entries.chunked(2).forEach { pair ->
+                    Row {
+                        pair.forEach { type ->
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                LegendSwatch(type = type, icons = icons)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = type.legendLabel(),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                        if (pair.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                }
             }
-        }
-    }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+    )
 }
 
 @Composable
@@ -2780,7 +2897,7 @@ private fun LegendSwatch(
     type: NodeType,
     icons: SphereIcons
 ) {
-    Canvas(modifier = Modifier.size(18.dp)) {
+    Canvas(modifier = Modifier.size(24.dp)) {
         val center = Offset(size.width / 2f, size.height / 2f)
         val r = size.minDimension / 2f
         val color = type.color()
