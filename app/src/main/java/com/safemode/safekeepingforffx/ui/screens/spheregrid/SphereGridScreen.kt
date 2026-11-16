@@ -435,11 +435,7 @@ fun SphereGridScreen(
                     onOpenPointRoutes = { showPointRoutesSheet = true },
                     wrap = sidePanel
                 )
-                CharacterRow(
-                        selected = state.character,
-                        onSelect = viewModel::setCharacter,
-                        wrap = sidePanel
-                    )
+                CharacterRow(selected = state.character, onSelect = viewModel::setCharacter)
             }
         }
 
@@ -1458,47 +1454,6 @@ private fun SphereGridRepository.ImportSummary.message(): String {
     return if (parts.isEmpty()) "Nothing to import." else "Imported ${parts.joinToString(" and ")}."
 }
 
-/**
- * A scrollable row of the seven characters; the selected one owns the path shown on the grid. Shared
- * with the character status sheet, which offers the same switch over the same selection - so picking
- * a character there has already moved the grid by the time the sheet is dismissed.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun CharacterRow(
-    selected: GridCharacter,
-    onSelect: (GridCharacter) -> Unit,
-    modifier: Modifier = Modifier,
-    /** Wraps the chips onto more lines instead of scrolling them sideways, for a narrow panel. */
-    wrap: Boolean = false
-) {
-    val chips: @Composable () -> Unit = {
-        GridCharacter.entries.forEach { character ->
-            FilterChip(
-                selected = character == selected,
-                onClick = { onSelect(character) },
-                label = { Text(character.displayName) },
-                leadingIcon = { ColorDot(character.activationColor()) }
-            )
-        }
-    }
-    if (wrap) {
-        FlowRow(
-            modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) { chips() }
-    } else {
-        Row(
-            modifier = modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) { chips() }
-    }
-}
-
 @Composable
 private fun ExpertPlaceholder(onShowStandard: () -> Unit) {
     Column(
@@ -1840,23 +1795,11 @@ private fun RouteReplayBar(
             }
         }
         if (route.availableCharacters.size > 1) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(start = 12.dp, bottom = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                route.availableCharacters.forEach { character ->
-                    FilterChip(
-                        selected = character == route.character,
-                        onClick = { onSelectCharacter(character) },
-                        label = { Text(character.displayName) },
-                        leadingIcon = { ColorDot(character.activationColor()) }
-                    )
-                }
-            }
+            CharacterRow(
+                selected = route.character,
+                onSelect = onSelectCharacter,
+                characters = route.availableCharacters
+            )
         }
     }
 }
