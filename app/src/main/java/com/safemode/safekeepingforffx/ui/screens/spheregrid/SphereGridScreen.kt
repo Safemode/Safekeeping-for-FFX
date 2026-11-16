@@ -72,6 +72,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -502,7 +506,7 @@ fun SphereGridScreen(
                     canSaveRoute = state.hasAnythingToShare,
                     onSaveRoute = { showSaveRouteDialog = true },
                     onOpenPointRoutes = { showPointRoutesSheet = true },
-                    wrap = sidePanel
+                    compact = sidePanel
                 )
                 CharacterRow(selected = state.character, onSelect = viewModel::setCharacter)
             }
@@ -628,8 +632,11 @@ fun SphereGridScreen(
                             Icon(imageVector = Icons.Filled.Category, contentDescription = "Legend")
                         }
                         // Save the current work as a route - the same action as the overflow menu's "Save
-                        // current as route". Hidden during a replay and when there is nothing built to save.
-                        if (activeRoute == null && activePoint == null && gridShown && state.hasAnythingToShare) {
+                        // current as route". Hidden during a replay, when there is nothing built to save,
+                        // and beside the side panel, whose own Save as route button takes its place.
+                        if (!sidePanel && activeRoute == null && activePoint == null && gridShown &&
+                            state.hasAnythingToShare
+                        ) {
                             FilledTonalIconButton(onClick = { showSaveRouteDialog = true }) {
                                 Icon(
                                     imageVector = Icons.Filled.Save,
@@ -747,27 +754,55 @@ fun SphereGridScreen(
             val planFirst = activeRoute == null && activePoint == null && pathPlan != null
             val panelScroll = rememberScrollState()
             LaunchedEffect(planFirst, selectedNodeId) { panelScroll.scrollTo(0) }
+            // Collected only while the panel is up, so the totals are computed only when shown.
+            val status by viewModel.characterStatus.collectAsStateWithLifecycle()
+            // The panel's swatches get their own painters, for the same reason as the legend's.
+            val panelIcons = rememberSphereIcons()
+            // Below the pickers on live progress: the character's totals, then the route and build
+            // actions. A replay shows someone else's progress, so it leaves these out.
+            val panelExtras: @Composable () -> Unit = {
+                HorizontalDivider()
+                status?.let {
+                    PanelStatusSummary(status = it, icons = panelIcons)
+                    HorizontalDivider()
+                }
+                PanelShortcuts(
+                    canSaveRoute = state.hasAnythingToShare,
+                    canShare = state.hasAnythingToShare,
+                    onOpenRoutes = { showRoutesSheet = true },
+                    onOpenPointRoutes = { showPointRoutesSheet = true },
+                    onSaveRoute = { showSaveRouteDialog = true },
+                    onShareBuild = { showShareDialog = true }
+                )
+            }
             Row(modifier = Modifier.fillMaxSize()) {
                 grid(Modifier.weight(1f).fillMaxHeight())
                 VerticalDivider()
-                Column(
-                    modifier = Modifier
-                        .width(SIDE_PANEL_WIDTH)
-                        .fillMaxHeight()
-                        .verticalScroll(panelScroll)
-                ) {
-                    if (selected != null) {
-                        NodePanelHeader(onClose = { selectedNodeId = null })
-                        nodeDetails(selected)
-                    } else if (planFirst) {
-                        footer()
-                        HorizontalDivider()
-                        header()
-                    } else {
-                        header()
-                        HorizontalDivider()
-                        footer()
+                Box(modifier = Modifier.width(SIDE_PANEL_WIDTH).fillMaxHeight()) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(panelScroll)
+                    ) {
+                        if (selected != null) {
+                            NodePanelHeader(onClose = { selectedNodeId = null })
+                            nodeDetails(selected)
+                        } else if (planFirst) {
+                            footer()
+                            HorizontalDivider()
+                            header()
+                            panelExtras()
+                        } else {
+                            header()
+                            if (replaying) {
+                                HorizontalDivider()
+                                footer()
+                            } else {
+                                panelExtras()
+                            }
+                        }
                     }
+                    MoreBelowHint(panelScroll)
                 }
             }
         } else {
@@ -1037,9 +1072,8 @@ fun SphereGridScreen(
 /**
  * The grid picker and the character status button on the left, an overflow menu of destructive
  * actions on the right. The two buttons share a scrolling strip so a narrow screen slides them
- * rather than squashing their labels, or wrap onto a second line in the side panel.
+ * rather than squashing their labels. In the side panel they split one row between them instead.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SelectorBar(
     gridType: GridType,
@@ -1061,55 +1095,88 @@ private fun SelectorBar(
     canSaveRoute: Boolean,
     onSaveRoute: () -> Unit,
     onOpenPointRoutes: () -> Unit,
-    /** Wraps the two buttons onto a second line instead of scrolling them, for a narrow panel. */
-    wrap: Boolean = false
+    /** Fits both buttons on one row with smaller labels, for the narrow side panel. */
+    compact: Boolean = false
 ) {
     var gridMenu by remember { mutableStateOf(false) }
     var overflow by remember { mutableStateOf(false) }
 
-    val pickers: @Composable () -> Unit = {
-            Box {
-                OutlinedButton(onClick = { gridMenu = true }) {
-                    Text("${gridType.label} Grid")
-                    Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-                }
-                DropdownMenu(expanded = gridMenu, onDismissRequest = { gridMenu = false }) {
-                    GridType.entries.forEach { type ->
-                        DropdownMenuItem(
-                            text = {
-                                Text(if (type.isAvailable) type.label else "${type.label} (coming soon)")
-                            },
-                            onClick = {
-                                onGridTypeChange(type)
-                                gridMenu = false
-                            }
-                        )
-                    }
-                }
-            }
+    // In the side panel both buttons share one row: each takes half of it, with a smaller label and
+    // tighter padding, so neither has to wrap onto a line of its own.
+    val labelStyle = if (compact) MaterialTheme.typography.labelMedium else LocalTextStyle.current
+    val buttonPadding = if (compact) {
+        PaddingValues(horizontal = 10.dp, vertical = 8.dp)
+    } else {
+        ButtonDefaults.ContentPadding
+    }
 
-            OutlinedButton(onClick = onOpenStatus) {
-                Icon(
-                    imageVector = Icons.Filled.BarChart,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+    val gridButton: @Composable (Modifier) -> Unit = { buttonModifier ->
+        Box(modifier = buttonModifier) {
+            OutlinedButton(
+                onClick = { gridMenu = true },
+                contentPadding = buttonPadding,
+                modifier = if (compact) Modifier.fillMaxWidth() else Modifier
+            ) {
+                Text(
+                    "${gridType.label} Grid",
+                    style = labelStyle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    // Only in the panel, where the button has a set width to share with the arrow. In
+                    // portrait's scrolling strip there is no set width, and a weight would squeeze the
+                    // label to nothing.
+                    modifier = if (compact) Modifier.weight(1f, fill = false) else Modifier
                 )
-                Spacer(Modifier.width(6.dp))
-                Text("Character Status", maxLines = 1)
+                Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
             }
+            DropdownMenu(expanded = gridMenu, onDismissRequest = { gridMenu = false }) {
+                GridType.entries.forEach { type ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(if (type.isAvailable) type.label else "${type.label} (coming soon)")
+                        },
+                        onClick = {
+                            onGridTypeChange(type)
+                            gridMenu = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    val statusButton: @Composable (Modifier) -> Unit = { buttonModifier ->
+        OutlinedButton(onClick = onOpenStatus, contentPadding = buttonPadding, modifier = buttonModifier) {
+            Icon(
+                imageVector = Icons.Filled.BarChart,
+                contentDescription = null,
+                modifier = Modifier.size(if (compact) 16.dp else 18.dp)
+            )
+            Spacer(Modifier.width(if (compact) 4.dp else 6.dp))
+            Text(
+                "Character Status",
+                style = labelStyle,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 12.dp, end = 4.dp, top = 8.dp),
-        verticalAlignment = if (wrap) Alignment.Top else Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        if (wrap) {
-            FlowRow(
+        if (compact) {
+            Row(
                 modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) { pickers() }
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                gridButton(Modifier.weight(1f))
+                statusButton(Modifier.weight(1f))
+            }
         } else {
             Row(
                 modifier = Modifier
@@ -1117,7 +1184,10 @@ private fun SelectorBar(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
-            ) { pickers() }
+            ) {
+                gridButton(Modifier)
+                statusButton(Modifier)
+            }
         }
 
         Box {
