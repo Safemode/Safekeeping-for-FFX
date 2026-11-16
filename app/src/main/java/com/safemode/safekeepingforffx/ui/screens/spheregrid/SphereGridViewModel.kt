@@ -149,6 +149,13 @@ data class PathPlan(
 
     /** True when there is a path with at least one move in it, so stepping through or saving it means something. */
     val hasSteps: Boolean get() = (path?.steps ?: 0) > 0
+
+    /**
+     * True when a tap on the grid picks the destination instead of activating a node: while one is
+     * still to be picked, or whenever the start was picked with "Path from here". A path from the
+     * character with its destination set leaves taps activating, so its plan follows their progress.
+     */
+    val tapPicksDestination: Boolean get() = request.toId == null || request.fromId != null
 }
 
 /** One step of a route replay for the viewed character: a grid edit, or an activation. */

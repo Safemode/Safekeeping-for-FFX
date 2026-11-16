@@ -47,7 +47,7 @@ internal fun PathPlan.summary(): String {
     val path = path
     return when {
         fromId == null -> "Pick a start: long-press a node and choose \"Path from here\"."
-        request.toId == null -> "Pick a destination: long-press a node and choose \"Path to here\"."
+        request.toId == null -> "Pick a destination: tap a node."
         path == null && request.mode == PathMode.NO_LOCKS ->
             "No way there without opening a lock. Try Shortest or Fewest keys."
         path == null -> "No path between these nodes."
