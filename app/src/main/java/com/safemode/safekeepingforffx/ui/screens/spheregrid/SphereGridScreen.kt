@@ -207,7 +207,8 @@ fun SphereGridScreen(
             HelpTip(
                 Icons.Outlined.Route,
                 "\"Path to here\" plans the cheapest way to a node in Sphere Levels and lists the Key " +
-                    "Spheres it needs. Step through it node by node, or save it to Point-to-Point " +
+                    "Spheres it needs. After \"Path from here\", tap a node to make it the " +
+                    "destination. Step through it node by node, or save it to Point-to-Point " +
                     "Routes in the menu."
             )
         ),
@@ -310,14 +311,17 @@ fun SphereGridScreen(
         nodesById[id]?.let(state::isLockedGate) ?: true
     }
     // Back closes a replay - a point-to-point step-through or a saved route - and returns to the grid
-    // as it was, rather than leaving the planner.
+    // as it was, rather than leaving the planner. Failing that, it closes the planned path's bar.
     val replaying = activePoint != null || activeRoute != null
-    DisposableEffect(replaying) {
+    val planning = pathPlan != null
+    DisposableEffect(replaying, planning) {
         onBackHandlerChange(
-            if (replaying) {
-                { if (viewModel.pointView.value != null) viewModel.exitPointView() else viewModel.exitRouteView() }
-            } else {
-                null
+            when {
+                replaying -> {
+                    { if (viewModel.pointView.value != null) viewModel.exitPointView() else viewModel.exitRouteView() }
+                }
+                planning -> viewModel::clearPath
+                else -> null
             }
         )
         onDispose { onBackHandlerChange(null) }
@@ -495,6 +499,11 @@ fun SphereGridScreen(
                     plannedPath = pathPlan?.path?.nodeIds.orEmpty(),
                     plannedEnds = listOfNotNull(pathPlan?.fromId, pathPlan?.request?.toId),
                     plannedLocks = pathPlan?.lockIds.orEmpty(),
+                    onPickDestination = if (pathPlan?.tapPicksDestination == true) {
+                        { id -> nodesById[id]?.let(viewModel::planPathTo) }
+                    } else {
+                        null
+                    },
                     revealNodeId = revealTarget,
                     revealSignal = revealSignal,
                     viewKey = gridViewKey(state.gridType, state.character),
@@ -2206,6 +2215,11 @@ private fun GridCanvas(
     plannedEnds: List<String> = emptyList(),
     /** Unopened locks on the planned path, ringed to show they need a key. */
     plannedLocks: Set<String> = emptySet(),
+    /**
+     * Called with the tapped node instead of activating it or opening its details, while the path
+     * planner wants a destination. Null when a tap does its usual thing.
+     */
+    onPickDestination: ((String) -> Unit)? = null,
     /** A node to bring into view, without zooming, when [revealSignal] changes. */
     revealNodeId: String? = null,
     /** Bumped by the caller each time [revealNodeId] should be brought into view. */
@@ -2398,7 +2412,7 @@ private fun GridCanvas(
                     )
                 }
             }
-            .pointerInput(nodes, tapActivates, readOnly) {
+            .pointerInput(nodes, tapActivates, readOnly, onPickDestination != null) {
                 fun nodeAt(pos: Offset): String? {
                     val worldX = (pos.x - offset.x) / scale
                     val worldY = (pos.y - offset.y) / scale
@@ -2417,7 +2431,14 @@ private fun GridCanvas(
                 detectTapGestures(
                     onTap = { pos ->
                         // In read-only replay a tap only inspects a node; it never toggles activation.
-                        nodeAt(pos)?.let { if (!readOnly && tapActivates) onActivate(it) else onDetails(it) }
+                        // While the planner wants a destination, a tap picks it and leaves the node be.
+                        nodeAt(pos)?.let {
+                            when {
+                                onPickDestination != null -> onPickDestination(it)
+                                !readOnly && tapActivates -> onActivate(it)
+                                else -> onDetails(it)
+                            }
+                        }
                     },
                     // Long-press always opens details, so the editor stays reachable in either mode.
                     onLongPress = { pos -> nodeAt(pos)?.let(onDetails) }
