@@ -127,9 +127,9 @@ fun SettingsScreen(
         HorizontalDivider()
 
         SwitchRow(
-            label = "Show help information",
-            description = "The advice shown at the top of each category, such as when an item " +
-                "becomes missable or how a list works.",
+            label = "Show help button",
+            description = "A help button at the top right of screens that have tips, such as when " +
+                "an item becomes missable or how a list works.",
             checked = showHelp,
             onCheckedChange = viewModel::setShowHelp
         )

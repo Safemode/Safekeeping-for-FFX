@@ -82,7 +82,7 @@ There can be a little bit of a delay between joining the Group/Program and showi
 ### Settings
 
 - Theme options - Light/Dark/OLED-friendly/Automatic
-- Toggle to show/hide the help information
+- Toggle to show/hide the help button - the button at the top right of screens that have tips (a list's notes, how a screen works), which opens them in a dialog instead of taking up room on the screen
 - Toggle for Sphere Grid to have tap-to-activate. On by default for new installs; updating from 1.0.5 or earlier keeps whatever you had.
   - This will make it much faster to plan out a route if you're taking defaults. Long-press a node to get the editing options
 - Game Version toggle since the Dark Aeons don't exist in the original NA PS2 release of the game, which hides appropriate irrelevant information

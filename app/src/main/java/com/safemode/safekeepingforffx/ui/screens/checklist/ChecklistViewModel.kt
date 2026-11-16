@@ -45,8 +45,6 @@ data class ChecklistUiState(
     val foundCount: Int = 0,
     val totalCount: Int = 0,
     val note: String? = null,
-    /** False hides the advice banners at the top of the list. */
-    val showHelp: Boolean = true,
     val sort: ChecklistSort = ChecklistSort.DEFAULT,
     /** False for the categories that have only one sensible order, which hides the picker. */
     val canSort: Boolean = false,
@@ -137,9 +135,8 @@ class ChecklistViewModel(
         listing,
         settingsRepository.gameVersion,
         _query,
-        settingsRepository.showHelp,
         sort
-    ) { (items, selected), version, query, showHelp, sort ->
+    ) { (items, selected), version, query, sort ->
         val adjusted = items.map { it.forVersion(version) }.inOrder(sort)
         ChecklistUiState(
             items = adjusted,
@@ -151,7 +148,6 @@ class ChecklistViewModel(
             foundCount = adjusted.count { it.isChecked },
             totalCount = adjusted.size,
             note = noteFor(version),
-            showHelp = showHelp,
             sort = sort,
             canSort = category.hasStoryOrder,
             character = selected,

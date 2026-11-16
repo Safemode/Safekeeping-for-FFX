@@ -17,6 +17,7 @@ import com.safemode.safekeepingforffx.ui.screens.mix.MixCalculatorScreen
 import com.safemode.safekeepingforffx.ui.screens.monsterarena.MonsterArenaScreen
 import com.safemode.safekeepingforffx.ui.screens.settings.SettingsScreen
 import com.safemode.safekeepingforffx.ui.screens.spheregrid.SphereGridScreen
+import com.safemode.safekeepingforffx.ui.components.HelpTip
 
 private val checklistDestinations = allDestinations.filterIsInstance<FfxDestination.Checklist>()
 
@@ -97,7 +98,12 @@ fun FfxNavHost(
      * Lets a screen claim the back press while it has something to dismiss. Keyed by the screen's
      * route so a screen being torn down can only ever retract its own registration.
      */
-    onScreenBackHandlerChange: (key: String, handler: (() -> Unit)?) -> Unit = { _, _ -> }
+    onScreenBackHandlerChange: (key: String, handler: (() -> Unit)?) -> Unit = { _, _ -> },
+    /**
+     * Lets a screen offer tips for the top bar's help button. Keyed by route like the back handler,
+     * so a screen being torn down only ever withdraws its own.
+     */
+    onScreenHelpChange: (key: String, tips: List<HelpTip>?) -> Unit = { _, _ -> }
 ) {
     NavHost(
         navController = navController,
@@ -141,6 +147,9 @@ fun FfxNavHost(
                 // an item from and come back to, not a jump that flattens the app.
                 onOpen = { categoryId, itemId ->
                     navController.navigateToFavorite(categoryId, itemId)
+                },
+                onHelpChange = { tips ->
+                    onScreenHelpChange(FfxDestination.MissablesTimeline.route, tips)
                 }
             )
         }
@@ -153,6 +162,9 @@ fun FfxNavHost(
             SphereGridScreen(
                 onBackHandlerChange = { handler ->
                     onScreenBackHandlerChange(FfxDestination.SphereGrid.route, handler)
+                },
+                onHelpChange = { tips ->
+                    onScreenHelpChange(FfxDestination.SphereGrid.route, tips)
                 }
             )
         }
@@ -180,6 +192,9 @@ fun FfxNavHost(
                 focusMonsterId = backStackEntry.arguments?.getString(FOCUS_ARG),
                 onSearchDismissChange = { handler ->
                     onScreenBackHandlerChange(FfxDestination.MonsterArena.route, handler)
+                },
+                onHelpChange = { tips ->
+                    onScreenHelpChange(FfxDestination.MonsterArena.route, tips)
                 }
             )
         }
@@ -201,6 +216,9 @@ fun FfxNavHost(
                 onFindInArena = { itemName -> navController.navigateToArenaItem(itemName) },
                 onSearchDismissChange = { handler ->
                     onScreenBackHandlerChange(FfxDestination.ItemList.route, handler)
+                },
+                onHelpChange = { tips ->
+                    onScreenHelpChange(FfxDestination.ItemList.route, tips)
                 }
             )
         }
@@ -222,6 +240,9 @@ fun FfxNavHost(
                     focusItemId = backStackEntry.arguments?.getString(FOCUS_ARG),
                     onSearchDismissChange = { handler ->
                         onScreenBackHandlerChange(destination.route, handler)
+                    },
+                    onHelpChange = { tips ->
+                        onScreenHelpChange(destination.route, tips)
                     }
                 )
             }

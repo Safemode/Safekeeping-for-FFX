@@ -89,6 +89,16 @@ class DrawerViewModel(
         initialValue = emptyMap()
     )
 
+    /**
+     * Whether the top bar shows a screen's help button. Read here because this is the ViewModel the
+     * app scaffold already owns, and the top bar lives in the scaffold rather than in any screen.
+     */
+    val showHelp: StateFlow<Boolean> = settingsRepository.showHelp.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = true
+    )
+
     companion object {
         val Factory = viewModelFactory {
             initializer {

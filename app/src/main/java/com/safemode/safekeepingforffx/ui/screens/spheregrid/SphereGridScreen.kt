@@ -44,6 +44,8 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Route
+import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
@@ -107,7 +109,8 @@ import com.safemode.safekeepingforffx.data.reference.NodeContent
 import com.safemode.safekeepingforffx.data.reference.NodeType
 import com.safemode.safekeepingforffx.data.reference.SphereGridNode
 import com.safemode.safekeepingforffx.data.repository.SphereGridRepository
-import com.safemode.safekeepingforffx.ui.components.Banner
+import com.safemode.safekeepingforffx.ui.components.HelpTip
+import com.safemode.safekeepingforffx.ui.components.ScreenHelpEffect
 import java.text.DateFormat
 import java.util.Date
 import kotlin.math.abs
@@ -176,9 +179,40 @@ fun SphereGridScreen(
      * scaffold rather than a BackHandler here, which the scaffold's own handler would pre-empt.
      */
     onBackHandlerChange: ((() -> Unit)?) -> Unit = {},
+    /** Offers the planner's tips to the top bar's help button. */
+    onHelpChange: (List<HelpTip>?) -> Unit = {},
     viewModel: SphereGridViewModel = viewModel(factory = SphereGridViewModel.Factory)
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val helpName = state.character.displayName
+    ScreenHelpEffect(
+        tips = listOf(
+            HelpTip(
+                Icons.Outlined.TouchApp,
+                if (state.tapActivates) {
+                    "Tap a node to activate it for $helpName; long-press it for its content, its " +
+                        "editor, and paths to or from it."
+                } else {
+                    "Tap a node for its content, to activate it for $helpName, to edit it, or to " +
+                        "plan a path to or from it."
+                }
+            ),
+            HelpTip(
+                Icons.Outlined.Info,
+                "Node edits are shared across everyone; each character tracks their own path. " +
+                    "Activated nodes and the links between them are drawn in the character's own " +
+                    "colour; edited nodes carry a gold dot."
+            ),
+            HelpTip(
+                Icons.Outlined.Route,
+                "\"Path to here\" plans the cheapest way to a node in Sphere Levels and lists the Key " +
+                    "Spheres it needs. Step through it node by node, or save it to Point-to-Point " +
+                    "Routes in the menu."
+            )
+        ),
+        onHelpChange = onHelpChange
+    )
     var selectedNodeId by rememberSaveable { mutableStateOf<String?>(null) }
     var editingNodeId by rememberSaveable { mutableStateOf<String?>(null) }
     var confirm by remember { mutableStateOf<ConfirmAction?>(null) }
@@ -373,24 +407,6 @@ fun SphereGridScreen(
             CharacterRow(selected = state.character, onSelect = viewModel::setCharacter)
         }
         HorizontalDivider()
-
-        if (activeRoute == null && activePoint == null && state.showHelp) {
-            val tapHint = if (state.tapActivates) {
-                "Tap a node to activate it for ${state.character.displayName}; long-press for its " +
-                    "content, its editor, and paths to or from it."
-            } else {
-                "Tap a node for its content, to activate it for ${state.character.displayName}, to " +
-                    "edit it, or to plan a path to or from it."
-            }
-            Banner(
-                icon = Icons.Outlined.Info,
-                text = "Node edits are shared across everyone; each character tracks their own path. " +
-                    "$tapHint Activated nodes and the links between them are drawn in the character's " +
-                    "own colour; edited nodes carry a gold dot.",
-                // A little breathing room so the banner's rounded top doesn't touch the divider above.
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
 
         Legend(icons = legendIcons)
         HorizontalDivider()

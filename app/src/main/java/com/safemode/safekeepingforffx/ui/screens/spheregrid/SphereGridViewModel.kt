@@ -50,7 +50,6 @@ data class SphereGridUiState(
      * no path here yet. Where the planner reopens them.
      */
     val lastActivatedNodeId: String? = null,
-    val showHelp: Boolean = true,
     /** When true a tap activates a node and a long-press opens its details; otherwise tap opens. */
     val tapActivates: Boolean = true,
     /** When true the node editor offers every attribute and ability; otherwise the short list. */
@@ -313,11 +312,10 @@ class SphereGridViewModel(
     private val activations = character.flatMapLatest { repository.observeActivations(it) }
 
     private val settings = combine(
-        settingsRepository.showHelp,
         settingsRepository.sphereGridTapActivates,
         settingsRepository.sphereGridFullNodeEditor
-    ) { showHelp, tapActivates, fullNodeEditor ->
-        GridSettings(showHelp, tapActivates, fullNodeEditor)
+    ) { tapActivates, fullNodeEditor ->
+        GridSettings(tapActivates, fullNodeEditor)
     }
 
     val uiState = combine(
@@ -336,7 +334,6 @@ class SphereGridViewModel(
             activated = path.toSet(),
             // The path spans both grids, so the most recent node that belongs to the one on screen.
             lastActivatedNodeId = path.firstOrNull { it in load.grid.nodeIds },
-            showHelp = settings.showHelp,
             tapActivates = settings.tapActivates,
             fullNodeEditor = settings.fullNodeEditor
         )
@@ -851,7 +848,6 @@ class SphereGridViewModel(
 
     /** The player settings the planner reads, combined into one value for the state fold. */
     private data class GridSettings(
-        val showHelp: Boolean,
         val tapActivates: Boolean,
         val fullNodeEditor: Boolean
     )

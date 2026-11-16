@@ -62,7 +62,8 @@ import com.safemode.safekeepingforffx.data.reference.MAX_CAPTURES
 import com.safemode.safekeepingforffx.data.reference.Monster
 import com.safemode.safekeepingforffx.data.reference.MonsterColumns
 import com.safemode.safekeepingforffx.data.reference.monsterType
-import com.safemode.safekeepingforffx.ui.components.Banner
+import com.safemode.safekeepingforffx.ui.components.HelpTip
+import com.safemode.safekeepingforffx.ui.components.ScreenHelpEffect
 import com.safemode.safekeepingforffx.ui.components.FavoriteStar
 import com.safemode.safekeepingforffx.ui.components.SearchField
 import com.safemode.safekeepingforffx.ui.components.SectionHeader
@@ -88,6 +89,8 @@ fun MonsterArenaScreen(
     /** A fiend to open scrolled to and expanded, set when a favorite sent you here. */
     focusMonsterId: String? = null,
     onSearchDismissChange: ((() -> Unit)?) -> Unit = {},
+    /** Offers this screen's tips to the top bar's help button. */
+    onHelpChange: (List<HelpTip>?) -> Unit = {},
     viewModel: MonsterArenaViewModel = viewModel(factory = MonsterArenaViewModel.Factory)
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -147,6 +150,16 @@ fun MonsterArenaScreen(
         )
         onDispose { onSearchDismissChange(null) }
     }
+
+    ScreenHelpEffect(
+        tips = listOf(
+            HelpTip(
+                Icons.Outlined.Info,
+                "Tap a fiend to see its details. Tap a creation's lock to capture the fiends it needs."
+            )
+        ),
+        onHelpChange = onHelpChange
+    )
 
     if (state.isLoading) {
         Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -215,18 +228,6 @@ fun MonsterArenaScreen(
             ItemFilterChip(item = item, onClear = { viewModel.setItemFilter(null) })
         }
 
-        AnimatedVisibility(
-            // Hidden outright when help is switched off in Settings, not merely collapsed.
-            visible = headerExpanded && state.showHelp,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            Banner(
-                Icons.Outlined.Info,
-                "Tap a fiend to see its details. Tap a creation's lock to capture the fiends " +
-                    "it needs."
-            )
-        }
         HorizontalDivider()
 
         if (state.hasNoMatches) {

@@ -79,9 +79,7 @@ data class MonsterArenaUiState(
     /** Any count above zero, which is what makes a reset worth offering. */
     val hasProgress: Boolean = false,
     /** Ids of the starred fiends, so each row can draw its own star. */
-    val favorites: Set<String> = emptySet(),
-    /** False hides the advice banner at the top of the list. */
-    val showHelp: Boolean = true
+    val favorites: Set<String> = emptySet()
 ) {
     val isSearching: Boolean get() = query.isNotBlank()
 
@@ -124,9 +122,8 @@ class MonsterArenaViewModel(
         monsters,
         progress,
         filters,
-        loaded,
-        settingsRepository.showHelp
-    ) { all, (counts, favorites), (query, itemFilter), isLoaded, showHelp ->
+        loaded
+    ) { all, (counts, favorites), (query, itemFilter), isLoaded ->
         val captures = all.map { MonsterCapture(it, counts[it.id] ?: 0) }
         val needle = query.trim()
         // Both narrow at once and independently: the filter says which fiends carry the item, the
@@ -164,8 +161,7 @@ class MonsterArenaViewModel(
             totalCount = captures.count { it.monster.isCapturable },
             // Any partial count counts: resetting should be offered at 3 of 10, not only at 10.
             hasProgress = captures.any { it.count > 0 },
-            favorites = favorites,
-            showHelp = showHelp
+            favorites = favorites
         )
     }.stateIn(
         scope = viewModelScope,
