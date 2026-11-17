@@ -214,7 +214,7 @@ internal fun SavePointRouteDialog(
         onDismissRequest = onDismiss,
         title = { Text("Save point-to-point route") },
         text = {
-            Column {
+            ScrollingDialogBody {
                 Text(
                     "Keeps this path as it is now, so it can be stepped through later from " +
                         "Point-to-Point Routes in the menu.",
