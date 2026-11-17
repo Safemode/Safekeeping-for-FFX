@@ -16,13 +16,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -30,6 +33,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,8 +56,11 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Route
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,9 +69,11 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -74,6 +84,10 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -105,9 +119,11 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.safemode.safekeepingforffx.data.reference.BuildScope
@@ -1108,7 +1124,7 @@ fun SphereGridScreen(
         AlertDialog(
             onDismissRequest = { pendingConfirm = null },
             title = { Text(action.title) },
-            text = { Text(action.message) },
+            text = { ScrollingDialogBody { Text(action.message) } },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -1345,7 +1361,7 @@ private fun RouteApplyScopeDialog(
         onDismissRequest = onDismiss,
         title = { Text("Apply which paths?") },
         text = {
-            Column {
+            ScrollingDialogBody {
                 Text(
                     "\"${route.name}\" carries paths for $count characters. Choose how much of it to " +
                         "make your own:",
@@ -1398,27 +1414,29 @@ private fun ClearPathDialog(
         onDismissRequest = onDismiss,
         title = { Text("Clear $characterName's path?") },
         text = {
-            Column {
+            ScrollingDialogBody {
                 Text(
                     "Grid edits and other characters' paths are kept. This can't be undone.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.size(8.dp))
-                ClearPathOption(
-                    label = "${gridType.label} grid only",
-                    detail = nodeCount(nodesOnThisGrid),
-                    selected = !bothGrids,
-                    enabled = canClearThisGrid,
-                    onClick = { bothGrids = false }
-                )
-                ClearPathOption(
-                    label = "Both grids",
-                    detail = nodeCount(nodesOnBothGrids),
-                    selected = bothGrids,
-                    enabled = true,
-                    onClick = { bothGrids = true }
-                )
+                Column(modifier = Modifier.selectableGroup()) {
+                    ClearPathOption(
+                        label = "${gridType.label} grid only",
+                        detail = nodeCount(nodesOnThisGrid),
+                        selected = !bothGrids,
+                        enabled = canClearThisGrid,
+                        onClick = { bothGrids = false }
+                    )
+                    ClearPathOption(
+                        label = "Both grids",
+                        detail = nodeCount(nodesOnBothGrids),
+                        selected = bothGrids,
+                        enabled = true,
+                        onClick = { bothGrids = true }
+                    )
+                }
             }
         },
         confirmButton = {
@@ -1444,12 +1462,13 @@ private fun ClearPathOption(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick)
+            .heightIn(min = RADIO_ROW_MIN_HEIGHT)
+            .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = onClick)
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(selected = selected, enabled = enabled, onClick = onClick)
-        Spacer(Modifier.size(4.dp))
+        RadioButton(selected = selected, enabled = enabled, onClick = null)
+        Spacer(Modifier.size(12.dp))
         Column {
             Text(
                 text = label,
@@ -1501,34 +1520,34 @@ private fun ShareScopeDialog(
     onDismiss: () -> Unit,
     onPick: (BuildScope) -> Unit
 ) {
-    AlertDialog(
+    TwoPaneAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Share build") },
-        text = {
-            Column {
-                Text(
-                    "A build code copies to your clipboard and opens the share sheet. Choose what to " +
-                        "include:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.size(8.dp))
-                BuildScope.entries.forEach { scope ->
-                    Text(
-                        text = scope.shareLabel(characterName),
-                        style = MaterialTheme.typography.bodyLarge,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onPick(scope) }
-                            .padding(vertical = 14.dp)
-                    )
-                    HorizontalDivider()
-                }
-            }
-        },
+        title = "Share build",
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        stackedGap = 8.dp,
+        first = {
+            Text(
+                "A build code copies to your clipboard and opens the share sheet. Choose what to " +
+                    "include:",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        second = {
+            BuildScope.entries.forEach { scope ->
+                Text(
+                    text = scope.shareLabel(characterName),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onPick(scope) }
+                        .padding(vertical = 14.dp)
+                )
+                HorizontalDivider()
+            }
         }
     )
 }
@@ -1540,28 +1559,27 @@ private fun ImportBuildDialog(
     onImport: (String) -> Unit
 ) {
     var code by rememberSaveable { mutableStateOf("") }
-    AlertDialog(
+    TwoPaneAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Import build") },
-        text = {
-            Column {
-                Text(
-                    "Paste a build code below. Importing replaces this grid's edits and any " +
-                        "character paths the code includes - this can't be undone. The other " +
-                        "grid is left alone.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.size(12.dp))
-                androidx.compose.material3.OutlinedTextField(
-                    value = code,
-                    onValueChange = { code = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Build code") },
-                    minLines = 3,
-                    maxLines = 6
-                )
-            }
+        title = "Import build",
+        first = {
+            Text(
+                "Paste a build code to import it. Importing replaces this grid's edits and any " +
+                    "character paths the code includes - this can't be undone. The other " +
+                    "grid is left alone.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        second = {
+            androidx.compose.material3.OutlinedTextField(
+                value = code,
+                onValueChange = { code = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Build code") },
+                minLines = 3,
+                maxLines = 6
+            )
         },
         confirmButton = {
             TextButton(
@@ -2200,52 +2218,51 @@ private fun SaveRouteDialog(
 ) {
     var name by rememberSaveable { mutableStateOf("") }
     // Default the scope to all paths for multi-character work, otherwise just this character's.
-    var scope by remember(defaultAllPaths) {
+    var scope by rememberSaveable(defaultAllPaths) {
         mutableStateOf(if (defaultAllPaths) BuildScope.EDITS_AND_ALL else BuildScope.EDITS_AND_CURRENT)
     }
     // Default to updating the loaded route, since that's the more likely intent once one is open.
     var updateExisting by rememberSaveable(updatableRouteName) { mutableStateOf(updatableRouteName != null) }
-    AlertDialog(
+    TwoPaneAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Save route") },
-        text = {
-            Column {
-                if (updatableRouteName != null) {
-                    SaveModeOption(
+        title = "Save route",
+        // What to save as: update the loaded route or a new one, and the new one's name.
+        first = {
+            if (updatableRouteName != null) {
+                Column(modifier = Modifier.selectableGroup()) {
+                    RadioOption(
                         selected = updateExisting,
                         label = "Update \"$updatableRouteName\"",
                         onClick = { updateExisting = true }
                     )
-                    SaveModeOption(
+                    RadioOption(
                         selected = !updateExisting,
                         label = "Save as a new route",
                         onClick = { updateExisting = false }
                     )
-                    Spacer(Modifier.size(12.dp))
                 }
-                if (!updateExisting) {
-                    androidx.compose.material3.OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        singleLine = true,
-                        label = { Text("Route name") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(Modifier.size(12.dp))
-                }
-                Text("Include:", style = MaterialTheme.typography.labelLarge)
+            }
+            if (!updateExisting) {
+                if (updatableRouteName != null) Spacer(Modifier.size(12.dp))
+                androidx.compose.material3.OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    singleLine = true,
+                    label = { Text("Route name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        // What to include.
+        second = {
+            Text("Include:", style = MaterialTheme.typography.labelLarge)
+            Column(modifier = Modifier.selectableGroup()) {
                 BuildScope.entries.forEach { option ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { scope = option }
-                            .padding(vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(selected = option == scope, onClick = { scope = option })
-                        Spacer(Modifier.size(4.dp))
-                        Text(option.shareLabel(characterName))
-                    }
+                    RadioOption(
+                        selected = option == scope,
+                        label = option.shareLabel(characterName),
+                        onClick = { scope = option }
+                    )
                 }
             }
         },
@@ -2262,21 +2279,28 @@ private fun SaveRouteDialog(
     )
 }
 
-/** One "update vs save new" choice at the top of the save dialog. */
+/**
+ * One choice in a dialog's radio list. The whole row is the single tap target, at least
+ * [RADIO_ROW_MIN_HEIGHT] tall, so a tap anywhere on it picks this option and no other.
+ */
 @Composable
-private fun SaveModeOption(selected: Boolean, label: String, onClick: () -> Unit) {
+private fun RadioOption(selected: Boolean, label: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .heightIn(min = RADIO_ROW_MIN_HEIGHT)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(selected = selected, onClick = onClick)
-        Spacer(Modifier.size(4.dp))
+        RadioButton(selected = selected, onClick = null)
+        Spacer(Modifier.size(12.dp))
         Text(label)
     }
 }
+
+/** Minimum height of a radio row in a dialog: a full-size tap target. */
+private val RADIO_ROW_MIN_HEIGHT = 48.dp
 
 /** Pastes a route code and adds it to the library, optionally under a chosen name. */
 @Composable
@@ -2286,35 +2310,34 @@ private fun ImportRouteDialog(
 ) {
     var name by rememberSaveable { mutableStateOf("") }
     var code by rememberSaveable { mutableStateOf("") }
-    AlertDialog(
+    TwoPaneAlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Import route") },
-        text = {
-            Column {
-                Text(
-                    "Paste a route code to add it to your library. You can replay it without touching " +
-                        "your own progress.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.size(12.dp))
-                androidx.compose.material3.OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    singleLine = true,
-                    label = { Text("Name (optional)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.size(8.dp))
-                androidx.compose.material3.OutlinedTextField(
-                    value = code,
-                    onValueChange = { code = it },
-                    label = { Text("Route code") },
-                    minLines = 3,
-                    maxLines = 6,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+        title = "Import route",
+        first = {
+            Text(
+                "Paste a route code to add it to your library. You can replay it without touching " +
+                    "your own progress.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        second = {
+            androidx.compose.material3.OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                singleLine = true,
+                label = { Text("Name (optional)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.size(8.dp))
+            androidx.compose.material3.OutlinedTextField(
+                value = code,
+                onValueChange = { code = it },
+                label = { Text("Route code") },
+                minLines = 3,
+                maxLines = 6,
+                modifier = Modifier.fillMaxWidth()
+            )
         },
         confirmButton = {
             TextButton(enabled = code.isNotBlank(), onClick = { onImport(name.trim(), code.trim()) }) {
@@ -2960,6 +2983,143 @@ private fun segmentVisible(ax: Float, ay: Float, bx: Float, by: Float, w: Float,
     if (ay > h && by > h) return false
     return true
 }
+
+/**
+ * The body of a dialog, which scrolls when it is taller than the room a short screen leaves, such as
+ * a phone held sideways. A divider shows at the top or bottom edge while there is more to scroll that
+ * way, so options past the edge aren't missed. The dividers are always laid out, only coloured in when
+ * needed, so the dialog doesn't shift as they come and go.
+ */
+@Composable
+internal fun ScrollingDialogBody(content: @Composable ColumnScope.() -> Unit) {
+    val scroll = rememberScrollState()
+    Column {
+        HorizontalDivider(color = if (scroll.canScrollBackward) DividerDefaults.color else Color.Transparent)
+        Column(
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .verticalScroll(scroll),
+            content = content
+        )
+        HorizontalDivider(color = if (scroll.canScrollForward) DividerDefaults.color else Color.Transparent)
+    }
+}
+
+/**
+ * True on a short, wide window, such as a phone held sideways: the same shape that gets the planner's
+ * side panel. Read it outside a dialog, since inside one the window is the dialog's own.
+ */
+@Composable
+private fun isShortWideWindow(): Boolean {
+    val size = LocalWindowInfo.current.containerSize
+    val (width, height) = with(LocalDensity.current) { size.width.toDp() to size.height.toDp() }
+    return width > height && height < SIDE_PANEL_BELOW_HEIGHT && width >= SIDE_PANEL_MIN_WIDTH
+}
+
+/**
+ * An [AlertDialog] whose body has two parts: [first], the lead-in (a description, or what to save
+ * as), and [second], what to pick or fill in. Elsewhere they stack, [stackedGap] apart, in an ordinary
+ * dialog. On a short, wide window, such as a phone held sideways, a stacked dialog runs out of height,
+ * so it turns sideways too: the title, [first] and the buttons go in the left column and [second] gets
+ * the whole height of the right one. Each part still scrolls if it runs out of room, as in split
+ * screen or with a large font.
+ */
+@Composable
+private fun TwoPaneAlertDialog(
+    onDismissRequest: () -> Unit,
+    title: String,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: @Composable () -> Unit,
+    first: @Composable ColumnScope.() -> Unit,
+    second: @Composable ColumnScope.() -> Unit,
+    stackedGap: Dp = 12.dp
+) {
+    if (!isShortWideWindow()) {
+        AlertDialog(
+            onDismissRequest = onDismissRequest,
+            title = { Text(title) },
+            text = {
+                ScrollingDialogBody {
+                    first()
+                    Spacer(Modifier.size(stackedGap))
+                    second()
+                }
+            },
+            confirmButton = confirmButton,
+            dismissButton = dismissButton
+        )
+        return
+    }
+    SideBySideDialog(onDismissRequest, title, confirmButton, dismissButton, first, second)
+}
+
+/**
+ * The sideways layout of [TwoPaneAlertDialog], styled to match an [AlertDialog]. It takes the Material
+ * maximum dialog width rather than the platform's narrow default, so each column has room.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SideBySideDialog(
+    onDismissRequest: () -> Unit,
+    title: String,
+    confirmButton: @Composable () -> Unit,
+    dismissButton: @Composable () -> Unit,
+    first: @Composable ColumnScope.() -> Unit,
+    second: @Composable ColumnScope.() -> Unit
+) {
+    BasicAlertDialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            shape = AlertDialogDefaults.shape,
+            color = AlertDialogDefaults.containerColor,
+            tonalElevation = AlertDialogDefaults.TonalElevation
+        ) {
+            // Min intrinsic height: as tall as the taller column needs, so the buttons can sit at the
+            // bottom of the left one, level with the end of the right one.
+            Row(
+                modifier = Modifier
+                    .height(IntrinsicSize.Min)
+                    .padding(TWO_PANE_PADDING),
+                horizontalArrangement = Arrangement.spacedBy(TWO_PANE_GAP)
+            ) {
+                Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = AlertDialogDefaults.titleContentColor
+                    )
+                    Spacer(Modifier.size(16.dp))
+                    Box(modifier = Modifier.weight(1f)) { DialogBodyText { ScrollingDialogBody(first) } }
+                    Spacer(Modifier.size(16.dp))
+                    Row(
+                        modifier = Modifier.align(Alignment.End),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        dismissButton()
+                        confirmButton()
+                    }
+                }
+                Box(modifier = Modifier.weight(1f)) { DialogBodyText { ScrollingDialogBody(second) } }
+            }
+        }
+    }
+}
+
+/** The text style and colour an [AlertDialog] gives its body, for [SideBySideDialog]'s columns. */
+@Composable
+private fun DialogBodyText(content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalContentColor provides AlertDialogDefaults.textContentColor) {
+        ProvideTextStyle(MaterialTheme.typography.bodyMedium, content)
+    }
+}
+
+/** Padding around a [SideBySideDialog], as an [AlertDialog] has. */
+private val TWO_PANE_PADDING = 24.dp
+
+/** Space between the two columns of a [SideBySideDialog]. */
+private val TWO_PANE_GAP = 24.dp
 
 /** What each kind of node looks like, two to a row, opened from the grid's legend button. */
 @Composable
